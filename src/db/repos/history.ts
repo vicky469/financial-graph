@@ -17,38 +17,47 @@ export const clearHistory = (entryIds: string[]) => {
 };
 
 export const undoEdit = async (entry: EditHistoryEntry) => {
+  let undoOps: any[] = [];
+
   switch (entry.action) {
     case "create_event":
-      return db.transact(tx.events[entry.targetId].delete());
+      undoOps = [tx.events[entry.targetId].delete()];
+      break;
+    case "update_event":
+      if (entry.previousData) undoOps = [tx.events[entry.targetId].update(entry.previousData)];
+      break;
     case "delete_event":
-      if (entry.previousData)
-        return db.transact(tx.events[entry.targetId].update(entry.previousData));
+      if (entry.previousData) undoOps = [tx.events[entry.targetId].update(entry.previousData)];
       break;
     case "create_entity":
-      return db.transact(tx.entities[entry.targetId].delete());
+      undoOps = [tx.entities[entry.targetId].delete()];
+      break;
     case "delete_entity":
-      if (entry.previousData)
-        return db.transact(tx.entities[entry.targetId].update(entry.previousData));
+      if (entry.previousData) undoOps = [tx.entities[entry.targetId].update(entry.previousData)];
       break;
     case "update_entity":
-      if (entry.previousData)
-        return db.transact(tx.entities[entry.targetId].update(entry.previousData));
+      if (entry.previousData) undoOps = [tx.entities[entry.targetId].update(entry.previousData)];
       break;
     case "create_edge":
-      return db.transact(tx.edges[entry.targetId].delete());
+      undoOps = [tx.edges[entry.targetId].delete()];
+      break;
     case "delete_edge":
-      if (entry.previousData)
-        return db.transact(tx.edges[entry.targetId].update(entry.previousData));
+      if (entry.previousData) undoOps = [tx.edges[entry.targetId].update(entry.previousData)];
       break;
     case "bulk_import":
       if (entry.newData) {
         const { eventIds = [], entityIds = [], edgeIds = [] } = entry.newData as any;
-        return db.transact([
+        undoOps = [
           ...eventIds.map((id: string) => tx.events[id].delete()),
           ...entityIds.map((id: string) => tx.entities[id].delete()),
           ...edgeIds.map((id: string) => tx.edges[id].delete()),
-        ]);
+        ];
       }
       break;
+  }
+
+  // Perform undo and delete the history entry
+  if (undoOps.length > 0) {
+    return db.transact([...undoOps, tx.editHistory[entry.id].delete()]);
   }
 };

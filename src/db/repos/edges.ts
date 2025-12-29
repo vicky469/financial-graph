@@ -1,7 +1,8 @@
 // Edge Domain Operations
 
-import { db, tx, id, recordEdit, getCurrentUser } from "../client";
+import { db, tx, recordEdit, getCurrentUser } from "../client";
 import type { Edge } from "../../types";
+import { generateEdgeId } from "../../utils/idGenerator";
 
 export const createEdge = (
   sourceId: string,
@@ -9,7 +10,7 @@ export const createEdge = (
   label = "led to",
   edgeType: "causal" | "simultaneous" = "causal"
 ) => {
-  const edgeId = id();
+  const edgeId = generateEdgeId(sourceId, targetId);
   const currentUser = getCurrentUser();
   const data = {
     sourceId,
@@ -38,5 +39,5 @@ export const updateEdge = (
 ) =>
   db.transact([
     tx.edges[edgeId].update(updates),
-    recordEdit("create_edge", edgeId, "edge", { ...prev }, updates),
+    recordEdit("update_edge", edgeId, "edge", { ...prev }, updates),
   ]);

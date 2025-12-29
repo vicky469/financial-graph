@@ -30,6 +30,9 @@ const Sidebar = ({
   const entityIds = entities.map((e) => e.id);
   const isEntityEdge = selectedEdge && (entityIds.includes(selectedEdge.sourceId) || entityIds.includes(selectedEdge.targetId));
 
+  // Check if anything is selected (editing mode) - include ALL edges
+  const isEditing = selected || selectedEntity || selectedEdge;
+
   const handleClear = useCallback(async () => {
     await db.transact([
       ...edges.map((e: Edge) => tx.edges[e.id].delete()),
@@ -66,28 +69,31 @@ const Sidebar = ({
     <aside className="sidebar">
       <header className="sidebar-header">
         <h1>💥 Failure Tracker</h1>
-        <div className="sidebar-tabs">
-          <button
-            className={`tab ${activeTab === "timeline" ? "active" : ""}`}
-            onClick={() => setActiveTab("timeline")}
-          >
-            Timeline
-          </button>
-          <button
-            className={`tab ${activeTab === "actors" ? "active" : ""} ${
-              showActors ? "toggled" : ""
-            }`}
-            onClick={() => {
-              setActiveTab("actors");
-              onToggleActors();
-            }}
-          >
-            Actors {showActors ? "👁️" : ""}
-          </button>
-        </div>
+        {!isEditing && (
+          <div className="sidebar-tabs">
+            <button
+              className={`tab ${activeTab === "timeline" ? "active" : ""}`}
+              onClick={() => setActiveTab("timeline")}
+            >
+              Timeline
+            </button>
+            <button
+              className={`tab ${activeTab === "actors" ? "active" : ""} ${
+                showActors ? "toggled" : ""
+              }`}
+              onClick={() => {
+                setActiveTab("actors");
+                onToggleActors();
+              }}
+            >
+              Actors {showActors ? "👁️" : ""}
+            </button>
+          </div>
+        )}
       </header>
 
-      <section className="sidebar-section scrollable">
+      {!isEditing && (
+        <section className="sidebar-section scrollable">
         {activeTab === "timeline" ? (
           <>
             <div className="section-header">
@@ -155,41 +161,48 @@ const Sidebar = ({
             )}
           </>
         )}
-      </section>
+        </section>
+      )}
 
       {/* Editing Panels */}
       {selected && <EventPanel event={selected} edges={edges} />}
       {selectedEntity && <EntityPanel entity={selectedEntity} events={events} edges={edges} />}
       {selectedEdge && <EdgePanel edge={selectedEdge} isEntityEdge={!!isEntityEdge} />}
 
-      {/* Actions Section */}
-      <section className="sidebar-section">
-        <h2>Actions</h2>
-        {showForm ? (
-          activeTab === "timeline" ? (
-            <EventForm onSuccess={() => setShowForm(false)} onCancel={() => setShowForm(false)} />
-          ) : (
-            <EntityForm onSuccess={() => setShowForm(false)} onCancel={() => setShowForm(false)} />
-          )
-        ) : (
-          <div className="button-group vertical">
-            <button onClick={() => setShowForm(true)} className="btn btn-primary">
-              + Add {activeTab === "timeline" ? "Event" : "Entity"}
-            </button>
-            {(events.length > 0 || entities.length > 0) && (
-              <button onClick={handleClear} className="btn btn-danger">
-                🗑️ Clear All
-              </button>
-            )}
+      {/* Actions Section - Only show when not editing */}
+      {!isEditing && (
+        <section className="sidebar-section actions-section">
+          <div className="section-header">
+            <h2>Actions</h2>
           </div>
-        )}
-      </section>
+          {showForm ? (
+            activeTab === "timeline" ? (
+              <EventForm onSuccess={() => setShowForm(false)} onCancel={() => setShowForm(false)} />
+            ) : (
+              <EntityForm onSuccess={() => setShowForm(false)} onCancel={() => setShowForm(false)} />
+            )
+          ) : (
+            <div className="button-group vertical">
+              <button onClick={() => setShowForm(true)} className="btn btn-primary btn-compact">
+                + Add {activeTab === "timeline" ? "Event" : "Entity"}
+              </button>
+              {(events.length > 0 || entities.length > 0) && (
+                <button onClick={handleClear} className="btn btn-danger btn-compact">
+                  🗑️ Clear All
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
-      <footer className="sidebar-footer">
-        <p className="stats">
-          {events.length} events · {edges.length} connections
-        </p>
-      </footer>
+      {!isEditing && (
+        <footer className="sidebar-footer">
+          <p className="stats">
+            {events.length} events · {edges.length} connections
+          </p>
+        </footer>
+      )}
     </aside>
   );
 };

@@ -1,7 +1,9 @@
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef } from "react";
 import { useEditHistory, undoEdit, clearHistory } from "../db";
-import { actionLabels, actionIcons, formatTime } from "../utils/history";
+import { actionLabels, actionIcons, formatTime, getChangeSummary } from "../utils/history";
 import type { EditHistoryEntry } from "../types";
+import { useClickOutside } from "../hooks/useClickOutside";
+import { EDIT_HISTORY_LIMIT } from "../constants";
 
 interface Props {
   isOpen: boolean;
@@ -9,7 +11,7 @@ interface Props {
 }
 
 const EditHistory = ({ isOpen, onClose }: Props) => {
-  const { history, isLoading } = useEditHistory(100); // Increased limit for better visibility
+  const { history, isLoading } = useEditHistory(EDIT_HISTORY_LIMIT);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const handleUndo = useCallback(async (entry: EditHistoryEntry) => {
@@ -22,20 +24,7 @@ const EditHistory = ({ isOpen, onClose }: Props) => {
   }, [history]);
 
   // Close panel when clicking outside
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen, onClose]);
+  useClickOutside(panelRef, onClose, isOpen);
 
   if (!isOpen) return null;
 
@@ -66,24 +55,39 @@ const EditHistory = ({ isOpen, onClose }: Props) => {
           <p className="history-empty">No edits yet</p>
         ) : (
           <ul className="history-list">
-            {history.map((entry) => (
-              <li key={entry.id} className="history-item">
-                <div className="history-icon">{actionIcons[entry.action]}</div>
-                <div className="history-info">
-                  <span className="history-action">{actionLabels[entry.action]}</span>
-                  <span className="history-meta">
-                    {entry.userName} · {formatTime(entry.timestamp)}
-                  </span>
-                </div>
-                <button
-                  className="undo-btn"
-                  onClick={() => handleUndo(entry)}
-                  title="Undo this action"
-                >
-                  ↩️
-                </button>
-              </li>
-            ))}
+            {history.map((entry) => {
+              const changes = getChangeSummary(entry);
+              return (
+                <li key={entry.id} className="history-item">
+                  <div className="history-icon">{actionIcons[entry.action]}</div>
+                  <div className="history-info">
+                    <span className="history-action">{actionLabels[entry.action]}</span>
+                    {changes.length > 0 && (
+                      <div className="history-changes">
+                        {changes.map((change, idx) => (
+                          <div key={idx} className="history-change">
+                            <span className="change-field">{change.field}:</span>{" "}
+                            <span className="change-from">{change.from}</span>
+                            <span className="change-arrow"> → </span>
+                            <span className="change-to">{change.to}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <span className="history-meta">
+                      {entry.userName} · {formatTime(entry.timestamp)}
+                    </span>
+                  </div>
+                  <button
+                    className="undo-btn"
+                    onClick={() => handleUndo(entry)}
+                    title="Undo this action"
+                  >
+                    ↩️
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

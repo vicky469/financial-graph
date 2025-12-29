@@ -1,10 +1,11 @@
 // Event Domain Operations
 
-import { db, tx, id, recordEdit, getCurrentUser } from "../client";
+import { db, tx, recordEdit, getCurrentUser } from "../client";
 import type { Event } from "../../types";
+import { generateEventId } from "../../utils/idGenerator";
 
 export const createEvent = (event: Omit<Event, "id" | "createdAt" | "createdBy">) => {
-  const eventId = id();
+  const eventId = generateEventId(event.title, event.date);
   const currentUser = getCurrentUser();
   const data = {
     ...event,

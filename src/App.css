@@ -83,6 +83,11 @@ body {
   border-bottom: 1px solid var(--border-color);
 }
 
+.sidebar-section.event-details,
+.sidebar-section.actions-section {
+  border-bottom: none;
+}
+
 .section-header {
   display: flex;
   align-items: center;
@@ -335,6 +340,11 @@ body {
 
 .btn-danger:hover {
   background: var(--accent-red-glow);
+}
+
+.btn-compact {
+  padding: 8px 12px;
+  font-size: 0.8rem;
 }
 
 /* User Info */
@@ -871,6 +881,40 @@ body {
   display: block;
   font-size: 0.7rem;
   color: var(--text-muted);
+}
+
+.history-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.history-change {
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.change-field {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.change-from {
+  color: var(--accent-red);
+  opacity: 0.8;
+}
+
+.change-arrow {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.change-to {
+  color: var(--accent-green);
+  font-weight: 500;
 }
 
 .undo-btn {

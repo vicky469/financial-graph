@@ -1,10 +1,11 @@
 // Entity Domain Operations
 
-import { db, tx, id, recordEdit, getCurrentUser } from "../client";
+import { db, tx, recordEdit, getCurrentUser } from "../client";
 import type { Entity } from "../../types";
+import { generateEntityId } from "../../utils/idGenerator";
 
 export const createEntity = (entity: Omit<Entity, "id" | "createdAt" | "createdBy">) => {
-  const entityId = id();
+  const entityId = generateEntityId(entity.name);
   const currentUser = getCurrentUser();
   const data = {
     ...entity,

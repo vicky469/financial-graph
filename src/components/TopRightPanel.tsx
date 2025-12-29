@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import EditHistory from "./EditHistory";
 import type { AppContext } from "../types";
+import { useClickOutside } from "../hooks/useClickOutside";
 
 interface TopRightPanelProps {
   context: AppContext;
@@ -12,20 +13,7 @@ const TopRightPanel = ({ context }: TopRightPanelProps) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
-  useEffect(() => {
-    if (!menuOpen) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [menuOpen]);
+  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   return (
     <>
