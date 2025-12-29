@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import { useEditHistory, undoEdit, clearHistory } from "../db";
 import { actionLabels, actionIcons, formatTime } from "../utils/history";
 import type { EditHistoryEntry } from "../types";
@@ -10,6 +10,7 @@ interface Props {
 
 const EditHistory = ({ isOpen, onClose }: Props) => {
   const { history, isLoading } = useEditHistory(100); // Increased limit for better visibility
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const handleUndo = useCallback(async (entry: EditHistoryEntry) => {
     await undoEdit(entry);
@@ -20,13 +21,29 @@ const EditHistory = ({ isOpen, onClose }: Props) => {
     await clearHistory(history.map((h) => h.id));
   }, [history]);
 
+  // Close panel when clicking outside
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="history-panel">
+    <div className="history-panel" ref={panelRef}>
       <header className="history-header">
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <h2>📜 Edit History</h2>
+          <h2>Edit History</h2>
           {history.length > 0 && (
             <button
               onClick={handleClear}

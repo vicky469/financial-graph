@@ -44,3 +44,23 @@ export type AppEvent =
   | { type: "START_EDIT"; eventId: string }
   | { type: "END_EDIT" }
   | { type: "SET_USER"; userId: string; userName: string; userColor: string };
+
+// FailureGraph component props
+export interface FailureGraphProps {
+  context: AppContext;
+  onSelectEvent: (eventId: string | null) => void;
+  onSelectEdge?: (edgeId: string | null) => void;
+  onSelectEntity?: (entityId: string | null) => void;
+  onFocusTrigger: (triggerId: string) => void;
+  onClearFocus: () => void;
+  showActors?: boolean;
+}
+
+// Sidebar component props
+export interface SidebarProps {
+  context: AppContext;
+  onFocusTrigger: (triggerId: string) => void;
+  onSelectEntity?: (entityId: string) => void;
+  showActors: boolean;
+  onToggleActors: () => void;
+}

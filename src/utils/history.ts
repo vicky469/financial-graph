@@ -9,9 +9,9 @@ export const actionLabels: Record<EditHistoryEntry["action"], string> = {
   create_entity: "Created entity",
   update_entity: "Updated entity",
   delete_entity: "Deleted entity",
-  create_edge: "Connected",
-  update_edge: "Updated connection",
-  delete_edge: "Removed connection",
+  create_edge: "Linked events",
+  update_edge: "Updated link",
+  delete_edge: "Removed link",
   bulk_import: "Imported Sample Data",
 };
 

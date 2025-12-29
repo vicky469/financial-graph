@@ -2,14 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useMachine } from "@xstate/react";
 import FailureGraph from "./components/FailureGraph";
 import Sidebar from "./components/Sidebar";
-import EditHistory from "./components/EditHistory";
+import TopRightPanel from "./components/TopRightPanel";
 import { appMachine } from "./machines/appMachine";
 import { updateUserSelection, setCurrentUser } from "./db";
 import "./App.css";
 
 function App() {
   const [state, send] = useMachine(appMachine);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [showActors, setShowActors] = useState(true); // Toggle for entity visibility
   const ctx = state.context;
 
@@ -48,6 +47,8 @@ function App() {
         onToggleActors={() => setShowActors(!showActors)}
       />
       <main className="main-content">
+        <TopRightPanel context={ctx} />
+
         <FailureGraph
           context={ctx}
           onSelectEvent={handleSelect}
@@ -57,17 +58,6 @@ function App() {
           onClearFocus={handleClear}
           showActors={showActors}
         />
-
-        {/* History toggle button */}
-        <button
-          className="history-toggle"
-          onClick={() => setHistoryOpen(!historyOpen)}
-          title="Edit History"
-        >
-          📜
-        </button>
-
-        <EditHistory isOpen={historyOpen} onClose={() => setHistoryOpen(false)} />
       </main>
     </div>
   );
