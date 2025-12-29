@@ -432,42 +432,62 @@ const Sidebar = ({
                 paddingTop: "16px",
               }}
             >
-              <label className="field-label">Link to Event</label>
+              <label className="field-label">Link to Events</label>
               <div
-                style={{ display: "flex", gap: "8px", alignItems: "center" }}
+                style={{
+                  maxHeight: "150px",
+                  overflowY: "auto",
+                  marginBottom: "8px",
+                }}
               >
-                <select
-                  className="input"
-                  style={{ flex: 1 }}
-                  id="link-event-select"
-                  defaultValue=""
-                >
-                  <option value="" disabled>
-                    Select an event...
-                  </option>
-                  {events.map((evt) => (
-                    <option key={evt.id} value={evt.id}>
+                {events
+                  .filter(
+                    (evt) =>
+                      !edges.some(
+                        (e) =>
+                          e.sourceId === selectedEntity.id &&
+                          e.targetId === evt.id
+                      )
+                  )
+                  .map((evt) => (
+                    <label
+                      key={evt.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "4px 0",
+                        fontSize: "0.85rem",
+                        color: "#e2e8f0",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        className="link-event-checkbox"
+                        value={evt.id}
+                        style={{ accentColor: "#a78bfa" }}
+                      />
                       {evt.title}
-                    </option>
+                    </label>
                   ))}
-                </select>
-                <button
-                  className="btn btn-secondary small"
-                  style={{ whiteSpace: "nowrap" }}
-                  onClick={() => {
-                    const select = document.getElementById(
-                      "link-event-select"
-                    ) as HTMLSelectElement;
-                    const eventId = select?.value;
-                    if (eventId && selectedEntity) {
-                      createEdge(selectedEntity.id, eventId, "", "causal");
-                      select.value = "";
-                    }
-                  }}
-                >
-                  🔗 Link
-                </button>
               </div>
+              <button
+                className="btn btn-secondary small"
+                onClick={() => {
+                  const checkboxes = document.querySelectorAll(
+                    ".link-event-checkbox:checked"
+                  ) as NodeListOf<HTMLInputElement>;
+                  checkboxes.forEach((cb) => {
+                    if (selectedEntity) {
+                      createEdge(selectedEntity.id, cb.value, "", "causal");
+                      cb.checked = false;
+                    }
+                  });
+                }}
+              >
+                🔗 Link Selected
+              </button>
               {/* Show existing connections */}
               {edges.filter((e) => e.sourceId === selectedEntity.id).length >
                 0 && (
