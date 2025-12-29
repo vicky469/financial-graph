@@ -42,7 +42,9 @@ function App() {
       <Sidebar
         context={ctx}
         onFocusTrigger={handleFocus}
+        onSelectEvent={handleSelect}
         onSelectEntity={handleSelectEntity}
+        onSelectEdge={(id) => send({ type: "SELECT_EDGE", edgeId: id })}
         showActors={showActors}
         onToggleActors={() => setShowActors(!showActors)}
       />

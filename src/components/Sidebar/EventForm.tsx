@@ -24,6 +24,7 @@ export function EventForm({ onSuccess, onCancel }: EventFormProps) {
       title: "",
       date: "",
       description: "",
+      link: "",
       isTrigger: false,
     },
   });
@@ -33,6 +34,7 @@ export function EventForm({ onSuccess, onCancel }: EventFormProps) {
       title: data.title,
       date: data.date,
       description: data.description || "",
+      link: data.link || "",
       isTrigger: data.isTrigger || false,
     });
     onSuccess();
@@ -50,6 +52,14 @@ export function EventForm({ onSuccess, onCancel }: EventFormProps) {
 
       <input type="date" className={`input ${errors.date ? "error" : ""}`} {...register("date")} />
       {errors.date && <span className="error-text">{errors.date.message}</span>}
+
+      <input
+        type="url"
+        placeholder="Link (https://...)"
+        className={`input ${errors.link ? "error" : ""}`}
+        {...register("link")}
+      />
+      {errors.link && <span className="error-text">{errors.link.message}</span>}
 
       <label className="checkbox-label">
         <input type="checkbox" {...register("isTrigger")} />

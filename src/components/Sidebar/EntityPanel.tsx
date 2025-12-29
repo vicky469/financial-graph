@@ -1,29 +1,75 @@
 // Entity editing panel component
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { updateEntity, deleteEntity, createEdge, deleteEdge } from "../../db";
+import { useClickOutside } from "../../hooks/useClickOutside";
 import type { Entity, Event, Edge } from "../../types";
 
 interface EntityPanelProps {
   entity: Entity;
   events: Event[];
   edges: Edge[];
+  onCancel: () => void;
 }
 
-export function EntityPanel({ entity, events, edges }: EntityPanelProps) {
+export function EntityPanel({ entity, events, edges, onCancel }: EntityPanelProps) {
+  const [localEntity, setLocalEntity] = useState(entity);
   const [newPropKey, setNewPropKey] = useState("");
   const [newPropValue, setNewPropValue] = useState("");
+  const previousEntityRef = useRef(entity);
+  const pendingChangesRef = useRef<Partial<Entity>>({});
+  const panelRef = useRef<HTMLElement>(null);
 
   const connectedEdges = edges.filter((e) => e.sourceId === entity.id);
   const unconnectedEvents = events.filter(
     (evt) => !edges.some((e) => e.sourceId === entity.id && e.targetId === evt.id)
   );
 
+  const savePendingChanges = useCallback(() => {
+    const changes = pendingChangesRef.current;
+    if (Object.keys(changes).length > 0) {
+      updateEntity(entity.id, previousEntityRef.current, changes);
+      previousEntityRef.current = { ...previousEntityRef.current, ...changes };
+      pendingChangesRef.current = {};
+    }
+  }, [entity.id]);
+
+  const handleSaveAndClose = useCallback(() => {
+    savePendingChanges();
+    onCancel();
+  }, [savePendingChanges, onCancel]);
+
+  // Save on click outside
+  useClickOutside(panelRef, handleSaveAndClose, true);
+
+  // Save on Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleSaveAndClose();
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [handleSaveAndClose]);
+
+  // Update local state when entity prop changes
+  useEffect(() => {
+    setLocalEntity(entity);
+    previousEntityRef.current = entity;
+    pendingChangesRef.current = {};
+  }, [entity.id]);
+
+  const handleChange = (updates: Partial<Entity>) => {
+    setLocalEntity((prev) => ({ ...prev, ...updates }));
+    pendingChangesRef.current = { ...pendingChangesRef.current, ...updates };
+  };
+
   const handleAddProperty = () => {
     if (!newPropKey.trim() || !newPropValue.trim()) return;
-    updateEntity(entity.id, entity, {
+    handleChange({
       properties: {
-        ...entity.properties,
+        ...localEntity.properties,
         [newPropKey.trim()]: newPropValue.trim(),
       },
     });
@@ -32,9 +78,14 @@ export function EntityPanel({ entity, events, edges }: EntityPanelProps) {
   };
 
   const handleDeleteProperty = (key: string) => {
-    const newProps = { ...entity.properties };
+    const newProps = { ...localEntity.properties };
     delete newProps[key];
-    updateEntity(entity.id, entity, { properties: newProps });
+    handleChange({ properties: newProps });
+  };
+
+  const handleCancel = () => {
+    pendingChangesRef.current = {};
+    onCancel();
   };
 
   const handleLinkSelected = () => {
@@ -48,7 +99,7 @@ export function EntityPanel({ entity, events, edges }: EntityPanelProps) {
   };
 
   return (
-    <section className="sidebar-section event-details">
+    <section ref={panelRef} className="sidebar-section event-details">
       <div className="section-header">
         <h2>Edit Entity</h2>
         <button
@@ -64,23 +115,23 @@ export function EntityPanel({ entity, events, edges }: EntityPanelProps) {
         <input
           type="text"
           className="input"
-          value={entity.name}
-          onChange={(e) => updateEntity(entity.id, entity, { name: e.target.value })}
+          value={localEntity.name}
+          onChange={(e) => handleChange({ name: e.target.value })}
         />
 
         <label className="field-label">Type</label>
         <input
           type="text"
           className="input"
-          value={entity.type}
-          onChange={(e) => updateEntity(entity.id, entity, { type: e.target.value })}
+          value={localEntity.type}
+          onChange={(e) => handleChange({ type: e.target.value })}
         />
 
         {/* Properties Section */}
         <div className="properties-section">
           <label className="field-label">Properties</label>
           <div className="props-list">
-            {Object.entries(entity.properties || {}).map(([k, v]) => (
+            {Object.entries(localEntity.properties || {}).map(([k, v]) => (
               <div
                 key={k}
                 className="prop-row"
@@ -212,6 +263,12 @@ export function EntityPanel({ entity, events, edges }: EntityPanelProps) {
               </ul>
             </div>
           )}
+        </div>
+
+        <div className="button-group" style={{ marginTop: "16px" }}>
+          <button type="button" onClick={handleCancel} className="btn btn-secondary btn-compact">
+            Cancel
+          </button>
         </div>
       </div>
     </section>

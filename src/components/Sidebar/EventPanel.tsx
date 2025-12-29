@@ -3,17 +3,20 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { updateEvent } from "../../db";
 import { db, tx } from "../../db";
+import { useClickOutside } from "../../hooks/useClickOutside";
 import type { Event, Edge } from "../../types";
 
 interface EventPanelProps {
   event: Event;
   edges: Edge[];
+  onCancel: () => void;
 }
 
-export function EventPanel({ event, edges }: EventPanelProps) {
+export function EventPanel({ event, edges, onCancel }: EventPanelProps) {
   const [localEvent, setLocalEvent] = useState(event);
   const previousEventRef = useRef(event);
   const pendingChangesRef = useRef<Partial<Event>>({});
+  const panelRef = useRef<HTMLElement>(null);
 
   const savePendingChanges = useCallback(() => {
     const changes = pendingChangesRef.current;
@@ -24,34 +27,37 @@ export function EventPanel({ event, edges }: EventPanelProps) {
     }
   }, [event.id]);
 
-  // Save pending changes when switching events or unmounting
+  const handleSaveAndClose = useCallback(() => {
+    savePendingChanges();
+    onCancel();
+  }, [savePendingChanges, onCancel]);
+
+  // Save on click outside
+  useClickOutside(panelRef, handleSaveAndClose, true);
+
+  // Save on Escape key
   useEffect(() => {
-    return () => {
-      savePendingChanges();
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleSaveAndClose();
+      }
     };
-  }, [savePendingChanges]);
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [handleSaveAndClose]);
 
   // Update local state when event prop changes
   useEffect(() => {
-    // Save any pending changes from previous event
-    savePendingChanges();
-
-    // Reset state for new event
     setLocalEvent(event);
     previousEventRef.current = event;
     pendingChangesRef.current = {};
-  }, [event.id, savePendingChanges]);
+  }, [event.id]);
 
   const handleChange = (updates: Partial<Event>) => {
     // Update local state immediately for instant UI feedback
     setLocalEvent((prev) => ({ ...prev, ...updates }));
     // Track pending changes
     pendingChangesRef.current = { ...pendingChangesRef.current, ...updates };
-  };
-
-  const handleBlur = () => {
-    // Save when field loses focus
-    savePendingChanges();
   };
 
   const handleDelete = () => {
@@ -64,8 +70,14 @@ export function EventPanel({ event, edges }: EventPanelProps) {
     db.transact(deleteTx);
   };
 
+  const handleCancel = () => {
+    // Discard any pending changes
+    pendingChangesRef.current = {};
+    onCancel();
+  };
+
   return (
-    <section className="sidebar-section event-details">
+    <section ref={panelRef} className="sidebar-section event-details">
       <div className="section-header">
         <h2>Edit Event</h2>
         <button className="btn-icon danger" onClick={handleDelete} title="Delete Event">
@@ -79,7 +91,6 @@ export function EventPanel({ event, edges }: EventPanelProps) {
           className="input"
           value={localEvent.title}
           onChange={(e) => handleChange({ title: e.target.value })}
-          onBlur={handleBlur}
         />
 
         <label className="field-label">Date</label>
@@ -88,7 +99,15 @@ export function EventPanel({ event, edges }: EventPanelProps) {
           className="input"
           value={localEvent.date}
           onChange={(e) => handleChange({ date: e.target.value })}
-          onBlur={handleBlur}
+        />
+
+        <label className="field-label">Link</label>
+        <input
+          type="url"
+          className="input"
+          value={localEvent.link || ""}
+          placeholder="https://..."
+          onChange={(e) => handleChange({ link: e.target.value })}
         />
 
         <label className="field-label">Description</label>
@@ -98,21 +117,22 @@ export function EventPanel({ event, edges }: EventPanelProps) {
           value={localEvent.description}
           placeholder="Add details..."
           onChange={(e) => handleChange({ description: e.target.value })}
-          onBlur={handleBlur}
         />
 
         <label className="checkbox-label" style={{ marginTop: "8px" }}>
           <input
             type="checkbox"
             checked={localEvent.isTrigger}
-            onChange={(e) => {
-              handleChange({ isTrigger: e.target.checked });
-              // Checkboxes don't have blur, so save immediately
-              setTimeout(savePendingChanges, 0);
-            }}
+            onChange={(e) => handleChange({ isTrigger: e.target.checked })}
           />
           Is a trigger
         </label>
+
+        <div className="button-group" style={{ marginTop: "16px" }}>
+          <button type="button" onClick={handleCancel} className="btn btn-secondary btn-compact">
+            Cancel
+          </button>
+        </div>
       </div>
     </section>
   );

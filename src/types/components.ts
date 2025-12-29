@@ -60,7 +60,9 @@ export interface FailureGraphProps {
 export interface SidebarProps {
   context: AppContext;
   onFocusTrigger: (triggerId: string) => void;
-  onSelectEntity?: (entityId: string) => void;
+  onSelectEvent?: (eventId: string | null) => void;
+  onSelectEntity?: (entityId: string | null) => void;
+  onSelectEdge?: (edgeId: string | null) => void;
   showActors: boolean;
   onToggleActors: () => void;
 }

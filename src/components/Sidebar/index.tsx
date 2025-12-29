@@ -13,7 +13,9 @@ import { EntityForm } from "./EntityForm";
 const Sidebar = ({
   context,
   onFocusTrigger,
+  onSelectEvent,
   onSelectEntity,
+  onSelectEdge,
   showActors,
   onToggleActors,
 }: SidebarProps) => {
@@ -165,9 +167,9 @@ const Sidebar = ({
       )}
 
       {/* Editing Panels */}
-      {selected && <EventPanel event={selected} edges={edges} />}
-      {selectedEntity && <EntityPanel entity={selectedEntity} events={events} edges={edges} />}
-      {selectedEdge && <EdgePanel edge={selectedEdge} isEntityEdge={!!isEntityEdge} />}
+      {selected && <EventPanel event={selected} edges={edges} onCancel={() => onSelectEvent?.(null)} />}
+      {selectedEntity && <EntityPanel entity={selectedEntity} events={events} edges={edges} onCancel={() => onSelectEntity?.(null)} />}
+      {selectedEdge && <EdgePanel edge={selectedEdge} isEntityEdge={!!isEntityEdge} onCancel={() => onSelectEdge?.(null)} />}
 
       {/* Actions Section - Only show when not editing */}
       {!isEditing && (

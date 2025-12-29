@@ -5,6 +5,7 @@ export interface Event {
   id: string;
   title: string;
   description: string;
+  link?: string; // URL for verification/source
   isTrigger: boolean;
   date: string; // YYYY-MM-DD format
   createdAt: number;
