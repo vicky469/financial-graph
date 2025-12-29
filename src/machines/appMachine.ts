@@ -18,14 +18,7 @@ const getOrCreateUser = () => {
   }
 
   // Generate new user
-  const colors = [
-    "#FF6B6B",
-    "#4ECDC4",
-    "#45B7D1",
-    "#96CEB4",
-    "#FFEAA7",
-    "#DDA0DD",
-  ];
+  const colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD"];
   const adjectives = ["Swift", "Clever", "Bold", "Calm", "Wise"];
   const nouns = ["Bunny", "Goose", "Owl", "Wolf", "Bear"];
 

@@ -3,14 +3,7 @@ import { Handle, Position, type NodeProps } from "reactflow";
 import type { EventNodeData } from "../types";
 
 const EventNode = memo(({ data, selected }: NodeProps<EventNodeData>) => {
-  const {
-    title,
-    date,
-    description,
-    isTrigger,
-    isSelected,
-    otherUserSelecting,
-  } = data;
+  const { title, date, description, isTrigger, isSelected, otherUserSelecting } = data;
   const [noteExpanded, setNoteExpanded] = useState(false);
   const hasDescription = description && description.trim().length > 0;
 
@@ -20,9 +13,7 @@ const EventNode = memo(({ data, selected }: NodeProps<EventNodeData>) => {
         isSelected || selected ? "selected" : ""
       }`}
       style={{
-        boxShadow: otherUserSelecting
-          ? `0 0 0 3px ${otherUserSelecting.color}`
-          : undefined,
+        boxShadow: otherUserSelecting ? `0 0 0 3px ${otherUserSelecting.color}` : undefined,
       }}
     >
       <div className="node-content">
@@ -53,41 +44,18 @@ const EventNode = memo(({ data, selected }: NodeProps<EventNodeData>) => {
       )}
 
       {otherUserSelecting && (
-        <div
-          className="user-indicator"
-          style={{ backgroundColor: otherUserSelecting.color }}
-        >
+        <div className="user-indicator" style={{ backgroundColor: otherUserSelecting.color }}>
           {otherUserSelecting.userName}
         </div>
       )}
 
       {/* Handles for Vertical Flow (Causal) */}
-      <Handle
-        id="top"
-        type="target"
-        position={Position.Top}
-        className="node-handle top"
-      />
-      <Handle
-        id="bottom"
-        type="source"
-        position={Position.Bottom}
-        className="node-handle bottom"
-      />
+      <Handle id="top" type="target" position={Position.Top} className="node-handle top" />
+      <Handle id="bottom" type="source" position={Position.Bottom} className="node-handle bottom" />
 
       {/* Handles for Horizontal Flow (Entity connections) */}
-      <Handle
-        id="left"
-        type="target"
-        position={Position.Left}
-        className="node-handle left"
-      />
-      <Handle
-        id="right"
-        type="source"
-        position={Position.Right}
-        className="node-handle right"
-      />
+      <Handle id="left" type="target" position={Position.Left} className="node-handle left" />
+      <Handle id="right" type="source" position={Position.Right} className="node-handle right" />
     </div>
   );
 });

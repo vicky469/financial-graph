@@ -56,9 +56,7 @@ const Sidebar = ({
 
   const triggers = events.filter((e) => e.isTrigger);
   const selected = events.find((e) => e.id === context.selectedEventId);
-  const selectedEntity = entities.find(
-    (e) => e.id === context.selectedEntityId
-  );
+  const selectedEntity = entities.find((e) => e.id === context.selectedEntityId);
   const selectedEdge = edges.find((e) => e.id === context.selectedEdgeId);
 
   const handleAdd = useCallback(async () => {
@@ -134,9 +132,7 @@ const Sidebar = ({
                 {triggers.map((t) => (
                   <li
                     key={t.id}
-                    className={`trigger-item ${
-                      context.focusedTriggerId === t.id ? "focused" : ""
-                    }`}
+                    className={`trigger-item ${context.focusedTriggerId === t.id ? "focused" : ""}`}
                   >
                     <div
                       style={{ flex: 1, cursor: "pointer" }}
@@ -169,9 +165,7 @@ const Sidebar = ({
                               !connectedIds.has(edge.targetId)
                             ) {
                               // Only add events, not entities
-                              const targetEvent = events.find(
-                                (ev) => ev.id === edge.targetId
-                              );
+                              const targetEvent = events.find((ev) => ev.id === edge.targetId);
                               if (targetEvent) {
                                 connectedIds.add(edge.targetId);
                                 changed = true;
@@ -181,16 +175,12 @@ const Sidebar = ({
                         }
                         // Find all edges connected to these events
                         const connectedEdges = edges.filter(
-                          (e) =>
-                            connectedIds.has(e.sourceId) ||
-                            connectedIds.has(e.targetId)
+                          (e) => connectedIds.has(e.sourceId) || connectedIds.has(e.targetId)
                         );
                         // Delete all
                         await db.transact([
                           ...connectedEdges.map((e) => tx.edges[e.id].delete()),
-                          ...Array.from(connectedIds).map((id) =>
-                            tx.events[id].delete()
-                          ),
+                          ...Array.from(connectedIds).map((id) => tx.events[id].delete()),
                         ]);
                       }}
                       title="Delete trigger and all connected events"
@@ -213,11 +203,7 @@ const Sidebar = ({
             ) : (
               <ul className="trigger-list">
                 {entities.map((e) => (
-                  <li
-                    key={e.id}
-                    className="trigger-item"
-                    onClick={() => onSelectEntity?.(e.id)}
-                  >
+                  <li key={e.id} className="trigger-item" onClick={() => onSelectEntity?.(e.id)}>
                     <span className="trigger-title">{e.name}</span>
                     <span className="trigger-date">{e.type}</span>
                   </li>
@@ -237,10 +223,7 @@ const Sidebar = ({
               onClick={() => {
                 const deleteTx = [
                   ...edges
-                    .filter(
-                      (e) =>
-                        e.sourceId === selected.id || e.targetId === selected.id
-                    )
+                    .filter((e) => e.sourceId === selected.id || e.targetId === selected.id)
                     .map((e) => tx.edges[e.id].delete()),
                   tx.events[selected.id].delete(),
                 ];
@@ -257,9 +240,7 @@ const Sidebar = ({
               type="text"
               className="input"
               value={selected.title}
-              onChange={(e) =>
-                updateEvent(selected.id, selected, { title: e.target.value })
-              }
+              onChange={(e) => updateEvent(selected.id, selected, { title: e.target.value })}
             />
 
             <label className="field-label">Date</label>
@@ -267,9 +248,7 @@ const Sidebar = ({
               type="date"
               className="input"
               value={selected.date}
-              onChange={(e) =>
-                updateEvent(selected.id, selected, { date: e.target.value })
-              }
+              onChange={(e) => updateEvent(selected.id, selected, { date: e.target.value })}
             />
 
             <label className="field-label">Description</label>
@@ -341,55 +320,47 @@ const Sidebar = ({
             <div className="properties-section">
               <label className="field-label">Properties</label>
               <div className="props-list">
-                {Object.entries(selectedEntity.properties || {}).map(
-                  ([k, v]) => (
-                    <div
-                      key={k}
-                      className="prop-row"
+                {Object.entries(selectedEntity.properties || {}).map(([k, v]) => (
+                  <div
+                    key={k}
+                    className="prop-row"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "6px 0",
+                      borderBottom: "1px solid rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <span className="prop-key" style={{ color: "#a78bfa", fontWeight: 500 }}>
+                      {k}:
+                    </span>
+                    <span className="prop-value" style={{ color: "#e2e8f0", flex: 1 }}>
+                      {v}
+                    </span>
+                    <button
+                      className="btn-icon small"
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        padding: "6px 0",
-                        borderBottom: "1px solid rgba(255,255,255,0.1)",
+                        color: "#ef4444",
+                        background: "rgba(239, 68, 68, 0.15)",
+                        border: "1px solid rgba(239, 68, 68, 0.3)",
+                        borderRadius: "4px",
+                        padding: "2px 6px",
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => {
+                        const newProps = { ...selectedEntity.properties };
+                        delete newProps[k];
+                        updateEntity(selectedEntity.id, selectedEntity, {
+                          properties: newProps,
+                        });
                       }}
                     >
-                      <span
-                        className="prop-key"
-                        style={{ color: "#a78bfa", fontWeight: 500 }}
-                      >
-                        {k}:
-                      </span>
-                      <span
-                        className="prop-value"
-                        style={{ color: "#e2e8f0", flex: 1 }}
-                      >
-                        {v}
-                      </span>
-                      <button
-                        className="btn-icon small"
-                        style={{
-                          color: "#ef4444",
-                          background: "rgba(239, 68, 68, 0.15)",
-                          border: "1px solid rgba(239, 68, 68, 0.3)",
-                          borderRadius: "4px",
-                          padding: "2px 6px",
-                          fontSize: "0.75rem",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => {
-                          const newProps = { ...selectedEntity.properties };
-                          delete newProps[k];
-                          updateEntity(selectedEntity.id, selectedEntity, {
-                            properties: newProps,
-                          });
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )
-                )}
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
               <div className="add-prop-row">
                 <input
@@ -443,11 +414,7 @@ const Sidebar = ({
                 {events
                   .filter(
                     (evt) =>
-                      !edges.some(
-                        (e) =>
-                          e.sourceId === selectedEntity.id &&
-                          e.targetId === evt.id
-                      )
+                      !edges.some((e) => e.sourceId === selectedEntity.id && e.targetId === evt.id)
                   )
                   .map((evt) => (
                     <label
@@ -489,19 +456,14 @@ const Sidebar = ({
                 🔗 Link Selected
               </button>
               {/* Show existing connections */}
-              {edges.filter((e) => e.sourceId === selectedEntity.id).length >
-                0 && (
+              {edges.filter((e) => e.sourceId === selectedEntity.id).length > 0 && (
                 <div style={{ marginTop: "8px" }}>
-                  <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
-                    Connected to:
-                  </span>
+                  <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Connected to:</span>
                   <ul style={{ margin: "4px 0", padding: "0 0 0 16px" }}>
                     {edges
                       .filter((e) => e.sourceId === selectedEntity.id)
                       .map((edge) => {
-                        const targetEvent = events.find(
-                          (ev) => ev.id === edge.targetId
-                        );
+                        const targetEvent = events.find((ev) => ev.id === edge.targetId);
                         return targetEvent ? (
                           <li
                             key={edge.id}
@@ -558,9 +520,7 @@ const Sidebar = ({
             <div className="button-group">
               <button
                 className={`btn ${
-                  selectedEdge.edgeType !== "simultaneous"
-                    ? "btn-primary"
-                    : "btn-secondary"
+                  selectedEdge.edgeType !== "simultaneous" ? "btn-primary" : "btn-secondary"
                 }`}
                 onClick={() =>
                   updateEdge(selectedEdge.id, selectedEdge, {
@@ -572,9 +532,7 @@ const Sidebar = ({
               </button>
               <button
                 className={`btn ${
-                  selectedEdge.edgeType === "simultaneous"
-                    ? "btn-primary"
-                    : "btn-secondary"
+                  selectedEdge.edgeType === "simultaneous" ? "btn-primary" : "btn-secondary"
                 }`}
                 onClick={() =>
                   updateEdge(selectedEdge.id, selectedEdge, {
@@ -624,13 +582,7 @@ const Sidebar = ({
                 .concat(
                   customLabels
                     .filter(
-                      (l) =>
-                        ![
-                          "led to",
-                          "triggered",
-                          "caused",
-                          "concurrent with",
-                        ].includes(l)
+                      (l) => !["led to", "triggered", "caused", "concurrent with"].includes(l)
                     )
                     .map((l) => ({
                       label: l,
@@ -670,9 +622,7 @@ const Sidebar = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setCustomLabels((prev) =>
-                          prev.filter((l) => l !== label)
-                        );
+                        setCustomLabels((prev) => prev.filter((l) => l !== label));
                       }}
                       className="btn-icon small"
                       style={{
@@ -767,20 +717,14 @@ const Sidebar = ({
               <button onClick={handleAdd} className="btn btn-primary">
                 Add {activeTab === "timeline" ? "Event" : "Entity"}
               </button>
-              <button
-                onClick={() => setShowForm(false)}
-                className="btn btn-secondary"
-              >
+              <button onClick={() => setShowForm(false)} className="btn btn-secondary">
                 Cancel
               </button>
             </div>
           </div>
         ) : (
           <div className="button-group vertical">
-            <button
-              onClick={() => setShowForm(true)}
-              className="btn btn-primary"
-            >
+            <button onClick={() => setShowForm(true)} className="btn btn-primary">
               + Add {activeTab === "timeline" ? "Event" : "Entity"}
             </button>
             {activeTab === "timeline" &&
@@ -798,10 +742,7 @@ const Sidebar = ({
       <section className="sidebar-section user-info">
         <h2>You</h2>
         <div className="user-card">
-          <div
-            className="user-avatar"
-            style={{ backgroundColor: context.userColor }}
-          >
+          <div className="user-avatar" style={{ backgroundColor: context.userColor }}>
             {context.userName[0]}
           </div>
           <span className="user-name">{context.userName}</span>

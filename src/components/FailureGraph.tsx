@@ -1,28 +1,13 @@
 import { useCallback, useMemo, useEffect } from "react";
-import ReactFlow, {
-  type Node,
-  type Edge as FlowEdge,
-  Controls,
-  Background,
-  BackgroundVariant,
-  useNodesState,
-  useEdgesState,
-  type Connection,
-  MarkerType,
-} from "reactflow";
+import ReactFlow, { type Node, type Edge as FlowEdge, Controls, Background } from "reactflow";
+import { BackgroundVariant, useNodesState, useEdgesState } from "reactflow";
+import { type Connection, MarkerType } from "reactflow";
 import "reactflow/dist/style.css";
 
 import EventNode from "./EventNode";
 import { useGraph, createEdge } from "../db";
-import type {
-  Event,
-  Entity,
-  Edge,
-  EventNodeData,
-  EntityNodeData,
-  AppContext,
-  UserSelection,
-} from "../types";
+import type { Event, Entity, Edge, EventNodeData, EntityNodeData } from "../types";
+import type { AppContext, UserSelection } from "../types";
 import EntityNode from "./EntityNode";
 
 const nodeTypes = { eventNode: EventNode, entityNode: EntityNode };
@@ -61,9 +46,7 @@ const calculatePositions = (nodes: (Event | Entity)[], edges: Edge[]) => {
 
   // Separate events and entities
   const eventNodes = nodes.filter((n) => "date" in n) as Event[];
-  const entityNodes = nodes.filter(
-    (n) => "name" in n && !("date" in n)
-  ) as Entity[];
+  const entityNodes = nodes.filter((n) => "name" in n && !("date" in n)) as Entity[];
 
   // 1. Identify "roots" (nodes with 0 incoming edges in the visible graph) - events only
   const incomingEdgeCounts = new Map<string, number>();
@@ -73,17 +56,12 @@ const calculatePositions = (nodes: (Event | Entity)[], edges: Edge[]) => {
   const eventIds = new Set(eventNodes.map((e) => e.id));
   edges.forEach((e) => {
     if (eventIds.has(e.targetId) && eventIds.has(e.sourceId)) {
-      incomingEdgeCounts.set(
-        e.targetId,
-        (incomingEdgeCounts.get(e.targetId) || 0) + 1
-      );
+      incomingEdgeCounts.set(e.targetId, (incomingEdgeCounts.get(e.targetId) || 0) + 1);
     }
   });
 
   // Triggers are always roots, plus any event with 0 incoming edges
-  const roots = eventNodes.filter(
-    (n) => n.isTrigger || incomingEdgeCounts.get(n.id) === 0
-  );
+  const roots = eventNodes.filter((n) => n.isTrigger || incomingEdgeCounts.get(n.id) === 0);
 
   roots.forEach((n) => depths.set(n.id, 0));
 
@@ -96,8 +74,7 @@ const calculatePositions = (nodes: (Event | Entity)[], edges: Edge[]) => {
     changed = false;
     iterations++;
     for (const edge of edges) {
-      if (!eventIds.has(edge.sourceId) || !eventIds.has(edge.targetId))
-        continue;
+      if (!eventIds.has(edge.sourceId) || !eventIds.has(edge.targetId)) continue;
       const sourceDepth = depths.get(edge.sourceId);
       if (sourceDepth !== undefined) {
         const isSimultaneous = edge.edgeType === "simultaneous";
@@ -162,9 +139,7 @@ const calculatePositions = (nodes: (Event | Entity)[], edges: Edge[]) => {
       // Try offsetting Y in alternating directions
       y =
         preferredY +
-        (attempts % 2 === 0 ? 1 : -1) *
-          Math.ceil((attempts + 1) / 2) *
-          (nodeHeight + 20);
+        (attempts % 2 === 0 ? 1 : -1) * Math.ceil((attempts + 1) / 2) * (nodeHeight + 20);
       attempts++;
     }
     return y; // Fallback to last tried position
@@ -226,8 +201,7 @@ const FailureGraph = ({
       if (isEntity) {
         const entity = node as Entity;
         const other = (selections as UserSelection[]).find(
-          (s) =>
-            s.selectedEntityId === entity.id && s.odxerId !== context.userId
+          (s) => s.selectedEntityId === entity.id && s.odxerId !== context.userId
         );
         return {
           id: entity.id,
@@ -237,9 +211,7 @@ const FailureGraph = ({
             ...entity,
             isSelected: context.selectedEntityId === entity.id,
             isEditing: false,
-            otherUserSelecting: other
-              ? { userName: other.userName, color: other.color }
-              : null,
+            otherUserSelecting: other ? { userName: other.userName, color: other.color } : null,
           } as EntityNodeData,
           selected: context.selectedEntityId === entity.id,
         };
@@ -256,9 +228,7 @@ const FailureGraph = ({
             ...event,
             isSelected: context.selectedEventId === event.id,
             isEditing: context.editingEventId === event.id,
-            otherUserSelecting: other
-              ? { userName: other.userName, color: other.color }
-              : null,
+            otherUserSelecting: other ? { userName: other.userName, color: other.color } : null,
           } as EventNodeData,
           selected: context.selectedEventId === event.id,
         };
@@ -384,10 +354,7 @@ const FailureGraph = ({
       {context.focusedTriggerId && (
         <div className="filter-indicator">
           <span>
-            Showing:{" "}
-            <strong>
-              {events.find((e) => e.id === context.focusedTriggerId)?.title}
-            </strong>
+            Showing: <strong>{events.find((e) => e.id === context.focusedTriggerId)?.title}</strong>
           </span>
           <button onClick={onClearFocus} className="clear-filter-btn">
             ✕ Show All

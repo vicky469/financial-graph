@@ -1,37 +1,7 @@
 import { useCallback } from "react";
 import { useEditHistory, undoEdit, clearHistory } from "../db";
+import { actionLabels, actionIcons, formatTime } from "../utils/history";
 import type { EditHistoryEntry } from "../types";
-
-const formatTime = (ts: number) => {
-  const d = new Date(ts);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-};
-
-const actionLabels: Record<EditHistoryEntry["action"], string> = {
-  create_event: "Created event",
-  update_event: "Updated event",
-  delete_event: "Deleted event",
-  create_entity: "Created entity",
-  update_entity: "Updated entity",
-  delete_entity: "Deleted entity",
-  create_edge: "Connected",
-  update_edge: "Updated connection",
-  delete_edge: "Removed connection",
-  bulk_import: "Imported Sample Data",
-};
-
-const actionIcons: Record<EditHistoryEntry["action"], string> = {
-  create_event: "➕",
-  update_event: "✏️",
-  delete_event: "🗑️",
-  create_entity: "🏢",
-  update_entity: "📝",
-  delete_entity: "🗑️",
-  create_edge: "🔗",
-  update_edge: "🔧",
-  delete_edge: "✂️",
-  bulk_import: "📚",
-};
 
 interface Props {
   isOpen: boolean;
@@ -83,9 +53,7 @@ const EditHistory = ({ isOpen, onClose }: Props) => {
               <li key={entry.id} className="history-item">
                 <div className="history-icon">{actionIcons[entry.action]}</div>
                 <div className="history-info">
-                  <span className="history-action">
-                    {actionLabels[entry.action]}
-                  </span>
+                  <span className="history-action">{actionLabels[entry.action]}</span>
                   <span className="history-meta">
                     {entry.userName} · {formatTime(entry.timestamp)}
                   </span>

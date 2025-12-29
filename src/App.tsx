@@ -20,12 +20,7 @@ function App() {
 
   // Sync selection to InstantDB for collaboration
   useEffect(() => {
-    updateUserSelection(
-      ctx.userId,
-      ctx.userName,
-      ctx.selectedEventId,
-      ctx.userColor
-    );
+    updateUserSelection(ctx.userId, ctx.userName, ctx.selectedEventId, ctx.userColor);
   }, [ctx.userId, ctx.userName, ctx.selectedEventId, ctx.userColor]);
 
   const handleSelect = useCallback(
@@ -72,10 +67,7 @@ function App() {
           📜
         </button>
 
-        <EditHistory
-          isOpen={historyOpen}
-          onClose={() => setHistoryOpen(false)}
-        />
+        <EditHistory isOpen={historyOpen} onClose={() => setHistoryOpen(false)} />
       </main>
     </div>
   );
