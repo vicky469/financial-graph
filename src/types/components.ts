@@ -45,8 +45,8 @@ export type AppEvent =
   | { type: "END_EDIT" }
   | { type: "SET_USER"; userId: string; userName: string; userColor: string };
 
-// FailureGraph component props
-export interface FailureGraphProps {
+// FinancialGraph component props
+export interface FinancialGraphProps {
   context: AppContext;
   onSelectEvent: (eventId: string | null) => void;
   onSelectEdge?: (edgeId: string | null) => void;

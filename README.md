@@ -1,12 +1,12 @@
-# Financial Failure Tracker
+# Financial Graph
 
-A visual graph-based tool for tracking and analyzing cascading financial failure events with entity relationships.
+A visual graph-based tool for tracking and analyzing financial events with entity relationships. Use it to map financial failures, SEC filings, market events, or combine multiple datasets into a single interactive graph.
 
 ## Features
 
 - **Interactive Graph Visualization**: Visualize financial events and entities as an interactive node graph using React Flow
-- **Event Timeline**: Track causal and simultaneous event relationships in financial crises
-- **Entity Management**: Create and link entities (banks, regulators, sectors) to events
+- **Event Timeline**: Track causal and simultaneous event relationships
+- **Entity Management**: Create and link entities (banks, regulators, sectors, companies) to events
 - **Edit History**: Full undo/redo support with detailed change tracking
 - **Real-time Collaboration**: Multi-user selection indicators
 - **Programmatic Seeding**: Populate data via TypeScript scripts
@@ -24,8 +24,8 @@ A visual graph-based tool for tracking and analyzing cascading financial failure
 ```
 src/
 ├── components/          # React components
-│   ├── FailureGraph.tsx    # Main graph visualization
-│   ├── Sidebar.tsx         # Event/entity editing panel
+│   ├── FinancialGraph/     # Main graph visualization
+│   ├── Sidebar/            # Event/entity editing panel
 │   ├── EditHistory.tsx     # Undo/redo panel
 │   ├── EventNode.tsx       # Event node component
 │   └── EntityNode.tsx      # Entity node component

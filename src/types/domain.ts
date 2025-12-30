@@ -1,4 +1,4 @@
-// Domain types for the Financial Failure Tracker
+// Domain types for Financial Graph
 // These represent the core business entities
 
 export interface Event {

@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import type { Node } from "reactflow";
-import type { Event, Entity, Edge, EventNodeData, EntityNodeData } from "../../types";
-import type { UserSelection, FailureGraphProps } from "../../types";
+import type { Event, Entity, Edge, EventNodeData, EntityNodeData, AppContext } from "../../types";
+import type { UserSelection } from "../../types";
 import { useGraphLayout } from "./useGraphLayout";
 
 export function useGraphNodes(
@@ -12,7 +12,7 @@ export function useGraphNodes(
   edges: Edge[],
   visibleIds: Set<string>,
   selections: UserSelection[],
-  context: FailureGraphProps["context"]
+  context: AppContext
 ): Node<EventNodeData | EntityNodeData>[] {
   const positions = useGraphLayout(events, entities, edges);
 

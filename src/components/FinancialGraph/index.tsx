@@ -1,4 +1,4 @@
-// FailureGraph - Main graph visualization component
+// FinancialGraph - Main graph visualization component
 
 import { useCallback, useMemo, useEffect } from "react";
 import ReactFlow, { type Node, type Edge as FlowEdge, Controls, Background } from "reactflow";
@@ -9,14 +9,14 @@ import "reactflow/dist/style.css";
 import EventNode from "../EventNode";
 import EntityNode from "../EntityNode";
 import { useGraph, createEdge, deleteEdge } from "../../db";
-import type { EventNodeData, EntityNodeData, UserSelection, FailureGraphProps } from "../../types";
+import type { EventNodeData, EntityNodeData, UserSelection, FinancialGraphProps } from "../../types";
 import { useGraphNodes } from "./useGraphNodes";
 import { useGraphEdges } from "./useGraphEdges";
 import { getConnectedIds } from "./graphUtils";
 
 const nodeTypes = { eventNode: EventNode, entityNode: EntityNode };
 
-const FailureGraph = ({
+const FinancialGraph = ({
   context,
   onSelectEvent,
   onSelectEdge,
@@ -24,7 +24,7 @@ const FailureGraph = ({
   onFocusTrigger,
   onClearFocus,
   showActors = true,
-}: FailureGraphProps) => {
+}: FinancialGraphProps) => {
   const { events, entities, edges, selections, isLoading } = useGraph();
 
   // Calculate visible node IDs based on focus
@@ -105,7 +105,7 @@ const FailureGraph = ({
     return (
       <div className="loading-container">
         <div className="loading-spinner" />
-        <p>Loading failure graph...</p>
+        <p>Loading graph...</p>
       </div>
     );
   }
@@ -147,4 +147,4 @@ const FailureGraph = ({
   );
 };
 
-export default FailureGraph;
+export default FinancialGraph;

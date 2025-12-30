@@ -1,4 +1,4 @@
-// Graph utility functions for FailureGraph component
+// Graph utility functions for FinancialGraph component
 
 import type { Edge } from "../../types";
 

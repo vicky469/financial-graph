@@ -4,7 +4,7 @@
 import { createMachine, assign } from "xstate";
 import type { AppContext } from "../types";
 
-const STORAGE_KEY = "failure-tracker-user";
+const STORAGE_KEY = "financial-graph-user";
 
 // Get or create persistent user identity
 const getOrCreateUser = () => {

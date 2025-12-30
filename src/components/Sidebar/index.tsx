@@ -20,7 +20,7 @@ const Sidebar = ({
   onToggleActors,
 }: SidebarProps) => {
   const { events, entities, edges } = useGraph();
-  const [activeTab, setActiveTab] = useState<"timeline" | "actors">("timeline");
+  const [activeTab, setActiveTab] = useState<"events" | "entities">("events");
   const [showForm, setShowForm] = useState(false);
 
   const triggers = events.filter((e) => e.isTrigger);
@@ -70,25 +70,25 @@ const Sidebar = ({
   return (
     <aside className="sidebar">
       <header className="sidebar-header">
-        <h1>💥 Failure Tracker</h1>
+        <h1>📊 Financial Graph</h1>
         {!isEditing && (
           <div className="sidebar-tabs">
             <button
-              className={`tab ${activeTab === "timeline" ? "active" : ""}`}
-              onClick={() => setActiveTab("timeline")}
+              className={`tab ${activeTab === "events" ? "active" : ""}`}
+              onClick={() => setActiveTab("events")}
             >
-              Timeline
+              Events
             </button>
             <button
-              className={`tab ${activeTab === "actors" ? "active" : ""} ${
+              className={`tab ${activeTab === "entities" ? "active" : ""} ${
                 showActors ? "toggled" : ""
               }`}
               onClick={() => {
-                setActiveTab("actors");
+                setActiveTab("entities");
                 onToggleActors();
               }}
             >
-              Actors {showActors ? "👁️" : ""}
+              Entities {showActors ? "👁️" : ""}
             </button>
           </div>
         )}
@@ -96,7 +96,7 @@ const Sidebar = ({
 
       {!isEditing && (
         <section className="sidebar-section scrollable">
-        {activeTab === "timeline" ? (
+        {activeTab === "events" ? (
           <>
             <div className="section-header">
               <h2>🔴 Triggers</h2>
@@ -178,7 +178,7 @@ const Sidebar = ({
             <h2>Actions</h2>
           </div>
           {showForm ? (
-            activeTab === "timeline" ? (
+            activeTab === "events" ? (
               <EventForm onSuccess={() => setShowForm(false)} onCancel={() => setShowForm(false)} />
             ) : (
               <EntityForm onSuccess={() => setShowForm(false)} onCancel={() => setShowForm(false)} />
@@ -186,7 +186,7 @@ const Sidebar = ({
           ) : (
             <div className="button-group vertical">
               <button onClick={() => setShowForm(true)} className="btn btn-primary btn-compact">
-                + Add {activeTab === "timeline" ? "Event" : "Entity"}
+                + Add {activeTab === "events" ? "Event" : "Entity"}
               </button>
               {(events.length > 0 || entities.length > 0) && (
                 <button onClick={handleClear} className="btn btn-danger btn-compact">

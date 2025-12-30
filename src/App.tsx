@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useMachine } from "@xstate/react";
-import FailureGraph from "./components/FailureGraph";
+import FinancialGraph from "./components/FinancialGraph";
 import Sidebar from "./components/Sidebar";
 import TopRightPanel from "./components/TopRightPanel";
 import { appMachine } from "./machines/appMachine";
@@ -51,7 +51,7 @@ function App() {
       <main className="main-content">
         <TopRightPanel context={ctx} />
 
-        <FailureGraph
+        <FinancialGraph
           context={ctx}
           onSelectEvent={handleSelect}
           onSelectEdge={(id) => send({ type: "SELECT_EDGE", edgeId: id })}
