@@ -71,8 +71,9 @@ EOF
 # Start dev server
 npm run dev
 
-# Seed example data (SVB crisis example)
-npx tsx scripts/seed_example.ts
+# Seed sample data
+npx tsx scripts/corporate_hierarchy_seed.ts  # Tech companies with subsidiaries & brands
+npx tsx scripts/financial_failures_seed.ts   # SVB crisis timeline
 ```
 
 ### Building

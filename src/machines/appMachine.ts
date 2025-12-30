@@ -41,11 +41,10 @@ export const appMachine = createMachine({
   initial: "idle",
   context: {
     selectedEventId: null,
-    selectedEntityId: null, // New: Selection for entities
+    selectedEntityId: null,
     selectedEdgeId: null,
     focusedTriggerId: null,
-    isEditing: false,
-    editingEventId: null,
+    focusedEntityId: null,
     userId: persistentUser.userId,
     userName: persistentUser.userName,
     userColor: persistentUser.userColor,
@@ -78,16 +77,20 @@ export const appMachine = createMachine({
           target: "filtering",
           actions: assign({
             focusedTriggerId: ({ event }) => event.triggerId,
+            focusedEntityId: null,
             selectedEventId: ({ event }) => event.triggerId,
             selectedEntityId: null,
             selectedEdgeId: null,
           }),
         },
-        START_EDIT: {
-          target: "editing",
+        FOCUS_ENTITY: {
+          target: "filtering",
           actions: assign({
-            editingEventId: ({ event }) => event.eventId,
-            isEditing: true,
+            focusedEntityId: ({ event }) => event.entityId,
+            focusedTriggerId: null,
+            selectedEntityId: null,
+            selectedEventId: null,
+            selectedEdgeId: null,
           }),
         },
       },
@@ -98,6 +101,7 @@ export const appMachine = createMachine({
           target: "idle",
           actions: assign({
             focusedTriggerId: null,
+            focusedEntityId: null,
             selectedEventId: null,
             selectedEntityId: null,
             selectedEdgeId: null,
@@ -106,8 +110,17 @@ export const appMachine = createMachine({
         FOCUS_TRIGGER: {
           actions: assign({
             focusedTriggerId: ({ event }) => event.triggerId,
+            focusedEntityId: null,
             selectedEventId: ({ event }) => event.triggerId,
-            selectedEntityId: null, // Clear entity selection if focusing trigger
+            selectedEntityId: null,
+          }),
+        },
+        FOCUS_ENTITY: {
+          actions: assign({
+            focusedEntityId: ({ event }) => event.entityId,
+            focusedTriggerId: null,
+            selectedEntityId: null,
+            selectedEventId: null,
           }),
         },
         SELECT_EVENT: {
@@ -130,21 +143,6 @@ export const appMachine = createMachine({
             selectedEventId: null,
             selectedEntityId: null,
           }),
-        },
-        START_EDIT: {
-          target: "editing",
-          actions: assign({
-            editingEventId: ({ event }) => event.eventId,
-            isEditing: true,
-          }),
-        },
-      },
-    },
-    editing: {
-      on: {
-        END_EDIT: {
-          target: "idle",
-          actions: assign({ editingEventId: null, isEditing: false }),
         },
       },
     },

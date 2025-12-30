@@ -12,7 +12,7 @@ import { useGraph, createEdge, deleteEdge } from "../../db";
 import type { EventNodeData, EntityNodeData, UserSelection, FinancialGraphProps } from "../../types";
 import { useGraphNodes } from "./useGraphNodes";
 import { useGraphEdges } from "./useGraphEdges";
-import { getConnectedIds } from "./graphUtils";
+import { getEntityWithDescendants } from "./graphUtils";
 
 const nodeTypes = { eventNode: EventNode, entityNode: EntityNode };
 
@@ -22,18 +22,62 @@ const FinancialGraph = ({
   onSelectEdge,
   onSelectEntity,
   onFocusTrigger,
+  onFocusEntity,
   onClearFocus,
-  showActors = true,
+  showEntities = true,
+  showTriggersOnGraph = true,
+  showNonTriggersOnGraph = true,
 }: FinancialGraphProps) => {
   const { events, entities, edges, selections, isLoading } = useGraph();
 
-  // Calculate visible node IDs based on focus
+  // Calculate visible node IDs based on focus and visibility toggles
   const visibleIds = useMemo(() => {
-    const eventIds = events.map((e) => e.id);
-    const entityIds = showActors ? entities.map((e) => e.id) : [];
-    if (!context.focusedTriggerId) return new Set([...eventIds, ...entityIds]);
-    return getConnectedIds(context.focusedTriggerId, edges);
-  }, [context.focusedTriggerId, events, entities, edges, showActors]);
+    // If a trigger is focused, show ONLY that trigger
+    if (context.focusedTriggerId) {
+      return new Set([context.focusedTriggerId]);
+    }
+
+    // If an entity is focused, show that entity, descendants, and connected events
+    if (context.focusedEntityId) {
+      const entityIds = getEntityWithDescendants(context.focusedEntityId, entities, edges);
+
+      // Find events connected to focused entity
+      const connectedEventIds = edges
+        .filter((edge) => edge.sourceId === context.focusedEntityId)
+        .map((edge) => edge.targetId)
+        .filter((id) => {
+          const event = events.find((e) => e.id === id);
+          if (!event) return false;
+          // Only include if the event's toggle is on
+          if (event.isTrigger && !showTriggersOnGraph) return false;
+          if (!event.isTrigger && !showNonTriggersOnGraph) return false;
+          return true;
+        });
+
+      return new Set([...entityIds, ...connectedEventIds]);
+    }
+
+    // No focus: show all visible nodes based on toggles
+    const visibleEvents = events.filter((e) => {
+      if (e.isTrigger && !showTriggersOnGraph) return false;
+      if (!e.isTrigger && !showNonTriggersOnGraph) return false;
+      return true;
+    });
+
+    const eventIds = visibleEvents.map((e) => e.id);
+    const entityIds = showEntities ? entities.map((e) => e.id) : [];
+
+    return new Set([...eventIds, ...entityIds]);
+  }, [
+    context.focusedTriggerId,
+    context.focusedEntityId,
+    events,
+    entities,
+    edges,
+    showEntities,
+    showTriggersOnGraph,
+    showNonTriggersOnGraph,
+  ]);
 
   // Build nodes and edges using hooks
   const flowNodes = useGraphNodes(
@@ -80,13 +124,13 @@ const FinancialGraph = ({
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node<EventNodeData | EntityNodeData>) => {
       if (node.type === "entityNode") {
-        onSelectEntity?.(node.id);
+        onFocusEntity(node.id);
       } else {
         const data = node.data as EventNodeData;
         data.isTrigger ? onFocusTrigger(node.id) : onSelectEvent(node.id);
       }
     },
-    [onFocusTrigger, onSelectEvent, onSelectEntity]
+    [onFocusTrigger, onSelectEvent, onFocusEntity]
   );
 
   const onPaneClick = useCallback(() => {
@@ -112,16 +156,6 @@ const FinancialGraph = ({
 
   return (
     <div className="graph-container">
-      {context.focusedTriggerId && (
-        <div className="filter-indicator">
-          <span>
-            Showing: <strong>{events.find((e) => e.id === context.focusedTriggerId)?.title}</strong>
-          </span>
-          <button onClick={onClearFocus} className="clear-filter-btn">
-            ✕ Show All
-          </button>
-        </div>
-      )}
       <ReactFlow
         nodes={nodes}
         edges={edgesState}

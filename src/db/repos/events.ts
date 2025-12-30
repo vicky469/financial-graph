@@ -22,11 +22,15 @@ export const updateEvent = (
   eventId: string,
   prev: Partial<Event>,
   updates: Partial<Omit<Event, "id" | "createdAt" | "createdBy">>
-) =>
-  db.transact([
+) => {
+  console.log('[updateEvent] eventId:', eventId);
+  console.log('[updateEvent] prev:', prev);
+  console.log('[updateEvent] updates:', updates);
+  return db.transact([
     tx.events[eventId].update(updates),
     recordEdit("update_event", eventId, "event", prev, updates),
   ]);
+};
 
 export const deleteEvent = (eventId: string, prev: Event) =>
   db.transact([

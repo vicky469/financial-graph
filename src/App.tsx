@@ -9,7 +9,9 @@ import "./App.css";
 
 function App() {
   const [state, send] = useMachine(appMachine);
-  const [showActors, setShowActors] = useState(true); // Toggle for entity visibility
+  const [showEntities, setShowEntities] = useState(true);
+  const [showTriggersOnGraph, setShowTriggersOnGraph] = useState(true);
+  const [showNonTriggersOnGraph, setShowNonTriggersOnGraph] = useState(true);
   const ctx = state.context;
 
   // Set current user for edit tracking
@@ -30,6 +32,10 @@ function App() {
     (id: string) => send({ type: "FOCUS_TRIGGER", triggerId: id }),
     [send]
   );
+  const handleFocusEntity = useCallback(
+    (id: string) => send({ type: "FOCUS_ENTITY", entityId: id }),
+    [send]
+  );
   const handleClear = useCallback(() => send({ type: "CLEAR_FOCUS" }), [send]);
 
   const handleSelectEntity = useCallback(
@@ -42,11 +48,16 @@ function App() {
       <Sidebar
         context={ctx}
         onFocusTrigger={handleFocus}
+        onFocusEntity={handleFocusEntity}
         onSelectEvent={handleSelect}
         onSelectEntity={handleSelectEntity}
         onSelectEdge={(id) => send({ type: "SELECT_EDGE", edgeId: id })}
-        showActors={showActors}
-        onToggleActors={() => setShowActors(!showActors)}
+        showEntities={showEntities}
+        onToggleEntities={() => setShowEntities(!showEntities)}
+        showTriggersOnGraph={showTriggersOnGraph}
+        setShowTriggersOnGraph={setShowTriggersOnGraph}
+        showNonTriggersOnGraph={showNonTriggersOnGraph}
+        setShowNonTriggersOnGraph={setShowNonTriggersOnGraph}
       />
       <main className="main-content">
         <TopRightPanel context={ctx} />
@@ -57,8 +68,11 @@ function App() {
           onSelectEdge={(id) => send({ type: "SELECT_EDGE", edgeId: id })}
           onSelectEntity={handleSelectEntity}
           onFocusTrigger={handleFocus}
+          onFocusEntity={handleFocusEntity}
           onClearFocus={handleClear}
-          showActors={showActors}
+          showEntities={showEntities}
+          showTriggersOnGraph={showTriggersOnGraph}
+          showNonTriggersOnGraph={showNonTriggersOnGraph}
         />
       </main>
     </div>

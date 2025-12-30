@@ -1,18 +1,7 @@
-import { init } from "@instantdb/admin";
+import { getDb } from "./utils";
 import { v4 as uuidv4 } from "uuid";
-import "dotenv/config";
 
-const APP_ADMIN_TOKEN = process.env.INSTANTDB_ADMIN_TOKEN;
-
-if (!APP_ADMIN_TOKEN) {
-  console.error("Please set INSTANTDB_ADMIN_TOKEN");
-  process.exit(1);
-}
-
-const db = init({
-  appId: process.env.VITE_INSTANTDB_APP_ID!,
-  adminToken: APP_ADMIN_TOKEN,
-});
+const db = getDb();
 
 // Definitions
 const SEED_EVENTS = [

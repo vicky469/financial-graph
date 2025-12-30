@@ -1,34 +1,59 @@
 // Event editing panel component
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { updateEvent } from "../../db";
+import { updateEvent, createEvent } from "../../db";
 import { db, tx } from "../../db";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import type { Event, Edge } from "../../types";
 
 interface EventPanelProps {
-  event: Event;
+  event?: Event;
   edges: Edge[];
   onCancel: () => void;
+  mode?: "add" | "edit";
+  defaultIsTrigger?: boolean;
 }
 
-export function EventPanel({ event, edges, onCancel }: EventPanelProps) {
-  const [localEvent, setLocalEvent] = useState(event);
-  const previousEventRef = useRef(event);
+const emptyEvent: Partial<Event> = {
+  title: "",
+  date: "",
+  description: "",
+  link: "",
+  isTrigger: false,
+};
+
+export function EventPanel({ event, edges, onCancel, mode = "edit", defaultIsTrigger = false }: EventPanelProps) {
+  const initialEvent = event || { ...emptyEvent, isTrigger: defaultIsTrigger };
+  const [localEvent, setLocalEvent] = useState<Partial<Event>>(initialEvent);
+  const previousEventRef = useRef(initialEvent);
   const pendingChangesRef = useRef<Partial<Event>>({});
   const panelRef = useRef<HTMLElement>(null);
 
-  const savePendingChanges = useCallback(() => {
-    const changes = pendingChangesRef.current;
-    if (Object.keys(changes).length > 0) {
-      updateEvent(event.id, previousEventRef.current, changes);
-      previousEventRef.current = { ...previousEventRef.current, ...changes };
-      pendingChangesRef.current = {};
+  const savePendingChanges = useCallback(async () => {
+    if (mode === "add") {
+      // Create new event
+      if (localEvent.title && localEvent.date) {
+        await createEvent({
+          title: localEvent.title,
+          date: localEvent.date,
+          description: localEvent.description || "",
+          link: localEvent.link || "",
+          isTrigger: localEvent.isTrigger || false,
+        });
+      }
+    } else {
+      // Update existing event
+      const changes = pendingChangesRef.current;
+      if (Object.keys(changes).length > 0 && event) {
+        await updateEvent(event.id, previousEventRef.current as Event, changes);
+        previousEventRef.current = { ...previousEventRef.current, ...changes };
+        pendingChangesRef.current = {};
+      }
     }
-  }, [event.id]);
+  }, [mode, localEvent, event]);
 
-  const handleSaveAndClose = useCallback(() => {
-    savePendingChanges();
+  const handleSaveAndClose = useCallback(async () => {
+    await savePendingChanges();
     onCancel();
   }, [savePendingChanges, onCancel]);
 
@@ -48,26 +73,33 @@ export function EventPanel({ event, edges, onCancel }: EventPanelProps) {
 
   // Update local state when event prop changes
   useEffect(() => {
-    setLocalEvent(event);
-    previousEventRef.current = event;
-    pendingChangesRef.current = {};
-  }, [event.id]);
+    if (event) {
+      setLocalEvent(event);
+      previousEventRef.current = event;
+      pendingChangesRef.current = {};
+    }
+  }, [event?.id]);
 
   const handleChange = (updates: Partial<Event>) => {
     // Update local state immediately for instant UI feedback
     setLocalEvent((prev) => ({ ...prev, ...updates }));
-    // Track pending changes
-    pendingChangesRef.current = { ...pendingChangesRef.current, ...updates };
+    // Track pending changes (only in edit mode)
+    if (mode === "edit") {
+      pendingChangesRef.current = { ...pendingChangesRef.current, ...updates };
+    }
   };
 
   const handleDelete = () => {
-    const deleteTx = [
-      ...edges
-        .filter((e) => e.sourceId === event.id || e.targetId === event.id)
-        .map((e) => tx.edges[e.id].delete()),
-      tx.events[event.id].delete(),
-    ];
-    db.transact(deleteTx);
+    if (mode === "edit" && event) {
+      const deleteTx = [
+        ...edges
+          .filter((e) => e.sourceId === event.id || e.targetId === event.id)
+          .map((e) => tx.edges[e.id].delete()),
+        tx.events[event.id].delete(),
+      ];
+      db.transact(deleteTx);
+      onCancel();
+    }
   };
 
   const handleCancel = () => {
@@ -79,10 +111,12 @@ export function EventPanel({ event, edges, onCancel }: EventPanelProps) {
   return (
     <section ref={panelRef} className="sidebar-section event-details">
       <div className="section-header">
-        <h2>Edit Event</h2>
-        <button className="btn-icon danger" onClick={handleDelete} title="Delete Event">
-          🗑️
-        </button>
+        <h2>{mode === "add" ? "Add Event" : "Edit Event"}</h2>
+        {mode === "edit" && (
+          <button className="btn-icon danger" onClick={handleDelete} title="Delete Event">
+            🗑️
+          </button>
+        )}
       </div>
       <div className="event-card">
         <label className="field-label">Title</label>
@@ -128,7 +162,10 @@ export function EventPanel({ event, edges, onCancel }: EventPanelProps) {
           Is a trigger
         </label>
 
-        <div className="button-group" style={{ marginTop: "16px" }}>
+        <div className="button-group" style={{ marginTop: "16px", gap: "8px" }}>
+          <button type="button" onClick={handleSaveAndClose} className="btn btn-primary btn-compact">
+            Save
+          </button>
           <button type="button" onClick={handleCancel} className="btn btn-secondary btn-compact">
             Cancel
           </button>

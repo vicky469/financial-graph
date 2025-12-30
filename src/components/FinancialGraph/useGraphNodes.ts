@@ -35,7 +35,6 @@ export function useGraphNodes(
           data: {
             ...entity,
             isSelected: context.selectedEntityId === entity.id,
-            isEditing: false,
             otherUserSelecting: other ? { userName: other.userName, color: other.color } : null,
           } as EntityNodeData,
           selected: context.selectedEntityId === entity.id,
@@ -52,7 +51,6 @@ export function useGraphNodes(
           data: {
             ...event,
             isSelected: context.selectedEventId === event.id,
-            isEditing: context.editingEventId === event.id,
             otherUserSelecting: other ? { userName: other.userName, color: other.color } : null,
           } as EventNodeData,
           selected: context.selectedEventId === event.id,

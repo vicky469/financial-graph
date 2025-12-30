@@ -27,17 +27,17 @@ export function EdgePanel({ edge, isEntityEdge = false, onCancel }: EdgePanelPro
   const pendingChangesRef = useRef<Partial<Edge>>({});
   const panelRef = useRef<HTMLElement>(null);
 
-  const savePendingChanges = useCallback(() => {
+  const savePendingChanges = useCallback(async () => {
     const changes = pendingChangesRef.current;
     if (Object.keys(changes).length > 0) {
-      updateEdge(edge.id, previousEdgeRef.current, changes);
+      await updateEdge(edge.id, previousEdgeRef.current, changes);
       previousEdgeRef.current = { ...previousEdgeRef.current, ...changes };
       pendingChangesRef.current = {};
     }
   }, [edge.id]);
 
-  const handleSaveAndClose = useCallback(() => {
-    savePendingChanges();
+  const handleSaveAndClose = useCallback(async () => {
+    await savePendingChanges();
     onCancel();
   }, [savePendingChanges, onCancel]);
 
@@ -87,7 +87,10 @@ export function EdgePanel({ edge, isEntityEdge = false, onCancel }: EdgePanelPro
           </button>
         </div>
         <div className="event-card">
-          <div className="button-group" style={{ marginTop: "16px" }}>
+          <div className="button-group" style={{ marginTop: "16px", gap: "8px" }}>
+            <button type="button" onClick={handleSaveAndClose} className="btn btn-primary btn-compact">
+              Save
+            </button>
             <button type="button" onClick={handleCancel} className="btn btn-secondary btn-compact">
               Cancel
             </button>
@@ -201,7 +204,10 @@ export function EdgePanel({ edge, isEntityEdge = false, onCancel }: EdgePanelPro
           }}
         />
 
-        <div className="button-group" style={{ marginTop: "16px" }}>
+        <div className="button-group" style={{ marginTop: "16px", gap: "8px" }}>
+          <button type="button" onClick={handleSaveAndClose} className="btn btn-primary btn-compact">
+            Save
+          </button>
           <button type="button" onClick={handleCancel} className="btn btn-secondary btn-compact">
             Cancel
           </button>
