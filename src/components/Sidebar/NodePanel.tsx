@@ -186,6 +186,16 @@ export function NodePanel({ node, events, edges, onCancel, mode = "edit" }: Node
         </div>
 
         <div className="form-group">
+          <label>URL</label>
+          <input
+            type="text"
+            value={localNode.url || ""}
+            onChange={(e) => handleChange({ url: e.target.value })}
+            placeholder="https://example.com"
+          />
+        </div>
+
+        <div className="form-group">
           <label>Type</label>
           <select value={localNode.type} onChange={(e) => handleChange({ type: e.target.value })}>
             <option value="Company">Company</option>

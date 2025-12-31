@@ -21,6 +21,7 @@ const schema = i.schema({
       cik: i.string().optional(),
       validFrom: i.number().optional(), // Incorporation/Start Date
       validTo: i.number().optional(), // Dissolution/End Date
+      url: i.string().optional(),
       createdAt: i.number(),
       createdBy: i.string(),
     }),

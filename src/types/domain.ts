@@ -24,7 +24,9 @@ export interface BaseNode {
   id: string;
   name: string;
   validFrom?: number;
+
   validTo?: number;
+  url?: string;
 }
 
 export interface Node extends BaseNode {
