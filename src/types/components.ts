@@ -1,6 +1,6 @@
 // Component prop types and UI-specific interfaces
 
-import type { Event, Entity } from "./domain";
+import type { Event, Edge, Node, EditHistoryEntry, UserSelection } from "./domain";
 
 // React Flow node data for EventNode component
 export interface EventNodeData extends Event {
@@ -11,7 +11,7 @@ export interface EventNodeData extends Event {
   } | null;
 }
 
-export interface EntityNodeData extends Entity {
+export interface NodeData extends Node {
   isSelected: boolean;
   otherUserSelecting?: {
     userName: string;
@@ -22,10 +22,10 @@ export interface EntityNodeData extends Entity {
 // App state machine context
 export interface AppContext {
   selectedEventId: string | null;
-  selectedEntityId: string | null;
+  selectedNodeId: string | null;
   selectedEdgeId: string | null;
   focusedTriggerId: string | null;
-  focusedEntityId: string | null;
+  focusedNodeId: string | null;
   userId: string;
   userName: string;
   userColor: string;
@@ -34,10 +34,10 @@ export interface AppContext {
 // App state machine events
 export type AppEvent =
   | { type: "SELECT_EVENT"; eventId: string | null }
-  | { type: "SELECT_ENTITY"; entityId: string | null }
+  | { type: "SELECT_NODE"; nodeId: string | null }
   | { type: "SELECT_EDGE"; edgeId: string | null }
   | { type: "FOCUS_TRIGGER"; triggerId: string }
-  | { type: "FOCUS_ENTITY"; entityId: string }
+  | { type: "FOCUS_NODE"; nodeId: string }
   | { type: "CLEAR_FOCUS" }
   | { type: "SET_USER"; userId: string; userName: string; userColor: string };
 
@@ -46,11 +46,11 @@ export interface FinancialGraphProps {
   context: AppContext;
   onSelectEvent: (eventId: string | null) => void;
   onSelectEdge?: (edgeId: string | null) => void;
-  onSelectEntity?: (entityId: string | null) => void;
+  onSelectNode?: (nodeId: string | null) => void;
   onFocusTrigger: (triggerId: string) => void;
-  onFocusEntity: (entityId: string) => void;
+  onFocusNode: (nodeId: string) => void;
   onClearFocus: () => void;
-  showEntities?: boolean;
+  showNodes?: boolean;
   showTriggersOnGraph?: boolean;
   showNonTriggersOnGraph?: boolean;
 }
@@ -59,12 +59,12 @@ export interface FinancialGraphProps {
 export interface SidebarProps {
   context: AppContext;
   onFocusTrigger: (triggerId: string) => void;
-  onFocusEntity: (entityId: string) => void;
-  onSelectEvent?: (eventId: string | null) => void;
-  onSelectEntity?: (entityId: string | null) => void;
+  onFocusNode: (nodeId: string) => void;
+  onSelectEvent: (eventId: string | null) => void;
+  onSelectNode?: (nodeId: string | null) => void;
   onSelectEdge?: (edgeId: string | null) => void;
-  showEntities: boolean;
-  onToggleEntities: () => void;
+  showNodes: boolean;
+  onToggleNodes: () => void;
   showTriggersOnGraph: boolean;
   setShowTriggersOnGraph: (show: boolean) => void;
   showNonTriggersOnGraph: boolean;

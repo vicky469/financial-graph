@@ -50,7 +50,7 @@ export function deterministicId(namespace: string, name: string): string {
  * Generate IDs for common entity types
  */
 export const generateId = {
-  entity: (name: string) => deterministicId("entity", name.toLowerCase().trim()),
+  node: (name: string) => deterministicId("node", name.toLowerCase().trim()),
   event: (title: string, date: string) =>
     deterministicId("event", `${title.toLowerCase().trim()}-${date}`),
   edge: (sourceId: string, targetId: string) => deterministicId("edge", `${sourceId}-${targetId}`),

@@ -3,37 +3,37 @@
 import { useState, useCallback } from "react";
 import { useGraph } from "../../db";
 import { db, tx } from "../../db";
-import type { Event, Edge, Entity, SidebarProps } from "../../types";
+import type { Event, Edge, Node, SidebarProps } from "../../types";
 import { EventPanel } from "./EventPanel";
-import { EntityPanel } from "./EntityPanel";
+import { NodePanel } from "./NodePanel";
 import { EdgePanel } from "./EdgePanel";
-import { EntityTree } from "./EntityTree";
+import { NodeTree } from "./NodeTree";
 
 const Sidebar = ({
   context,
   onFocusTrigger,
-  onFocusEntity,
+  onFocusNode,
   onSelectEvent,
-  onSelectEntity,
+  onSelectNode,
   onSelectEdge,
-  showEntities,
-  onToggleEntities,
+  showNodes,
+  onToggleNodes,
   showTriggersOnGraph,
   setShowTriggersOnGraph,
   showNonTriggersOnGraph,
   setShowNonTriggersOnGraph,
 }: SidebarProps) => {
-  const { events, entities, edges } = useGraph();
+  const { events, nodes: entities, edges } = useGraph();
   const [showEventsSection, setShowEventsSection] = useState(true);
-  const [showEntitiesSection, setShowEntitiesSection] = useState(true);
+  const [showNodesSection, setShowNodesSection] = useState(true);
   const [showTriggersSubsection, setShowTriggersSubsection] = useState(true);
   const [showEventsSubsection, setShowEventsSubsection] = useState(true);
-  const [showForm, setShowForm] = useState<"event" | "trigger" | "entity" | null>(null);
+  const [showForm, setShowForm] = useState<"event" | "trigger" | "node" | null>(null);
 
   const triggers = events.filter((e) => e.isTrigger);
   const nonTriggerEvents = events.filter((e) => !e.isTrigger);
   const selected = events.find((e) => e.id === context.selectedEventId);
-  const selectedEntity = entities.find((e) => e.id === context.selectedEntityId);
+  const selectedNode = entities.find((e) => e.id === context.selectedNodeId);
   const selectedEdge = edges.find((e) => e.id === context.selectedEdgeId);
 
   // Check if selected edge is entity-event edge
@@ -43,13 +43,13 @@ const Sidebar = ({
     (entityIds.includes(selectedEdge.sourceId) || entityIds.includes(selectedEdge.targetId));
 
   // Check if anything is selected (editing mode) - include ALL edges and add forms
-  const isEditing = selected || selectedEntity || selectedEdge || showForm !== null;
+  const isEditing = selected || selectedNode || selectedEdge || showForm !== null;
 
   const handleClear = useCallback(async () => {
     await db.transact([
       ...edges.map((e: Edge) => tx.edges[e.id].delete()),
       ...events.map((e: Event) => tx.events[e.id].delete()),
-      ...entities.map((e: Entity) => tx.entities[e.id].delete()),
+      ...entities.map((e: Node) => tx.nodes[e.id].delete()),
     ]);
   }, [events, edges, entities]);
 
@@ -255,40 +255,40 @@ const Sidebar = ({
           <section className="sidebar-section">
             <div
               className="section-header clickable"
-              onClick={() => setShowEntitiesSection(!showEntitiesSection)}
+              onClick={() => setShowNodesSection(!showNodesSection)}
             >
-              <span className="collapse-icon">{showEntitiesSection ? "▼" : "▶"}</span>
-              <h2>🏢 Entities</h2>
+              <span className="collapse-icon">{showNodesSection ? "▼" : "▶"}</span>
+              <h2>🏢 Nodes</h2>
               <span className="count-badge">{entities.length}</span>
               <button
-                className={`eye-toggle ${showEntities ? "active" : ""}`}
+                className={`eye-toggle ${showNodes ? "active" : ""}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onToggleEntities();
+                  onToggleNodes();
                 }}
-                title="Toggle entities on graph"
+                title="Toggle nodes on graph"
               >
-                {showEntities ? "👁️" : "👁️‍🗨️"}
+                {showNodes ? "👁️" : "👁️‍🗨️"}
               </button>
               <button
                 className="add-btn"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowForm("entity");
+                  setShowForm("node");
                 }}
-                title="Add entity"
+                title="Add node"
               >
                 +
               </button>
             </div>
-            {showEntitiesSection && (
+            {showNodesSection && (
               <div className="section-content">
-                <EntityTree
-                  entities={entities}
+                <NodeTree
+                  nodes={entities}
                   edges={edges}
                   context={context}
-                  onFocusEntity={onFocusEntity}
-                  onSelectEntity={onSelectEntity}
+                  onFocusNode={onFocusNode}
+                  onSelectNode={onSelectNode}
                 />
               </div>
             )}
@@ -300,12 +300,12 @@ const Sidebar = ({
       {selected && (
         <EventPanel event={selected} edges={edges} onCancel={() => onSelectEvent?.(null)} />
       )}
-      {selectedEntity && (
-        <EntityPanel
-          entity={selectedEntity}
+      {selectedNode && (
+        <NodePanel
+          node={selectedNode}
           events={events}
           edges={edges}
-          onCancel={() => onSelectEntity?.(null)}
+          onCancel={() => onSelectNode?.(null)}
         />
       )}
       {selectedEdge && (
@@ -333,13 +333,8 @@ const Sidebar = ({
           defaultIsTrigger={false}
         />
       )}
-      {showForm === "entity" && (
-        <EntityPanel
-          events={events}
-          edges={edges}
-          onCancel={() => setShowForm(null)}
-          mode="add"
-        />
+      {showForm === "node" && (
+        <NodePanel events={events} edges={edges} onCancel={() => setShowForm(null)} mode="add" />
       )}
 
       {/* Actions Section - Only show when not editing */}

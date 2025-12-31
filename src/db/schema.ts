@@ -13,10 +13,14 @@ const schema = i.schema({
       createdAt: i.number(),
       createdBy: i.string(),
     }),
-    entities: i.entity({
+    nodes: i.entity({
       name: i.string(),
       type: i.string(), // "Bank", "Sector", "Regulator"
       properties: i.json(), // Record<string, string>
+      jurisdiction: i.string().optional(),
+      cik: i.string().optional(),
+      validFrom: i.number().optional(), // Incorporation/Start Date
+      validTo: i.number().optional(), // Dissolution/End Date
       createdAt: i.number(),
       createdBy: i.string(),
     }),
@@ -25,6 +29,9 @@ const schema = i.schema({
       targetId: i.string(),
       label: i.string(),
       edgeType: i.string().optional(), // 'causal' or 'simultaneous'
+      ownership: i.number().optional(), // 0-100
+      validFrom: i.number().optional(), // Timestamp
+      validTo: i.number().optional(), // Timestamp
       createdAt: i.number(),
       createdBy: i.string(),
     }),

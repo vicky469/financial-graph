@@ -1,4 +1,5 @@
 import { getDb, generateId } from "./utils";
+import { NodeType } from "../src/types/domain";
 
 const db = getDb();
 
@@ -6,32 +7,32 @@ const db = getDb();
 // Demonstrates: Parent Companies → Subsidiaries → Brands
 // Uses deterministic IDs - safe to run multiple times without creating duplicates
 
-// Entity IDs (deterministic based on name)
-const ENTITIES = {
+// Node IDs (deterministic based on name)
+const NODES = {
   // Parent Companies
-  apple: generateId.entity("Apple Inc."),
-  meta: generateId.entity("Meta Platforms Inc."),
-  alphabet: generateId.entity("Alphabet Inc."),
+  apple: generateId.node("Apple Inc."),
+  meta: generateId.node("Meta Platforms Inc."),
+  alphabet: generateId.node("Alphabet Inc."),
 
   // Apple Subsidiaries
-  beats: generateId.entity("Beats Electronics"),
-  shazam: generateId.entity("Shazam Entertainment"),
+  beats: generateId.node("Beats Electronics"),
+  shazam: generateId.node("Shazam Entertainment"),
 
   // Meta Subsidiaries
-  instagram: generateId.entity("Instagram"),
-  whatsapp: generateId.entity("WhatsApp Inc."),
-  oculus: generateId.entity("Oculus VR"),
+  instagram: generateId.node("Instagram"),
+  whatsapp: generateId.node("WhatsApp Inc."),
+  oculus: generateId.node("Oculus VR"),
 
   // Alphabet Subsidiaries
-  google: generateId.entity("Google LLC"),
-  youtube: generateId.entity("YouTube LLC"),
-  waymo: generateId.entity("Waymo LLC"),
-  verily: generateId.entity("Verily Life Sciences"),
+  google: generateId.node("Google LLC"),
+  youtube: generateId.node("YouTube LLC"),
+  waymo: generateId.node("Waymo LLC"),
+  verily: generateId.node("Verily Life Sciences"),
 
   // Brands (children of subsidiaries)
-  beatsByDre: generateId.entity("Beats By Dre"),
-  beatsMusic: generateId.entity("Beats Music"),
-  questVR: generateId.entity("Meta Quest"),
+  beatsByDre: generateId.node("Beats By Dre"),
+  beatsMusic: generateId.node("Beats Music"),
+  questVR: generateId.node("Meta Quest"),
 };
 
 // Events showing acquisitions (deterministic based on title + date)
@@ -45,132 +46,141 @@ const EVENT_IDS = {
   alphabetWaymo: generateId.event("Alphabet Spins Out Waymo", "2016-12-13"),
 };
 
-const SEED_ENTITIES = [
+const SEED_NODES = [
   // Parent Companies
   {
-    id: ENTITIES.apple,
+    id: NODES.apple,
     name: "Apple Inc.",
-    type: "Public Company",
-    properties: { ticker: "AAPL", sector: "Technology" },
+    type: NodeType.Company,
+    properties: { ticker: "AAPL", sector: "Technology", structure: "Public Company" },
+    jurisdiction: "US-DE",
+    cik: "0000320193",
+    validFrom: new Date("1977-01-03").getTime(), // Incorporation
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: ENTITIES.meta,
+    id: NODES.meta,
     name: "Meta Platforms Inc.",
-    type: "Public Company",
-    properties: { ticker: "META", sector: "Social Media" },
+    type: NodeType.Company,
+    properties: { ticker: "META", sector: "Social Media", structure: "Public Company" },
+    jurisdiction: "US-DE",
+    cik: "0001326801",
+    validFrom: new Date("2004-01-04").getTime(),
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: ENTITIES.alphabet,
+    id: NODES.alphabet,
     name: "Alphabet Inc.",
-    type: "Public Company",
-    properties: { ticker: "GOOGL", sector: "Technology" },
+    type: NodeType.Company,
+    properties: { ticker: "GOOGL", sector: "Technology", structure: "Public Company" },
+    jurisdiction: "US-DE",
+    cik: "0001652044",
+    validFrom: new Date("2015-10-02").getTime(),
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
 
   // Apple Subsidiaries
   {
-    id: ENTITIES.beats,
+    id: NODES.beats,
     name: "Beats Electronics",
-    type: "Subsidiary",
-    properties: { acquiredDate: "2014-05-28", acquiredFor: "$3B" },
+    type: NodeType.Company,
+    properties: { acquiredDate: "2014-05-28", acquiredFor: "$3B", structure: "Subsidiary" },
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: ENTITIES.shazam,
+    id: NODES.shazam,
     name: "Shazam Entertainment",
-    type: "Subsidiary",
-    properties: { acquiredDate: "2018-09-24", acquiredFor: "$400M" },
+    type: NodeType.Company,
+    properties: { acquiredDate: "2018-09-24", acquiredFor: "$400M", structure: "Subsidiary" },
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
 
   // Meta Subsidiaries
   {
-    id: ENTITIES.instagram,
+    id: NODES.instagram,
     name: "Instagram",
-    type: "Subsidiary",
-    properties: { acquiredDate: "2012-04-09", acquiredFor: "$1B" },
+    type: NodeType.Company,
+    properties: { acquiredDate: "2012-04-09", acquiredFor: "$1B", structure: "Subsidiary" },
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: ENTITIES.whatsapp,
+    id: NODES.whatsapp,
     name: "WhatsApp Inc.",
-    type: "Subsidiary",
-    properties: { acquiredDate: "2014-02-19", acquiredFor: "$19B" },
+    type: NodeType.Company,
+    properties: { acquiredDate: "2014-02-19", acquiredFor: "$19B", structure: "Subsidiary" },
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: ENTITIES.oculus,
+    id: NODES.oculus,
     name: "Oculus VR",
-    type: "Subsidiary",
-    properties: { acquiredDate: "2014-03-25", acquiredFor: "$2.3B" },
+    type: NodeType.Company,
+    properties: { acquiredDate: "2014-03-25", acquiredFor: "$2.3B", structure: "Subsidiary" },
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
 
   // Alphabet Subsidiaries
   {
-    id: ENTITIES.google,
+    id: NODES.google,
     name: "Google LLC",
-    type: "Subsidiary",
-    properties: { note: "Core search and advertising business" },
+    type: NodeType.Company,
+    properties: { note: "Core search and advertising business", structure: "Subsidiary" },
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: ENTITIES.youtube,
+    id: NODES.youtube,
     name: "YouTube LLC",
-    type: "Subsidiary",
-    properties: { acquiredDate: "2006-10-09", acquiredFor: "$1.65B" },
+    type: NodeType.Company,
+    properties: { acquiredDate: "2006-10-09", acquiredFor: "$1.65B", structure: "Subsidiary" },
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: ENTITIES.waymo,
+    id: NODES.waymo,
     name: "Waymo LLC",
-    type: "Subsidiary",
-    properties: { focus: "Autonomous vehicles" },
+    type: NodeType.Company,
+    properties: { focus: "Autonomous vehicles", structure: "Subsidiary" },
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: ENTITIES.verily,
+    id: NODES.verily,
     name: "Verily Life Sciences",
-    type: "Subsidiary",
-    properties: { focus: "Healthcare technology" },
+    type: NodeType.Company,
+    properties: { focus: "Healthcare technology", structure: "Subsidiary" },
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
 
   // Brands
   {
-    id: ENTITIES.beatsByDre,
+    id: NODES.beatsByDre,
     name: "Beats By Dre",
-    type: "Brand",
+    type: NodeType.Brand,
     properties: { category: "Consumer Audio" },
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: ENTITIES.beatsMusic,
+    id: NODES.beatsMusic,
     name: "Beats Music",
-    type: "Brand",
+    type: NodeType.Brand,
     properties: { status: "Discontinued 2015", note: "Became Apple Music" },
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: ENTITIES.questVR,
+    id: NODES.questVR,
     name: "Meta Quest",
-    type: "Brand",
+    type: NodeType.Brand,
     properties: { category: "VR Hardware", formerlyKnownAs: "Oculus Quest" },
     createdAt: Date.now(),
     createdBy: "seed_script",
@@ -247,38 +257,42 @@ const SEED_EVENTS = [
 const SEED_EDGES = [
   // Apple → Subsidiaries
   {
-    id: generateId.edge(ENTITIES.apple, ENTITIES.beats),
-    sourceId: ENTITIES.apple,
-    targetId: ENTITIES.beats,
+    id: generateId.edge(NODES.apple, NODES.beats),
+    sourceId: NODES.apple,
+    targetId: NODES.beats,
     label: "owns 100%",
     edgeType: "causal" as const,
+    ownership: 100,
+    validFrom: new Date("2014-05-28").getTime(),
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: generateId.edge(ENTITIES.apple, ENTITIES.shazam),
-    sourceId: ENTITIES.apple,
-    targetId: ENTITIES.shazam,
+    id: generateId.edge(NODES.apple, NODES.shazam),
+    sourceId: NODES.apple,
+    targetId: NODES.shazam,
     label: "owns 100%",
     edgeType: "causal" as const,
+    ownership: 100,
+    validFrom: new Date("2018-09-24").getTime(),
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
 
   // Beats → Brands
   {
-    id: generateId.edge(ENTITIES.beats, ENTITIES.beatsByDre),
-    sourceId: ENTITIES.beats,
-    targetId: ENTITIES.beatsByDre,
+    id: generateId.edge(NODES.beats, NODES.beatsByDre),
+    sourceId: NODES.beats,
+    targetId: NODES.beatsByDre,
     label: "brand",
     edgeType: "causal" as const,
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: generateId.edge(ENTITIES.beats, ENTITIES.beatsMusic),
-    sourceId: ENTITIES.beats,
-    targetId: ENTITIES.beatsMusic,
+    id: generateId.edge(NODES.beats, NODES.beatsMusic),
+    sourceId: NODES.beats,
+    targetId: NODES.beatsMusic,
     label: "brand (discontinued)",
     edgeType: "causal" as const,
     createdAt: Date.now(),
@@ -287,27 +301,27 @@ const SEED_EDGES = [
 
   // Meta → Subsidiaries
   {
-    id: generateId.edge(ENTITIES.meta, ENTITIES.instagram),
-    sourceId: ENTITIES.meta,
-    targetId: ENTITIES.instagram,
+    id: generateId.edge(NODES.meta, NODES.instagram),
+    sourceId: NODES.meta,
+    targetId: NODES.instagram,
     label: "owns 100%",
     edgeType: "causal" as const,
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: generateId.edge(ENTITIES.meta, ENTITIES.whatsapp),
-    sourceId: ENTITIES.meta,
-    targetId: ENTITIES.whatsapp,
+    id: generateId.edge(NODES.meta, NODES.whatsapp),
+    sourceId: NODES.meta,
+    targetId: NODES.whatsapp,
     label: "owns 100%",
     edgeType: "causal" as const,
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: generateId.edge(ENTITIES.meta, ENTITIES.oculus),
-    sourceId: ENTITIES.meta,
-    targetId: ENTITIES.oculus,
+    id: generateId.edge(NODES.meta, NODES.oculus),
+    sourceId: NODES.meta,
+    targetId: NODES.oculus,
     label: "owns 100%",
     edgeType: "causal" as const,
     createdAt: Date.now(),
@@ -316,9 +330,9 @@ const SEED_EDGES = [
 
   // Oculus → Brand
   {
-    id: generateId.edge(ENTITIES.oculus, ENTITIES.questVR),
-    sourceId: ENTITIES.oculus,
-    targetId: ENTITIES.questVR,
+    id: generateId.edge(NODES.oculus, NODES.questVR),
+    sourceId: NODES.oculus,
+    targetId: NODES.questVR,
     label: "brand",
     edgeType: "causal" as const,
     createdAt: Date.now(),
@@ -327,36 +341,36 @@ const SEED_EDGES = [
 
   // Alphabet → Subsidiaries
   {
-    id: generateId.edge(ENTITIES.alphabet, ENTITIES.google),
-    sourceId: ENTITIES.alphabet,
-    targetId: ENTITIES.google,
+    id: generateId.edge(NODES.alphabet, NODES.google),
+    sourceId: NODES.alphabet,
+    targetId: NODES.google,
     label: "owns 100%",
     edgeType: "causal" as const,
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: generateId.edge(ENTITIES.alphabet, ENTITIES.youtube),
-    sourceId: ENTITIES.alphabet,
-    targetId: ENTITIES.youtube,
+    id: generateId.edge(NODES.alphabet, NODES.youtube),
+    sourceId: NODES.alphabet,
+    targetId: NODES.youtube,
     label: "owns 100%",
     edgeType: "causal" as const,
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: generateId.edge(ENTITIES.alphabet, ENTITIES.waymo),
-    sourceId: ENTITIES.alphabet,
-    targetId: ENTITIES.waymo,
+    id: generateId.edge(NODES.alphabet, NODES.waymo),
+    sourceId: NODES.alphabet,
+    targetId: NODES.waymo,
     label: "owns 100%",
     edgeType: "causal" as const,
     createdAt: Date.now(),
     createdBy: "seed_script",
   },
   {
-    id: generateId.edge(ENTITIES.alphabet, ENTITIES.verily),
-    sourceId: ENTITIES.alphabet,
-    targetId: ENTITIES.verily,
+    id: generateId.edge(NODES.alphabet, NODES.verily),
+    sourceId: NODES.alphabet,
+    targetId: NODES.verily,
     label: "owns 100%",
     edgeType: "causal" as const,
     createdAt: Date.now(),
@@ -369,23 +383,26 @@ async function seed() {
 
   try {
     // Add entities
-    console.log("📦 Adding entities...");
-    for (const entity of SEED_ENTITIES) {
-      await db.transact([db.tx.entities[entity.id].update(entity)]);
+    console.log("📦 Adding nodes...");
+    for (const node of SEED_NODES) {
+      const { id, ...data } = node;
+      await db.transact([db.tx.nodes[id].update(data)]);
     }
-    console.log(`✅ Added ${SEED_ENTITIES.length} entities`);
+    console.log(`✅ Added ${SEED_NODES.length} nodes`);
 
     // Add events
     console.log("📅 Adding events...");
     for (const event of SEED_EVENTS) {
-      await db.transact([db.tx.events[event.id].update(event)]);
+      const { id, ...data } = event;
+      await db.transact([db.tx.events[id].update(data)]);
     }
     console.log(`✅ Added ${SEED_EVENTS.length} events`);
 
     // Add edges
     console.log("🔗 Adding edges...");
     for (const edge of SEED_EDGES) {
-      await db.transact([db.tx.edges[edge.id].update(edge)]);
+      const { id, ...data } = edge;
+      await db.transact([db.tx.edges[id].update(data)]);
     }
     console.log(`✅ Added ${SEED_EDGES.length} edges`);
 

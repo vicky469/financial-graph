@@ -7,28 +7,27 @@ import { type Connection } from "reactflow";
 import "reactflow/dist/style.css";
 
 import EventNode from "../EventNode";
-import EntityNode from "../EntityNode";
+import GraphNode from "../GraphNode";
 import { useGraph, createEdge, deleteEdge } from "../../db";
-import type { EventNodeData, EntityNodeData, UserSelection, FinancialGraphProps } from "../../types";
+import type { EventNodeData, NodeData, UserSelection, FinancialGraphProps } from "../../types";
 import { useGraphNodes } from "./useGraphNodes";
 import { useGraphEdges } from "./useGraphEdges";
 import { getEntityWithDescendants } from "./graphUtils";
 
-const nodeTypes = { eventNode: EventNode, entityNode: EntityNode };
+const nodeTypes = { eventNode: EventNode, entityNode: GraphNode };
 
 const FinancialGraph = ({
   context,
   onSelectEvent,
   onSelectEdge,
-  onSelectEntity,
   onFocusTrigger,
-  onFocusEntity,
+  onFocusNode,
   onClearFocus,
-  showEntities = true,
+  showNodes = true,
   showTriggersOnGraph = true,
   showNonTriggersOnGraph = true,
 }: FinancialGraphProps) => {
-  const { events, entities, edges, selections, isLoading } = useGraph();
+  const { events, nodes: entities, edges, selections, isLoading } = useGraph();
 
   // Calculate visible node IDs based on focus and visibility toggles
   const visibleIds = useMemo(() => {
@@ -38,12 +37,11 @@ const FinancialGraph = ({
     }
 
     // If an entity is focused, show that entity, descendants, and connected events
-    if (context.focusedEntityId) {
-      const entityIds = getEntityWithDescendants(context.focusedEntityId, entities, edges);
-
+    if (context.focusedNodeId) {
+      const entityIds = getEntityWithDescendants(context.focusedNodeId, entities, edges);
       // Find events connected to focused entity
       const connectedEventIds = edges
-        .filter((edge) => edge.sourceId === context.focusedEntityId)
+        .filter((edge) => edge.sourceId === context.focusedNodeId)
         .map((edge) => edge.targetId)
         .filter((id) => {
           const event = events.find((e) => e.id === id);
@@ -65,16 +63,16 @@ const FinancialGraph = ({
     });
 
     const eventIds = visibleEvents.map((e) => e.id);
-    const entityIds = showEntities ? entities.map((e) => e.id) : [];
+    const entityIds = showNodes ? entities.map((e) => e.id) : [];
 
     return new Set([...eventIds, ...entityIds]);
   }, [
     context.focusedTriggerId,
-    context.focusedEntityId,
+    context.focusedNodeId,
     events,
     entities,
     edges,
-    showEntities,
+    showNodes,
     showTriggersOnGraph,
     showNonTriggersOnGraph,
   ]);
@@ -122,15 +120,15 @@ const FinancialGraph = ({
   }, []);
 
   const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node<EventNodeData | EntityNodeData>) => {
+    (_: React.MouseEvent, node: Node<EventNodeData | NodeData>) => {
       if (node.type === "entityNode") {
-        onFocusEntity(node.id);
+        onFocusNode(node.id);
       } else {
         const data = node.data as EventNodeData;
         data.isTrigger ? onFocusTrigger(node.id) : onSelectEvent(node.id);
       }
     },
-    [onFocusTrigger, onSelectEvent, onFocusEntity]
+    [onFocusTrigger, onSelectEvent, onFocusNode]
   );
 
   const onPaneClick = useCallback(() => {

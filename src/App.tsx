@@ -9,7 +9,7 @@ import "./App.css";
 
 function App() {
   const [state, send] = useMachine(appMachine);
-  const [showEntities, setShowEntities] = useState(true);
+  const [showNodes, setShowNodes] = useState(true);
   const [showTriggersOnGraph, setShowTriggersOnGraph] = useState(true);
   const [showNonTriggersOnGraph, setShowNonTriggersOnGraph] = useState(true);
   const ctx = state.context;
@@ -32,14 +32,14 @@ function App() {
     (id: string) => send({ type: "FOCUS_TRIGGER", triggerId: id }),
     [send]
   );
-  const handleFocusEntity = useCallback(
-    (id: string) => send({ type: "FOCUS_ENTITY", entityId: id }),
+  const handleFocusNode = useCallback(
+    (id: string) => send({ type: "FOCUS_NODE", nodeId: id }),
     [send]
   );
   const handleClear = useCallback(() => send({ type: "CLEAR_FOCUS" }), [send]);
 
-  const handleSelectEntity = useCallback(
-    (id: string | null) => send({ type: "SELECT_ENTITY", entityId: id }),
+  const handleSelectNode = useCallback(
+    (id: string | null) => send({ type: "SELECT_NODE", nodeId: id }),
     [send]
   );
 
@@ -48,12 +48,12 @@ function App() {
       <Sidebar
         context={ctx}
         onFocusTrigger={handleFocus}
-        onFocusEntity={handleFocusEntity}
+        onFocusNode={handleFocusNode}
         onSelectEvent={handleSelect}
-        onSelectEntity={handleSelectEntity}
-        onSelectEdge={(id) => send({ type: "SELECT_EDGE", edgeId: id })}
-        showEntities={showEntities}
-        onToggleEntities={() => setShowEntities(!showEntities)}
+        onSelectNode={handleSelectNode}
+        onSelectEdge={(id: string | null) => send({ type: "SELECT_EDGE", edgeId: id })}
+        showNodes={showNodes}
+        onToggleNodes={() => setShowNodes(!showNodes)}
         showTriggersOnGraph={showTriggersOnGraph}
         setShowTriggersOnGraph={setShowTriggersOnGraph}
         showNonTriggersOnGraph={showNonTriggersOnGraph}
@@ -65,12 +65,12 @@ function App() {
         <FinancialGraph
           context={ctx}
           onSelectEvent={handleSelect}
-          onSelectEdge={(id) => send({ type: "SELECT_EDGE", edgeId: id })}
-          onSelectEntity={handleSelectEntity}
+          onSelectEdge={(id: string | null) => send({ type: "SELECT_EDGE", edgeId: id })}
+          onSelectNode={handleSelectNode}
           onFocusTrigger={handleFocus}
-          onFocusEntity={handleFocusEntity}
+          onFocusNode={handleFocusNode}
           onClearFocus={handleClear}
-          showEntities={showEntities}
+          showNodes={showNodes}
           showTriggersOnGraph={showTriggersOnGraph}
           showNonTriggersOnGraph={showNonTriggersOnGraph}
         />

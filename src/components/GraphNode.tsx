@@ -1,8 +1,8 @@
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "reactflow";
-import type { EntityNodeData } from "../types";
+import type { NodeData } from "../types";
 
-const EntityNode = memo(({ data, selected }: NodeProps<EntityNodeData>) => {
+const GraphNode = memo(({ data, selected }: NodeProps<NodeData>) => {
   const { name, type, isSelected, otherUserSelecting } = data;
 
   return (
@@ -34,5 +34,5 @@ const EntityNode = memo(({ data, selected }: NodeProps<EntityNodeData>) => {
   );
 });
 
-EntityNode.displayName = "EntityNode";
-export default EntityNode;
+GraphNode.displayName = "GraphNode";
+export default GraphNode;

@@ -41,10 +41,10 @@ export const appMachine = createMachine({
   initial: "idle",
   context: {
     selectedEventId: null,
-    selectedEntityId: null,
+    selectedNodeId: null,
     selectedEdgeId: null,
     focusedTriggerId: null,
-    focusedEntityId: null,
+    focusedNodeId: null,
     userId: persistentUser.userId,
     userName: persistentUser.userName,
     userColor: persistentUser.userColor,
@@ -55,13 +55,13 @@ export const appMachine = createMachine({
         SELECT_EVENT: {
           actions: assign({
             selectedEventId: ({ event }) => event.eventId,
-            selectedEntityId: null,
+            selectedNodeId: null,
             selectedEdgeId: null, // Clear edge selection
           }),
         },
-        SELECT_ENTITY: {
+        SELECT_NODE: {
           actions: assign({
-            selectedEntityId: ({ event }) => event.entityId,
+            selectedNodeId: ({ event }) => event.nodeId,
             selectedEventId: null,
             selectedEdgeId: null,
           }),
@@ -70,25 +70,25 @@ export const appMachine = createMachine({
           actions: assign({
             selectedEdgeId: ({ event }) => event.edgeId,
             selectedEventId: null, // Clear event selection
-            selectedEntityId: null,
+            selectedNodeId: null,
           }),
         },
         FOCUS_TRIGGER: {
           target: "filtering",
           actions: assign({
             focusedTriggerId: ({ event }) => event.triggerId,
-            focusedEntityId: null,
+            focusedNodeId: null,
             selectedEventId: ({ event }) => event.triggerId,
-            selectedEntityId: null,
+            selectedNodeId: null,
             selectedEdgeId: null,
           }),
         },
-        FOCUS_ENTITY: {
+        FOCUS_NODE: {
           target: "filtering",
           actions: assign({
-            focusedEntityId: ({ event }) => event.entityId,
+            focusedNodeId: ({ event }) => event.nodeId,
             focusedTriggerId: null,
-            selectedEntityId: null,
+            selectedNodeId: null,
             selectedEventId: null,
             selectedEdgeId: null,
           }),
@@ -101,38 +101,38 @@ export const appMachine = createMachine({
           target: "idle",
           actions: assign({
             focusedTriggerId: null,
-            focusedEntityId: null,
+            focusedNodeId: null,
             selectedEventId: null,
-            selectedEntityId: null,
+            selectedNodeId: null,
             selectedEdgeId: null,
           }),
         },
         FOCUS_TRIGGER: {
           actions: assign({
             focusedTriggerId: ({ event }) => event.triggerId,
-            focusedEntityId: null,
+            focusedNodeId: null,
             selectedEventId: ({ event }) => event.triggerId,
-            selectedEntityId: null,
+            selectedNodeId: null,
           }),
         },
-        FOCUS_ENTITY: {
+        FOCUS_NODE: {
           actions: assign({
-            focusedEntityId: ({ event }) => event.entityId,
+            focusedNodeId: ({ event }) => event.nodeId,
             focusedTriggerId: null,
-            selectedEntityId: null,
+            selectedNodeId: null,
             selectedEventId: null,
           }),
         },
         SELECT_EVENT: {
           actions: assign({
             selectedEventId: ({ event }) => event.eventId,
-            selectedEntityId: null,
+            selectedNodeId: null,
             selectedEdgeId: null,
           }),
         },
-        SELECT_ENTITY: {
+        SELECT_NODE: {
           actions: assign({
-            selectedEntityId: ({ event }) => event.entityId,
+            selectedNodeId: ({ event }) => event.nodeId,
             selectedEventId: null,
             selectedEdgeId: null,
           }),
@@ -141,7 +141,7 @@ export const appMachine = createMachine({
           actions: assign({
             selectedEdgeId: ({ event }) => event.edgeId,
             selectedEventId: null,
-            selectedEntityId: null,
+            selectedNodeId: null,
           }),
         },
       },

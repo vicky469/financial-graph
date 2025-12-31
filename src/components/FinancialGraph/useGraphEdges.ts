@@ -3,23 +3,23 @@
 import { useMemo } from "react";
 import type { Edge as FlowEdge } from "reactflow";
 import { MarkerType } from "reactflow";
-import type { Edge, Entity } from "../../types";
+import type { Edge, Node as GraphNode } from "../../types";
 
 export function useGraphEdges(
   edges: Edge[],
-  entities: Entity[],
+  nodes: GraphNode[],
   visibleIds: Set<string>,
   selectedEdgeId?: string | null
 ): FlowEdge[] {
   return useMemo(() => {
-    // Build set of entity IDs for detecting entity-to-event edges
-    const entityIds = new Set(entities.map((e) => e.id));
+    // Build set of node IDs for detecting node-to-event edges
+    const nodeIds = new Set(nodes.map((e) => e.id));
 
     // Build parent map for simultaneous rerouting (EVENT edges only)
     const parentMap = new Map<string, string>();
     edges.forEach((e) => {
       // Only build parent map from causal event-to-event edges
-      if (e.edgeType !== "simultaneous" && !entityIds.has(e.sourceId)) {
+      if (e.edgeType !== "simultaneous" && !nodeIds.has(e.sourceId)) {
         parentMap.set(e.targetId, e.sourceId);
       }
     });
@@ -28,10 +28,10 @@ export function useGraphEdges(
       .filter((e) => visibleIds.has(e.sourceId) && visibleIds.has(e.targetId))
       .map((e) => {
         const isSimultaneous = e.edgeType === "simultaneous";
-        const isEntityEdge = entityIds.has(e.sourceId); // Source is an entity
+        const isNodeEdge = nodeIds.has(e.sourceId); // Source is a node
 
-        // Entity edges: horizontal dashed purple lines (completely separate)
-        if (isEntityEdge) {
+        // Node edges: horizontal dashed purple lines (completely separate)
+        if (isNodeEdge) {
           return {
             id: e.id,
             source: e.sourceId,
@@ -79,5 +79,5 @@ export function useGraphEdges(
           },
         };
       });
-  }, [edges, entities, visibleIds, selectedEdgeId]);
+  }, [edges, nodes, visibleIds, selectedEdgeId]);
 }

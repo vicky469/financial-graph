@@ -12,11 +12,26 @@ export interface Event {
   createdBy: string;
 }
 
-export interface Entity {
+export const NodeType = {
+  Company: "Company",
+  Brand: "Brand",
+  DataSource: "DataSource",
+} as const;
+
+export type NodeType = (typeof NodeType)[keyof typeof NodeType];
+
+export interface BaseNode {
   id: string;
   name: string;
-  type: string; // e.g., "Bank", "Sector", "Regulator"
+  validFrom?: number;
+  validTo?: number;
+}
+
+export interface Node extends BaseNode {
+  type: NodeType | string; // allowing string for legacy/seed compatibility temporarily
   properties: Record<string, string>; // e.g., { "assets": "$200B", "risk": "High" }
+  jurisdiction?: string;
+  cik?: string;
   createdAt: number;
   createdBy: string;
 }
@@ -36,7 +51,7 @@ export interface UserSelection {
   odxerId: string; // User identifier
   userName: string;
   selectedEventId?: string;
-  selectedEntityId?: string;
+  selectedNodeId?: string;
   color: string;
   lastUpdated: number;
 }
@@ -45,9 +60,9 @@ export type EditAction =
   | "create_event"
   | "update_event"
   | "delete_event"
-  | "create_entity"
-  | "update_entity"
-  | "delete_entity"
+  | "create_node"
+  | "update_node"
+  | "delete_node"
   | "create_edge"
   | "update_edge"
   | "delete_edge"
@@ -57,7 +72,7 @@ export interface EditHistoryEntry {
   id: string;
   action: EditAction;
   targetId: string;
-  targetType: "event" | "edge" | "entity" | "bulk";
+  targetType: "event" | "edge" | "node" | "bulk";
   previousData?: Record<string, unknown>;
   newData?: Record<string, unknown>;
   userId: string;

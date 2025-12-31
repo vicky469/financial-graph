@@ -29,14 +29,14 @@ export const undoEdit = async (entry: EditHistoryEntry) => {
     case "delete_event":
       if (entry.previousData) undoOps = [tx.events[entry.targetId].update(entry.previousData)];
       break;
-    case "create_entity":
-      undoOps = [tx.entities[entry.targetId].delete()];
+    case "create_node":
+      undoOps = [tx.nodes[entry.targetId].delete()];
       break;
-    case "delete_entity":
-      if (entry.previousData) undoOps = [tx.entities[entry.targetId].update(entry.previousData)];
+    case "delete_node":
+      if (entry.previousData) undoOps = [tx.nodes[entry.targetId].update(entry.previousData)];
       break;
-    case "update_entity":
-      if (entry.previousData) undoOps = [tx.entities[entry.targetId].update(entry.previousData)];
+    case "update_node":
+      if (entry.previousData) undoOps = [tx.nodes[entry.targetId].update(entry.previousData)];
       break;
     case "create_edge":
       undoOps = [tx.edges[entry.targetId].delete()];
@@ -49,7 +49,7 @@ export const undoEdit = async (entry: EditHistoryEntry) => {
         const { eventIds = [], entityIds = [], edgeIds = [] } = entry.newData as any;
         undoOps = [
           ...eventIds.map((id: string) => tx.events[id].delete()),
-          ...entityIds.map((id: string) => tx.entities[id].delete()),
+          ...entityIds.map((id: string) => tx.nodes[id].delete()),
           ...edgeIds.map((id: string) => tx.edges[id].delete()),
         ];
       }

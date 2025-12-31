@@ -1,18 +1,18 @@
 // Shared Query Hooks
 
 import { db } from "./client";
-import type { Event, Edge, Entity } from "../types";
+import type { Event, Edge, Node } from "../types";
 
 export const useGraph = () => {
   const { data, isLoading, error } = db.useQuery({
     events: {},
-    entities: {},
+    nodes: {},
     edges: {},
     userSelections: {},
   });
   return {
     events: (data?.events ?? []) as Event[],
-    entities: (data?.entities ?? []) as Entity[],
+    nodes: (data?.nodes ?? []) as Node[],
     edges: (data?.edges ?? []) as Edge[],
     selections: data?.userSelections ?? [],
     isLoading,

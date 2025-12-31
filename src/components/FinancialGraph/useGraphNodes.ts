@@ -2,31 +2,38 @@
 
 import { useMemo } from "react";
 import type { Node } from "reactflow";
-import type { Event, Entity, Edge, EventNodeData, EntityNodeData, AppContext } from "../../types";
+import type {
+  Event,
+  Node as GraphNode,
+  Edge,
+  EventNodeData,
+  NodeData,
+  AppContext,
+} from "../../types";
 import type { UserSelection } from "../../types";
 import { useGraphLayout } from "./useGraphLayout";
 
 export function useGraphNodes(
   events: Event[],
-  entities: Entity[],
+  entities: GraphNode[],
   edges: Edge[],
   visibleIds: Set<string>,
   selections: UserSelection[],
   context: AppContext
-): Node<EventNodeData | EntityNodeData>[] {
+): Node<EventNodeData | NodeData>[] {
   const positions = useGraphLayout(events, entities, edges);
 
   return useMemo(() => {
-    const allNodes: (Event | Entity)[] = [...events, ...entities];
+    const allNodes: (Event | GraphNode)[] = [...events, ...entities];
     const visible = allNodes.filter((e) => visibleIds.has(e.id));
 
     return visible.map((node) => {
       const isEntity = "name" in node;
 
       if (isEntity) {
-        const entity = node as Entity;
+        const entity = node as GraphNode;
         const other = selections.find(
-          (s) => s.selectedEntityId === entity.id && s.odxerId !== context.userId
+          (s) => s.selectedNodeId === entity.id && s.odxerId !== context.userId
         );
         return {
           id: entity.id,
@@ -34,10 +41,10 @@ export function useGraphNodes(
           position: positions.get(entity.id) ?? { x: 0, y: 0 },
           data: {
             ...entity,
-            isSelected: context.selectedEntityId === entity.id,
+            isSelected: context.selectedNodeId === entity.id,
             otherUserSelecting: other ? { userName: other.userName, color: other.color } : null,
-          } as EntityNodeData,
-          selected: context.selectedEntityId === entity.id,
+          } as NodeData,
+          selected: context.selectedNodeId === entity.id,
         };
       } else {
         const event = node as Event;

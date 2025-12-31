@@ -21,9 +21,10 @@ const hashToUUID = (hash1: number, hash2: number): string => {
   const hex2 = hash2.toString(16).padStart(8, "0");
 
   // Create UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-  return `${hex1.slice(0, 8)}-${hex1.slice(8, 12) || "0000"}-4${hex2.slice(0, 3)}-${
-    ((parseInt(hex2[3] || "0", 16) & 0x3) | 0x8).toString(16)
-  }${hex2.slice(4, 7)}-${hex2.slice(7, 19).padEnd(12, "0")}`;
+  return `${hex1.slice(0, 8)}-${hex1.slice(8, 12) || "0000"}-4${hex2.slice(0, 3)}-${(
+    (parseInt(hex2[3] || "0", 16) & 0x3) |
+    0x8
+  ).toString(16)}${hex2.slice(4, 7)}-${hex2.slice(7, 19).padEnd(12, "0")}`;
 };
 
 /**
@@ -38,13 +39,13 @@ export const generateEventId = (title: string, date: string): string => {
 };
 
 /**
- * Generate a deterministic UUID for an entity based on name
+ * Generate a deterministic UUID for a node based on name
  * Same name = same UUID = update instead of duplicate
  */
-export const generateEntityId = (name: string): string => {
+export const generateNodeId = (name: string): string => {
   const compositeKey = name.trim().toLowerCase();
   const hash1 = hashString(compositeKey);
-  const hash2 = hashString(compositeKey + "entity");
+  const hash2 = hashString(compositeKey + "node");
   return hashToUUID(hash1, hash2);
 };
 

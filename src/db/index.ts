@@ -3,7 +3,7 @@
 
 export * from "./client";
 export * from "./repos/events";
-export * from "./repos/entities";
+export * from "./repos/nodes";
 export * from "./repos/edges";
 export * from "./repos/history";
 export * from "./repos/users";

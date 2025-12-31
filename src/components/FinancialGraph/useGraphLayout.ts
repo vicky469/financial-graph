@@ -1,28 +1,28 @@
 // Graph layout calculation hook
 
 import { useMemo } from "react";
-import type { Event, Entity, Edge } from "../../types";
+import type { Event, Node as GraphNode, Edge } from "../../types";
 import { findNonOverlappingY } from "./graphUtils";
 
-export function useGraphLayout(events: Event[], entities: Entity[], edges: Edge[]) {
+export function useGraphLayout(events: Event[], nodes: GraphNode[], edges: Edge[]) {
   return useMemo(() => {
-    return calculatePositions([...events, ...entities], edges);
-  }, [events, entities, edges]);
+    return calculatePositions([...events, ...nodes], edges);
+  }, [events, nodes, edges]);
 }
 
 /**
  * Calculate node positions based on depth-first layout algorithm
  */
 function calculatePositions(
-  nodes: (Event | Entity)[],
+  nodes: (Event | GraphNode)[],
   edges: Edge[]
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
   const depths = new Map<string, number>();
 
-  // Separate events and entities
+  // Separate events and nodes
   const eventNodes = nodes.filter((n) => "date" in n) as Event[];
-  const entityNodes = nodes.filter((n) => "name" in n && !("date" in n)) as Entity[];
+  const entityNodes = nodes.filter((n) => "name" in n && !("date" in n)) as GraphNode[];
 
   // 1. Identify roots (nodes with 0 incoming edges) - events only
   const incomingEdgeCounts = new Map<string, number>();
@@ -84,7 +84,7 @@ function calculatePositions(
     });
   });
 
-  // 4. Position Entities to the LEFT of their first connected event with collision avoidance
+  // 4. Position Nodes to the LEFT of their first connected event with collision avoidance
   const entityOffset = -280;
   const nodeWidth = 200;
   const nodeHeight = 100;
