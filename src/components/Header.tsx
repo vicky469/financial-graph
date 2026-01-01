@@ -35,8 +35,16 @@ const Header = ({ context, isEditMode, onToggleEditMode }: HeaderProps) => {
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="M3 3v18h18" />
-            <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
+            {/* Network graph icon: nodes connected by lines */}
+            <circle cx="12" cy="5" r="2" />
+            <circle cx="5" cy="12" r="2" />
+            <circle cx="19" cy="12" r="2" />
+            <circle cx="12" cy="19" r="2" />
+            <line x1="12" y1="7" x2="12" y2="17" />
+            <line x1="12" y1="5" x2="5" y2="12" />
+            <line x1="12" y1="5" x2="19" y2="12" />
+            <line x1="5" y1="12" x2="12" y2="19" />
+            <line x1="19" y1="12" x2="12" y2="19" />
           </svg>
           <span>Financial Graph</span>
         </div>
@@ -55,7 +63,11 @@ const Header = ({ context, isEditMode, onToggleEditMode }: HeaderProps) => {
         {/* Edit Mode Toggle */}
         <div className="edit-toggle">
           <span>Edit Mode</span>
-          <Switch checked={isEditMode} onCheckedChange={onToggleEditMode} className="toggle-switch" />
+          <Switch
+            checked={isEditMode}
+            onCheckedChange={onToggleEditMode}
+            className="toggle-switch"
+          />
         </div>
 
         {/* History Dropdown */}
@@ -89,7 +101,10 @@ const Header = ({ context, isEditMode, onToggleEditMode }: HeaderProps) => {
             <DropdownMenuContent align="end" className="profile-dropdown">
               <div className="profile-header-item">
                 <Avatar className="h-10 w-10">
-                  <AvatarFallback style={{ backgroundColor: context.userColor }} className="avatar-large">
+                  <AvatarFallback
+                    style={{ backgroundColor: context.userColor }}
+                    className="avatar-large"
+                  >
                     {(context.userName || "U")[0]}
                   </AvatarFallback>
                 </Avatar>

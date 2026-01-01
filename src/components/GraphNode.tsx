@@ -3,14 +3,13 @@ import { Handle, Position, type NodeProps } from "reactflow";
 import type { NodeData } from "../types";
 
 const GraphNode = memo(({ data, selected }: NodeProps<NodeData>) => {
-  const { name, type, isSelected, otherUserSelecting } = data;
+  const { name, type, isSelected, isPublic, isSubsidiary } = data;
 
   return (
     <div
-      className={`entity-node ${isSelected || selected ? "selected" : ""}`}
-      style={{
-        boxShadow: otherUserSelecting ? `0 0 0 3px ${otherUserSelecting.color}` : undefined,
-      }}
+      className={`entity-node ${isSelected || selected ? "selected" : ""} ${
+        type === "Company" ? "type-company" : "type-brand"
+      }`}
     >
       {/* Handles for Vertical Flow (Causal) */}
       <Handle id="top" type="target" position={Position.Top} className="node-handle top" />
@@ -20,16 +19,20 @@ const GraphNode = memo(({ data, selected }: NodeProps<NodeData>) => {
       <Handle id="left" type="target" position={Position.Left} className="node-handle left" />
       <Handle id="right" type="source" position={Position.Right} className="node-handle right" />
 
+      {/* Status Badges */}
+      {type === "Company" && (
+        <div className="node-badges">
+          {isSubsidiary && <span className="badge subsidiary">SUB</span>}
+          <span className={`badge ${isPublic ? "public" : "private"}`}>
+            {isPublic ? "PUB" : "PVT"}
+          </span>
+        </div>
+      )}
+
       <div className="entity-content">
         <div className="entity-type">{type}</div>
         <div className="entity-name">{name}</div>
       </div>
-
-      {otherUserSelecting && (
-        <div className="user-indicator" style={{ backgroundColor: otherUserSelecting.color }}>
-          {otherUserSelecting.userName}
-        </div>
-      )}
     </div>
   );
 });

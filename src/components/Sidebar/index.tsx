@@ -22,10 +22,16 @@ const Sidebar = ({
   onSelectEdge,
   showNodes,
   onToggleNodes,
+  showBrands,
+  onToggleBrands,
 }: SidebarProps) => {
   const { nodes: entities, edges } = useGraph();
   const [showNodesSection, setShowNodesSection] = useState<"structure" | "brands">("structure");
   const [showForm, setShowForm] = useState<"node" | null>(null);
+
+  // Filter nodes by type
+  const companyNodes = entities.filter((node) => node.type === "Company");
+  const brandNodes = entities.filter((node) => node.type === "Brand");
 
   const selectedNode = entities.find((e) => e.id === context.selectedNodeId);
   const selectedEdge = edges.find((e) => e.id === context.selectedEdgeId);
@@ -65,7 +71,7 @@ const Sidebar = ({
                   <TabsContent value="structure" className="tabs-content">
                     {/* Structure Tools */}
                     <div className="section-header">
-                      <span className="node-count">{entities.length} nodes</span>
+                      <span className="node-count">{companyNodes.length} nodes</span>
                       <div style={{ display: "flex" }}>
                         <button
                           className={`eye-toggle ${showNodes ? "active" : ""}`}
@@ -83,14 +89,14 @@ const Sidebar = ({
                             e.stopPropagation();
                             setShowForm("node");
                           }}
-                          title="Add node"
+                          title="Add company"
                         >
                           +
                         </button>
                       </div>
                     </div>
                     <NodeTree
-                      nodes={entities}
+                      nodes={companyNodes}
                       edges={edges}
                       context={context}
                       onFocusNode={onFocusNode}
@@ -99,9 +105,38 @@ const Sidebar = ({
                   </TabsContent>
 
                   <TabsContent value="brands" className="tabs-content">
-                    <div className="empty-message">
-                      <p>Brand hierarchy visualization coming soon.</p>
+                    <div className="section-header">
+                      <span className="node-count">{brandNodes.length} brands</span>
+                      <div style={{ display: "flex" }}>
+                        <button
+                          className={`eye-toggle ${showBrands ? "active" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleBrands();
+                          }}
+                          title="Toggle brands on graph"
+                        >
+                          {showBrands ? "👁️" : "👁️‍🗨️"}
+                        </button>
+                        <button
+                          className="add-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowForm("node");
+                          }}
+                          title="Add brand"
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
+                    <NodeTree
+                      nodes={brandNodes}
+                      edges={edges}
+                      context={context}
+                      onFocusNode={onFocusNode}
+                      onSelectNode={onSelectNode}
+                    />
                   </TabsContent>
                 </Tabs>
               </AccordionContent>

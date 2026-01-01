@@ -30,24 +30,34 @@ export function useGraphEdges(
         const isSimultaneous = e.edgeType === "simultaneous";
         const isNodeEdge = nodeIds.has(e.sourceId); // Source is a node
 
-        // Node edges: horizontal dashed purple lines (completely separate)
+        // Node edges (Company/Brand connections)
         if (isNodeEdge) {
+          const targetNode = nodes.find((n) => n.id === e.targetId);
+          const isBrandConnection = targetNode?.type === "Brand";
+
           return {
             id: e.id,
             source: e.sourceId,
             target: e.targetId,
-            sourceHandle: "right",
-            targetHandle: "left",
-            type: "straight",
+            // Dagre layout (Top-Bottom) works best with Top/Bottom handles
+            sourceHandle: "bottom",
+            targetHandle: "top",
+            type: isBrandConnection ? "straight" : "smoothstep", // Straight for brands (dots), Orthogonal (smoothstep) for entities
             label: e.label,
             animated: false,
             style: {
-              strokeWidth: 1.5,
-              strokeDasharray: "6 4",
-              stroke: selectedEdgeId === e.id ? "#3b82f6" : "#a78bfa",
+              strokeWidth: isBrandConnection ? 1.5 : 2,
+              strokeDasharray: isBrandConnection ? "6 4" : "none", // Dashed for brands, Solid for companies
+              stroke:
+                selectedEdgeId === e.id ? "#3b82f6" : isBrandConnection ? "#a78bfa" : "#94a3b8",
             },
             labelStyle: { fill: "#94a3b8", fontSize: 11 },
-            markerEnd: undefined,
+            markerEnd: isBrandConnection
+              ? undefined
+              : {
+                  type: MarkerType.ArrowClosed,
+                  color: selectedEdgeId === e.id ? "#3b82f6" : "#94a3b8",
+                },
           };
         }
 

@@ -20,25 +20,67 @@ const FinancialGraph = ({
   onSelectEdge,
   onSelectNode,
   onFocusNode,
+  onViewNode,
   onClearFocus,
   showNodes = true,
+  showBrands = true,
 }: FinancialGraphProps) => {
   const { nodes: entities, edges, selections, isLoading } = useGraph();
 
   // Calculate visible node IDs based on focus and visibility toggles
   const visibleIds = useMemo(() => {
-    // If a node is focused, show that node and its descendants
+    let candidateIds = new Set<string>();
+
+    // 1. Determine candidate nodes (Focus Mode vs Global)
     if (context.focusedNodeId) {
-      return getEntityWithDescendants(context.focusedNodeId, entities, edges);
+      candidateIds = getEntityWithDescendants(context.focusedNodeId, entities, edges);
+    } else {
+      candidateIds = new Set(entities.map((e) => e.id));
     }
 
-    // No focus: show all nodes if visibility toggle is on
-    const entityIds = showNodes ? entities.map((e) => e.id) : [];
-    return new Set([...entityIds]);
-  }, [context.focusedNodeId, entities, edges, showNodes]);
+    // 2. Apply Visibility Filters
+    const finalVisibleSet = new Set<string>();
+    const selectedNode = entities.find((n) => n.id === context.selectedNodeId);
+
+    candidateIds.forEach((id) => {
+      const node = entities.find((e) => e.id === id);
+      if (!node) return;
+
+      // Filter Companies
+      if (node.type === "Company") {
+        if (showNodes) finalVisibleSet.add(id);
+      }
+      // Filter Brands
+      else if (node.type === "Brand") {
+        if (showBrands) {
+          // If a company is selected, show ONLY its brands
+          if (selectedNode?.type === "Company") {
+            if (node.properties?.entity_id === selectedNode.id) {
+              finalVisibleSet.add(id);
+            }
+          } else {
+            // Otherwise show all brands (that are candidates)
+            finalVisibleSet.add(id);
+          }
+        }
+      }
+      // Keep other node types (if any) visible by default or add logic
+      else {
+        finalVisibleSet.add(id);
+      }
+    });
+
+    return finalVisibleSet;
+  }, [context.focusedNodeId, context.selectedNodeId, entities, edges, showNodes, showBrands]);
 
   // Build nodes and edges using hooks
-  const flowNodes = useGraphNodes(entities, edges, visibleIds, selections as UserSelection[], context);
+  const flowNodes = useGraphNodes(
+    entities,
+    edges,
+    visibleIds,
+    selections as UserSelection[],
+    context
+  );
 
   const flowEdges = useGraphEdges(edges, entities, visibleIds, context.selectedEdgeId);
 
@@ -75,10 +117,10 @@ const FinancialGraph = ({
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node<NodeData>) => {
       if (node.type === "entityNode") {
-        onFocusNode(node.id);
+        onViewNode(node.id);
       }
     },
-    [onFocusNode]
+    [onViewNode]
   );
 
   const onPaneClick = useCallback(() => {

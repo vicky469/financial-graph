@@ -66,11 +66,11 @@ export const NodeTree = ({ nodes, edges, context, onFocusNode, onSelectNode }: N
   const renderNode = (treeNode: TreeNode) => {
     const hasChildren = treeNode.children.length > 0;
     const isExpanded = expanded.has(treeNode.node.id);
-    const isSelected = context.selectedNodeId === treeNode.node.id;
+    const isFocused = context.focusedNodeId === treeNode.node.id;
 
     return (
       <div key={treeNode.node.id} className="tree-node-wrapper">
-        <div className={`tree-row level-${treeNode.level} ${isSelected ? "selected" : ""}`}>
+        <div className={`tree-row level-${treeNode.level} ${isFocused ? "focused" : ""}`}>
           {hasChildren ? (
             <button
               className="expand-btn"
@@ -85,19 +85,21 @@ export const NodeTree = ({ nodes, edges, context, onFocusNode, onSelectNode }: N
             <span className="expand-spacer" />
           )}
           <div
-            className={`tree-content clickable`}
-            onClick={() => onSelectNode?.(treeNode.node.id)}
-          >
-            <span className="tree-icon">{treeNode.node.type === "Company" ? "🏢" : "👤"}</span>
-            <span className="tree-label">{treeNode.node.name}</span>
-          </div>
-          {!hasChildren && <span className="tree-spacer" />}
-          <div
             className={`tree-item ${context.focusedNodeId === treeNode.node.id ? "focused" : ""}`}
             onClick={() => onFocusNode(treeNode.node.id)}
           >
             <span className="tree-title">{treeNode.node.name}</span>
           </div>
+          <button
+            className="menu-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectNode?.(treeNode.node.id);
+            }}
+            title="Edit node"
+          >
+            ⋮
+          </button>
         </div>
         {hasChildren && isExpanded && (
           <div className="tree-children">

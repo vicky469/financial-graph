@@ -4,6 +4,17 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { createNode, updateNode, deleteNode } from "../../db";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import type { Node } from "../../types";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Trash2, Plus, X } from "lucide-react";
 
 interface NodePanelProps {
   node?: Node;
@@ -141,120 +152,134 @@ export function NodePanel({ node, onCancel, mode = "edit" }: NodePanelProps) {
   };
 
   return (
-    <section ref={panelRef} className="sidebar-section event-details">
-      <header className="panel-header">
-        <h2>{mode === "add" ? "Add Node" : "Edit Node"}</h2>
-        {mode === "edit" && node && (
-          <button
-            className="btn-icon danger"
-            onClick={() => deleteNode(node.id, node)}
-            title="Delete Node"
-          >
-            🗑️
-          </button>
-        )}
-      </header>
-
-      <div className="panel-content">
-        <div className="form-group">
-          <label>Name</label>
-          <input
-            type="text"
-            value={localNode.name}
-            onChange={(e) => handleChange({ name: e.target.value })}
-            placeholder="Node Name"
-            autoFocus
-          />
-        </div>
-
-        <div className="form-group">
-          <label>URL</label>
-          <input
-            type="text"
-            value={localNode.url || ""}
-            onChange={(e) => handleChange({ url: e.target.value })}
-            placeholder="https://example.com"
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Type</label>
-          <select value={localNode.type} onChange={(e) => handleChange({ type: e.target.value })}>
-            <option value="Company">Company</option>
-            <option value="Person">Person</option>
-            <option value="Instrument">Instrument</option>
-          </select>
-        </div>
-
-        <div className="properties-section">
-          <div className="section-header">
-            <h3>Properties</h3>
-            <button className="btn-icon" onClick={addProperty} title="Add Property">
-              +
-            </button>
+    <section ref={panelRef} className="node-panel">
+      <ScrollArea className="node-panel-scroll">
+        <div className="node-panel-content">
+          {/* Header */}
+          <div className="node-panel-header">
+            <h2 className="node-panel-title">{mode === "add" ? "Add Node" : "Edit Node"}</h2>
+            {mode === "edit" && node && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => deleteNode(node.id, node)}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
-          <div className="properties-list">
-            {Object.entries(localNode.properties || {}).map(([k, v]) => (
-              <div key={k} className="prop-row">
-                <input
-                  type="text"
-                  value={k}
-                  onChange={(e) => {
-                    const newProps = { ...localNode.properties };
-                    const oldKey = k;
-                    const newKey = e.target.value;
-                    if (oldKey !== newKey) {
-                      newProps[newKey] = newProps[oldKey];
-                      delete newProps[oldKey];
-                      setLocalNode((prev) => ({ ...prev, properties: newProps }));
-                    }
-                  }}
-                  className="input prop-key-input"
-                />
-                <input
-                  type="text"
-                  value={v as string}
-                  onChange={(e) => handlePropertyChange(k, e.target.value)}
-                  className="input prop-value-input"
-                />
-                <button className="btn-icon small prop-delete" onClick={() => removeProperty(k)}>
-                  ✕
-                </button>
+
+          {/* Form Fields */}
+          <div className="node-panel-form">
+            <div className="form-field">
+              <label className="form-label">Name</label>
+              <Input
+                value={localNode.name}
+                onChange={(e) => handleChange({ name: e.target.value })}
+                placeholder="Node Name"
+                autoFocus
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">URL</label>
+              <Input
+                value={localNode.url || ""}
+                onChange={(e) => handleChange({ url: e.target.value })}
+                placeholder="https://example.com"
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Type</label>
+              <Select
+                value={localNode.type}
+                onValueChange={(value) => handleChange({ type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Company">Company</SelectItem>
+                  <SelectItem value="Person">Person</SelectItem>
+                  <SelectItem value="Instrument">Instrument</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Properties Section */}
+            <div className="form-field">
+              <div className="form-label-row">
+                <label className="form-label">Properties</label>
+                <Button variant="ghost" size="icon" onClick={addProperty} className="h-6 w-6">
+                  <Plus className="h-3 w-3" />
+                </Button>
               </div>
-            ))}
+              <div className="properties-list">
+                {Object.entries(localNode.properties || {}).map(([k, v]) => (
+                  <div key={k} className="prop-row">
+                    <Input
+                      value={k}
+                      onChange={(e) => {
+                        const newProps = { ...localNode.properties };
+                        const oldKey = k;
+                        const newKey = e.target.value;
+                        if (oldKey !== newKey) {
+                          newProps[newKey] = newProps[oldKey];
+                          delete newProps[oldKey];
+                          setLocalNode((prev) => ({ ...prev, properties: newProps }));
+                        }
+                      }}
+                      className="h-8 text-xs"
+                      placeholder="Key"
+                    />
+                    <Input
+                      value={v as string}
+                      onChange={(e) => handlePropertyChange(k, e.target.value)}
+                      className="h-8 text-xs"
+                      placeholder="Value"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeProperty(k)}
+                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="add-prop-row">
+                <Input
+                  placeholder="Key"
+                  value={newPropKey}
+                  onChange={(e) => setNewPropKey(e.target.value)}
+                  className="h-8 text-xs"
+                />
+                <Input
+                  placeholder="Value"
+                  value={newPropValue}
+                  onChange={(e) => setNewPropValue(e.target.value)}
+                  className="h-8 text-xs"
+                />
+                <Button variant="secondary" size="sm" onClick={handleAddProperty} className="h-8">
+                  Add
+                </Button>
+              </div>
+            </div>
           </div>
-          <div className="add-prop-row">
-            <input
-              placeholder="Key"
-              value={newPropKey}
-              onChange={(e) => setNewPropKey(e.target.value)}
-              className="input"
-            />
-            <input
-              placeholder="Value"
-              value={newPropValue}
-              onChange={(e) => setNewPropValue(e.target.value)}
-              className="input"
-            />
-            <button className="btn btn-secondary small" onClick={handleAddProperty}>
-              Add
-            </button>
-          </div>
-        </div>
 
-        <div className="button-group action-buttons">
-          <button
-            type="button"
-            onClick={handleSaveAndClose}
-            className="btn btn-primary btn-compact"
-          >
-            Save
-          </button>
-          <button type="button" onClick={handleCancel} className="btn btn-secondary btn-compact">
-            Cancel
-          </button>
+          {/* Action Buttons */}
+          <div className="node-panel-actions">
+            <Button onClick={handleSaveAndClose}>Save</Button>
+            <Button variant="outline" onClick={handleCancel}>
+              Cancel
+            </Button>
+          </div>
         </div>
-      </div>
+      </ScrollArea>
     </section>
   );
 }

@@ -43,6 +43,7 @@ export const appMachine = createMachine({
     selectedNodeId: null,
     selectedEdgeId: null,
     focusedNodeId: null,
+    viewingNodeId: null,
     userId: persistentUser.userId,
     userName: persistentUser.userName,
     userColor: persistentUser.userColor,
@@ -66,8 +67,19 @@ export const appMachine = createMachine({
           target: "filtering",
           actions: assign({
             focusedNodeId: ({ event }) => event.nodeId,
+            viewingNodeId: ({ event }) => event.nodeId,
             selectedNodeId: null,
             selectedEdgeId: null,
+          }),
+        },
+        VIEW_NODE: {
+          actions: assign({
+            viewingNodeId: ({ event }) => event.nodeId,
+          }),
+        },
+        CLEAR_VIEW: {
+          actions: assign({
+            viewingNodeId: null,
           }),
         },
       },
@@ -78,6 +90,7 @@ export const appMachine = createMachine({
           target: "idle",
           actions: assign({
             focusedNodeId: null,
+            viewingNodeId: null,
             selectedNodeId: null,
             selectedEdgeId: null,
           }),
@@ -85,7 +98,18 @@ export const appMachine = createMachine({
         FOCUS_NODE: {
           actions: assign({
             focusedNodeId: ({ event }) => event.nodeId,
+            viewingNodeId: ({ event }) => event.nodeId,
             selectedNodeId: null,
+          }),
+        },
+        VIEW_NODE: {
+          actions: assign({
+            viewingNodeId: ({ event }) => event.nodeId,
+          }),
+        },
+        CLEAR_VIEW: {
+          actions: assign({
+            viewingNodeId: null,
           }),
         },
         SELECT_NODE: {
