@@ -1,14 +1,12 @@
 // Node editing panel component
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { createNode, updateNode, deleteNode, createEdge, deleteEdge } from "../../db";
+import { createNode, updateNode, deleteNode } from "../../db";
 import { useClickOutside } from "../../hooks/useClickOutside";
-import type { Node, Event, Edge } from "../../types";
+import type { Node } from "../../types";
 
 interface NodePanelProps {
   node?: Node;
-  events: Event[];
-  edges: Edge[];
   onCancel: () => void;
   mode?: "add" | "edit";
 }
@@ -19,7 +17,7 @@ const emptyNode: Partial<Node> = {
   properties: {},
 };
 
-export function NodePanel({ node, events, edges, onCancel, mode = "edit" }: NodePanelProps) {
+export function NodePanel({ node, onCancel, mode = "edit" }: NodePanelProps) {
   const initialNode = node || emptyNode;
   const [localNode, setLocalNode] = useState<Partial<Node>>(initialNode);
   const [newPropKey, setNewPropKey] = useState("");
@@ -27,11 +25,6 @@ export function NodePanel({ node, events, edges, onCancel, mode = "edit" }: Node
   const previousNodeRef = useRef(initialNode);
   const pendingChangesRef = useRef<Partial<Node>>({});
   const panelRef = useRef<HTMLElement>(null);
-
-  const connectedEdges = node ? edges.filter((e) => e.sourceId === node.id) : [];
-  const unconnectedEvents = node
-    ? events.filter((evt) => !edges.some((e) => e.sourceId === node.id && e.targetId === evt.id))
-    : events;
 
   const savePendingChanges = useCallback(async () => {
     try {
@@ -147,17 +140,6 @@ export function NodePanel({ node, events, edges, onCancel, mode = "edit" }: Node
     onCancel();
   };
 
-  const handleLinkSelected = () => {
-    if (!node) return; // Can't link in add mode
-    const checkboxes = document.querySelectorAll(
-      ".link-event-checkbox:checked"
-    ) as NodeListOf<HTMLInputElement>;
-    checkboxes.forEach((cb) => {
-      createEdge(node.id, cb.value, "", "causal");
-      cb.checked = false;
-    });
-  };
-
   return (
     <section ref={panelRef} className="sidebar-section event-details">
       <header className="panel-header">
@@ -259,48 +241,6 @@ export function NodePanel({ node, events, edges, onCancel, mode = "edit" }: Node
             </button>
           </div>
         </div>
-
-        {/* Link to Events Section - only in edit mode */}
-        {mode === "edit" && (
-          <div className="link-section">
-            <label className="field-label">Link to Events</label>
-            <div className="link-events-list">
-              {unconnectedEvents.map((evt) => (
-                <label key={evt.id} className="link-event-item">
-                  <input type="checkbox" className="link-event-checkbox" value={evt.id} />
-                  <span>{evt.title}</span>
-                </label>
-              ))}
-            </div>
-            <button className="btn btn-secondary small" onClick={handleLinkSelected}>
-              Link Selected
-            </button>
-
-            {/* Show existing connections */}
-            {connectedEdges.length > 0 && (
-              <div className="connected-list">
-                <span className="connected-label">Connected to:</span>
-                <ul className="connected-items">
-                  {connectedEdges.map((edge) => {
-                    const targetEvent = events.find((ev) => ev.id === edge.targetId);
-                    return targetEvent ? (
-                      <li key={edge.id} className="connected-item">
-                        <span>{targetEvent.title}</span>
-                        <button
-                          className="btn-icon small"
-                          onClick={() => deleteEdge(edge.id, edge)}
-                          title="Remove connection"
-                        >
-                          ✕
-                        </button>
-                      </li>
-                    ) : null;
-                  })}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="button-group action-buttons">
           <button

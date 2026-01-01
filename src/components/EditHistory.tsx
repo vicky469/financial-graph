@@ -8,9 +8,10 @@ import { EDIT_HISTORY_LIMIT } from "../constants";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  embedded?: boolean;
 }
 
-const EditHistory = ({ isOpen, onClose }: Props) => {
+const EditHistory = ({ isOpen, onClose, embedded = false }: Props) => {
   const { history, isLoading } = useEditHistory(EDIT_HISTORY_LIMIT);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -24,12 +25,13 @@ const EditHistory = ({ isOpen, onClose }: Props) => {
   }, [history]);
 
   // Close panel when clicking outside
-  useClickOutside(panelRef, onClose, isOpen);
+  // Close panel when clicking outside (only if not embedded, as parent handles it)
+  useClickOutside(panelRef, onClose, isOpen && !embedded);
 
   if (!isOpen) return null;
 
   return (
-    <div className="history-panel" ref={panelRef}>
+    <div className={embedded ? "history-list-embedded" : "history-panel"} ref={panelRef}>
       <header className="history-header">
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <h2>Edit History</h2>

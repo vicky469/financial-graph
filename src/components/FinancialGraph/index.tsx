@@ -6,86 +6,39 @@ import { BackgroundVariant, useNodesState, useEdgesState } from "reactflow";
 import { type Connection } from "reactflow";
 import "reactflow/dist/style.css";
 
-import EventNode from "../EventNode";
 import GraphNode from "../GraphNode";
 import { useGraph, createEdge, deleteEdge } from "../../db";
-import type { EventNodeData, NodeData, UserSelection, FinancialGraphProps } from "../../types";
+import type { NodeData, UserSelection, FinancialGraphProps } from "../../types";
 import { useGraphNodes } from "./useGraphNodes";
 import { useGraphEdges } from "./useGraphEdges";
 import { getEntityWithDescendants } from "./graphUtils";
 
-const nodeTypes = { eventNode: EventNode, entityNode: GraphNode };
+const nodeTypes = { entityNode: GraphNode };
 
 const FinancialGraph = ({
   context,
-  onSelectEvent,
   onSelectEdge,
-  onFocusTrigger,
+  onSelectNode,
   onFocusNode,
   onClearFocus,
   showNodes = true,
-  showTriggersOnGraph = true,
-  showNonTriggersOnGraph = true,
 }: FinancialGraphProps) => {
-  const { events, nodes: entities, edges, selections, isLoading } = useGraph();
+  const { nodes: entities, edges, selections, isLoading } = useGraph();
 
   // Calculate visible node IDs based on focus and visibility toggles
   const visibleIds = useMemo(() => {
-    // If a trigger is focused, show ONLY that trigger
-    if (context.focusedTriggerId) {
-      return new Set([context.focusedTriggerId]);
-    }
-
-    // If an entity is focused, show that entity, descendants, and connected events
+    // If a node is focused, show that node and its descendants
     if (context.focusedNodeId) {
-      const entityIds = getEntityWithDescendants(context.focusedNodeId, entities, edges);
-      // Find events connected to focused entity
-      const connectedEventIds = edges
-        .filter((edge) => edge.sourceId === context.focusedNodeId)
-        .map((edge) => edge.targetId)
-        .filter((id) => {
-          const event = events.find((e) => e.id === id);
-          if (!event) return false;
-          // Only include if the event's toggle is on
-          if (event.isTrigger && !showTriggersOnGraph) return false;
-          if (!event.isTrigger && !showNonTriggersOnGraph) return false;
-          return true;
-        });
-
-      return new Set([...entityIds, ...connectedEventIds]);
+      return getEntityWithDescendants(context.focusedNodeId, entities, edges);
     }
 
-    // No focus: show all visible nodes based on toggles
-    const visibleEvents = events.filter((e) => {
-      if (e.isTrigger && !showTriggersOnGraph) return false;
-      if (!e.isTrigger && !showNonTriggersOnGraph) return false;
-      return true;
-    });
-
-    const eventIds = visibleEvents.map((e) => e.id);
+    // No focus: show all nodes if visibility toggle is on
     const entityIds = showNodes ? entities.map((e) => e.id) : [];
-
-    return new Set([...eventIds, ...entityIds]);
-  }, [
-    context.focusedTriggerId,
-    context.focusedNodeId,
-    events,
-    entities,
-    edges,
-    showNodes,
-    showTriggersOnGraph,
-    showNonTriggersOnGraph,
-  ]);
+    return new Set([...entityIds]);
+  }, [context.focusedNodeId, entities, edges, showNodes]);
 
   // Build nodes and edges using hooks
-  const flowNodes = useGraphNodes(
-    events,
-    entities,
-    edges,
-    visibleIds,
-    selections as UserSelection[],
-    context
-  );
+  const flowNodes = useGraphNodes(entities, edges, visibleIds, selections as UserSelection[], context);
 
   const flowEdges = useGraphEdges(edges, entities, visibleIds, context.selectedEdgeId);
 
@@ -120,21 +73,21 @@ const FinancialGraph = ({
   }, []);
 
   const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node<EventNodeData | NodeData>) => {
+    (_: React.MouseEvent, node: Node<NodeData>) => {
       if (node.type === "entityNode") {
         onFocusNode(node.id);
-      } else {
-        const data = node.data as EventNodeData;
-        data.isTrigger ? onFocusTrigger(node.id) : onSelectEvent(node.id);
       }
     },
-    [onFocusTrigger, onSelectEvent, onFocusNode]
+    [onFocusNode]
   );
 
   const onPaneClick = useCallback(() => {
-    context.focusedTriggerId ? onClearFocus() : onSelectEvent(null);
+    if (context.focusedNodeId) {
+      onClearFocus();
+    }
+    onSelectNode?.(null);
     onSelectEdge?.(null);
-  }, [context.focusedTriggerId, onClearFocus, onSelectEvent, onSelectEdge]);
+  }, [context.focusedNodeId, onClearFocus, onSelectNode, onSelectEdge]);
 
   const onEdgeClick = useCallback(
     (_: React.MouseEvent, edge: FlowEdge) => {

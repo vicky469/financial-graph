@@ -8,7 +8,7 @@ let userDbId: string | null = null;
 export const updateUserSelection = (
   odxerId: string,
   userName: string,
-  selectedEventId: string | null,
+  selectedNodeId: string | null | undefined,
   color: string
 ) => {
   // Generate a UUID for this user session if we don't have one
@@ -20,7 +20,7 @@ export const updateUserSelection = (
     tx.userSelections[userDbId].update({
       odxerId,
       userName,
-      selectedEventId: selectedEventId ?? undefined,
+      selectedNodeId: selectedNodeId ?? undefined,
       color,
       lastUpdated: Date.now(),
     })

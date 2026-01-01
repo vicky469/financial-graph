@@ -40,10 +40,8 @@ export const appMachine = createMachine({
   id: "app",
   initial: "idle",
   context: {
-    selectedEventId: null,
     selectedNodeId: null,
     selectedEdgeId: null,
-    focusedTriggerId: null,
     focusedNodeId: null,
     userId: persistentUser.userId,
     userName: persistentUser.userName,
@@ -52,44 +50,23 @@ export const appMachine = createMachine({
   states: {
     idle: {
       on: {
-        SELECT_EVENT: {
-          actions: assign({
-            selectedEventId: ({ event }) => event.eventId,
-            selectedNodeId: null,
-            selectedEdgeId: null, // Clear edge selection
-          }),
-        },
         SELECT_NODE: {
           actions: assign({
             selectedNodeId: ({ event }) => event.nodeId,
-            selectedEventId: null,
             selectedEdgeId: null,
           }),
         },
         SELECT_EDGE: {
           actions: assign({
             selectedEdgeId: ({ event }) => event.edgeId,
-            selectedEventId: null, // Clear event selection
             selectedNodeId: null,
-          }),
-        },
-        FOCUS_TRIGGER: {
-          target: "filtering",
-          actions: assign({
-            focusedTriggerId: ({ event }) => event.triggerId,
-            focusedNodeId: null,
-            selectedEventId: ({ event }) => event.triggerId,
-            selectedNodeId: null,
-            selectedEdgeId: null,
           }),
         },
         FOCUS_NODE: {
           target: "filtering",
           actions: assign({
             focusedNodeId: ({ event }) => event.nodeId,
-            focusedTriggerId: null,
             selectedNodeId: null,
-            selectedEventId: null,
             selectedEdgeId: null,
           }),
         },
@@ -100,47 +77,26 @@ export const appMachine = createMachine({
         CLEAR_FOCUS: {
           target: "idle",
           actions: assign({
-            focusedTriggerId: null,
             focusedNodeId: null,
-            selectedEventId: null,
             selectedNodeId: null,
             selectedEdgeId: null,
-          }),
-        },
-        FOCUS_TRIGGER: {
-          actions: assign({
-            focusedTriggerId: ({ event }) => event.triggerId,
-            focusedNodeId: null,
-            selectedEventId: ({ event }) => event.triggerId,
-            selectedNodeId: null,
           }),
         },
         FOCUS_NODE: {
           actions: assign({
             focusedNodeId: ({ event }) => event.nodeId,
-            focusedTriggerId: null,
             selectedNodeId: null,
-            selectedEventId: null,
-          }),
-        },
-        SELECT_EVENT: {
-          actions: assign({
-            selectedEventId: ({ event }) => event.eventId,
-            selectedNodeId: null,
-            selectedEdgeId: null,
           }),
         },
         SELECT_NODE: {
           actions: assign({
             selectedNodeId: ({ event }) => event.nodeId,
-            selectedEventId: null,
             selectedEdgeId: null,
           }),
         },
         SELECT_EDGE: {
           actions: assign({
             selectedEdgeId: ({ event }) => event.edgeId,
-            selectedEventId: null,
             selectedNodeId: null,
           }),
         },

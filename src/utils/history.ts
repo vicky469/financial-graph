@@ -3,25 +3,19 @@
 import type { EditHistoryEntry } from "../types";
 
 export const actionLabels: Record<EditHistoryEntry["action"], string> = {
-  create_event: "Created event",
-  update_event: "Updated event",
-  delete_event: "Deleted event",
-  create_entity: "Created entity",
-  update_entity: "Updated entity",
-  delete_entity: "Deleted entity",
-  create_edge: "Linked events",
+  create_node: "Created node",
+  update_node: "Updated node",
+  delete_node: "Deleted node",
+  create_edge: "Linked nodes",
   update_edge: "Updated link",
   delete_edge: "Removed link",
   bulk_import: "Imported Sample Data",
 };
 
 export const actionIcons: Record<EditHistoryEntry["action"], string> = {
-  create_event: "➕",
-  update_event: "✏️",
-  delete_event: "🗑️",
-  create_entity: "🏢",
-  update_entity: "📝",
-  delete_entity: "🗑️",
+  create_node: "🏢",
+  update_node: "📝",
+  delete_node: "🗑️",
   create_edge: "🔗",
   update_edge: "🔧",
   delete_edge: "✂️",

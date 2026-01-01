@@ -5,14 +5,6 @@ import { i } from "@instantdb/react";
 
 const schema = i.schema({
   entities: {
-    events: i.entity({
-      title: i.string(),
-      description: i.string(),
-      isTrigger: i.boolean(),
-      date: i.string(),
-      createdAt: i.number(),
-      createdBy: i.string(),
-    }),
     nodes: i.entity({
       name: i.string(),
       type: i.string(), // "Bank", "Sector", "Regulator"
@@ -39,7 +31,7 @@ const schema = i.schema({
     userSelections: i.entity({
       odxerId: i.string(),
       userName: i.string(),
-      selectedEventId: i.string().optional(),
+      selectedNodeId: i.string().optional(),
       color: i.string(),
       lastUpdated: i.number(),
     }),

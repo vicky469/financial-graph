@@ -20,15 +20,6 @@ export const undoEdit = async (entry: EditHistoryEntry) => {
   let undoOps: any[] = [];
 
   switch (entry.action) {
-    case "create_event":
-      undoOps = [tx.events[entry.targetId].delete()];
-      break;
-    case "update_event":
-      if (entry.previousData) undoOps = [tx.events[entry.targetId].update(entry.previousData)];
-      break;
-    case "delete_event":
-      if (entry.previousData) undoOps = [tx.events[entry.targetId].update(entry.previousData)];
-      break;
     case "create_node":
       undoOps = [tx.nodes[entry.targetId].delete()];
       break;
@@ -46,9 +37,8 @@ export const undoEdit = async (entry: EditHistoryEntry) => {
       break;
     case "bulk_import":
       if (entry.newData) {
-        const { eventIds = [], entityIds = [], edgeIds = [] } = entry.newData as any;
+        const { entityIds = [], edgeIds = [] } = entry.newData as any;
         undoOps = [
-          ...eventIds.map((id: string) => tx.events[id].delete()),
           ...entityIds.map((id: string) => tx.nodes[id].delete()),
           ...edgeIds.map((id: string) => tx.edges[id].delete()),
         ];

@@ -2,7 +2,6 @@
 // All database operations can be imported from '@/db'
 
 export * from "./client";
-export * from "./repos/events";
 export * from "./repos/nodes";
 export * from "./repos/edges";
 export * from "./repos/history";

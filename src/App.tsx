@@ -2,16 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { useMachine } from "@xstate/react";
 import FinancialGraph from "./components/FinancialGraph";
 import Sidebar from "./components/Sidebar";
-import TopRightPanel from "./components/TopRightPanel";
+import Header from "./components/Header";
 import { appMachine } from "./machines/appMachine";
 import { updateUserSelection, setCurrentUser } from "./db";
 import "./App.css";
 
 function App() {
   const [state, send] = useMachine(appMachine);
+  const [editMode, setEditMode] = useState(true);
   const [showNodes, setShowNodes] = useState(true);
-  const [showTriggersOnGraph, setShowTriggersOnGraph] = useState(true);
-  const [showNonTriggersOnGraph, setShowNonTriggersOnGraph] = useState(true);
   const ctx = state.context;
 
   // Set current user for edit tracking
@@ -21,17 +20,9 @@ function App() {
 
   // Sync selection to InstantDB for collaboration
   useEffect(() => {
-    updateUserSelection(ctx.userId, ctx.userName, ctx.selectedEventId, ctx.userColor);
-  }, [ctx.userId, ctx.userName, ctx.selectedEventId, ctx.userColor]);
+    updateUserSelection(ctx.userId, ctx.userName, ctx.selectedNodeId, ctx.userColor);
+  }, [ctx.userId, ctx.userName, ctx.selectedNodeId, ctx.userColor]);
 
-  const handleSelect = useCallback(
-    (id: string | null) => send({ type: "SELECT_EVENT", eventId: id }),
-    [send]
-  );
-  const handleFocus = useCallback(
-    (id: string) => send({ type: "FOCUS_TRIGGER", triggerId: id }),
-    [send]
-  );
   const handleFocusNode = useCallback(
     (id: string) => send({ type: "FOCUS_NODE", nodeId: id }),
     [send]
@@ -45,36 +36,27 @@ function App() {
 
   return (
     <div className="app">
-      <Sidebar
-        context={ctx}
-        onFocusTrigger={handleFocus}
-        onFocusNode={handleFocusNode}
-        onSelectEvent={handleSelect}
-        onSelectNode={handleSelectNode}
-        onSelectEdge={(id: string | null) => send({ type: "SELECT_EDGE", edgeId: id })}
-        showNodes={showNodes}
-        onToggleNodes={() => setShowNodes(!showNodes)}
-        showTriggersOnGraph={showTriggersOnGraph}
-        setShowTriggersOnGraph={setShowTriggersOnGraph}
-        showNonTriggersOnGraph={showNonTriggersOnGraph}
-        setShowNonTriggersOnGraph={setShowNonTriggersOnGraph}
-      />
-      <main className="main-content">
-        <TopRightPanel context={ctx} />
-
-        <FinancialGraph
+      <Header context={ctx} isEditMode={editMode} onToggleEditMode={() => setEditMode(!editMode)} />
+      <div className="app-body">
+        <Sidebar
           context={ctx}
-          onSelectEvent={handleSelect}
-          onSelectEdge={(id: string | null) => send({ type: "SELECT_EDGE", edgeId: id })}
-          onSelectNode={handleSelectNode}
-          onFocusTrigger={handleFocus}
           onFocusNode={handleFocusNode}
-          onClearFocus={handleClear}
+          onSelectNode={handleSelectNode}
+          onSelectEdge={(id: string | null) => send({ type: "SELECT_EDGE", edgeId: id })}
           showNodes={showNodes}
-          showTriggersOnGraph={showTriggersOnGraph}
-          showNonTriggersOnGraph={showNonTriggersOnGraph}
+          onToggleNodes={() => setShowNodes(!showNodes)}
         />
-      </main>
+        <main className="main-content">
+          <FinancialGraph
+            context={ctx}
+            onSelectEdge={(id: string | null) => send({ type: "SELECT_EDGE", edgeId: id })}
+            onSelectNode={handleSelectNode}
+            onFocusNode={handleFocusNode}
+            onClearFocus={handleClear}
+            showNodes={showNodes}
+          />
+        </main>
+      </div>
     </div>
   );
 }

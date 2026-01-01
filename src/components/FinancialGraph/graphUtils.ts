@@ -1,6 +1,6 @@
 // Graph utility functions for FinancialGraph component
 
-import type { Edge, Entity } from "../../types";
+import type { Edge, Node } from "../../types";
 
 /**
  * Get all downstream node IDs from a trigger using BFS traversal
@@ -27,7 +27,7 @@ export function getConnectedIds(triggerId: string, edges: Edge[]): Set<string> {
  */
 export function getEntityWithDescendants(
   entityId: string,
-  entities: Entity[],
+  entities: Node[],
   edges: Edge[]
 ): Set<string> {
   const entityIds = new Set(entities.map((e) => e.id));
