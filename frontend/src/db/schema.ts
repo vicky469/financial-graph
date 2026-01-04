@@ -7,15 +7,21 @@ const schema = i.schema({
   entities: {
     nodes: i.entity({
       name: i.string(),
-      type: i.string(), // "Bank", "Sector", "Regulator"
-      properties: i.json(), // Record<string, string>
+      type: i.string(), // "Company", "Brand"
+      properties: i.json(), // Record<string, PropertyValue> - flexible key-value store
       jurisdiction: i.string().optional(),
       cik: i.string().optional(),
+      companyGroupId: i.string().optional(), // Company only - ultimate parent cluster
+      sector: i.number().optional(), // Company only - GICS sector code
+      segments: i.json().optional(), // Company only - string[] of business segments
       validFrom: i.number().optional(), // Incorporation/Start Date
       validTo: i.number().optional(), // Dissolution/End Date
       url: i.string().optional(),
+      metadata: i.json().optional(), // NodeMetadata - data quality & provenance
       createdAt: i.number(),
       createdBy: i.string(),
+      updatedAt: i.number(),
+      updatedBy: i.string(),
     }),
     edges: i.entity({
       sourceId: i.string(),
@@ -27,6 +33,8 @@ const schema = i.schema({
       validTo: i.number().optional(), // Timestamp
       createdAt: i.number(),
       createdBy: i.string(),
+      updatedAt: i.number(),
+      updatedBy: i.string(),
     }),
     userSelections: i.entity({
       odxerId: i.string(),

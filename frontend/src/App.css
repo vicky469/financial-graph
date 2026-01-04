@@ -2065,6 +2065,44 @@ body {
   color: white !important;
 }
 
+/* Base Properties Section */
+.base-properties-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.base-prop-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.base-prop-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.base-prop-row input,
+.base-prop-row button {
+  height: 32px !important;
+  font-size: 0.8125rem !important;
+}
+
+/* Custom Properties visual distinction */
+.properties-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* Action buttons at bottom */
 .node-panel-actions button {
   font-size: 0.8125rem !important;

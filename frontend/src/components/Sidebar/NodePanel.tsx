@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createNode, updateNode, deleteNode } from "../../db";
 import { useClickOutside } from "../../hooks/useClickOutside";
-import type { Node } from "../../types";
+import type { Node, PropertyValue } from "../../types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +14,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, X } from "lucide-react";
+import { GICS } from "@/types/sec";
 
 interface NodePanelProps {
   node?: Node;
@@ -41,10 +43,13 @@ export function NodePanel({ node, onCancel, mode = "edit" }: NodePanelProps) {
     try {
       if (localNode.name && localNode.type) {
         if (mode === "add") {
+          const now = Date.now();
           await createNode({
             name: localNode.name,
             type: localNode.type,
             properties: localNode.properties || {},
+            updatedAt: now,
+            updatedBy: "user", // This should ideally come from context
           });
         } else if (node) {
           // Calculate changes
@@ -107,7 +112,7 @@ export function NodePanel({ node, onCancel, mode = "edit" }: NodePanelProps) {
     }
   };
 
-  const handlePropertyChange = (key: string, value: string) => {
+  const handlePropertyChange = (key: string, value: PropertyValue) => {
     setLocalNode((prev) => ({
       ...prev,
       properties: {
@@ -191,22 +196,117 @@ export function NodePanel({ node, onCancel, mode = "edit" }: NodePanelProps) {
               />
             </div>
 
-            <div className="form-field">
-              <label className="form-label">Type</label>
-              <Select
-                value={localNode.type}
-                onValueChange={(value) => handleChange({ type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Company">Company</SelectItem>
-                  <SelectItem value="Person">Person</SelectItem>
-                  <SelectItem value="Instrument">Instrument</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Company-specific direct fields */}
+            {localNode.type === "Company" && (
+              <>
+                <div className="form-field">
+                  <label className="form-label">CIK</label>
+                  <Input
+                    value={localNode.cik || ""}
+                    onChange={(e) => handleChange({ cik: e.target.value })}
+                    placeholder="Central Index Key"
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label className="form-label">Jurisdiction</label>
+                  <Input
+                    value={localNode.jurisdiction || ""}
+                    onChange={(e) => handleChange({ jurisdiction: e.target.value })}
+                    placeholder="e.g., Delaware, US-DE"
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label className="form-label">Company Group ID</label>
+                  <Input
+                    value={localNode.companyGroupId || ""}
+                    onChange={(e) => handleChange({ companyGroupId: e.target.value })}
+                    placeholder="UUID of ultimate parent"
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label className="form-label">Primary Sector (GICS)</label>
+                  <Select
+                    value={localNode.sector?.toString() || ""}
+                    onValueChange={(value) =>
+                      handleChange({ sector: value ? (Number(value) as GICS) : null })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a sector" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(GICS).map(([key, value]) => (
+                        <SelectItem key={value} value={value.toString()}>
+                          {key.replace(/_/g, " ")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="form-field">
+                  <label className="form-label">Business Segments</label>
+                  <Input
+                    value={localNode.segments?.join(", ") || ""}
+                    onChange={(e) =>
+                      handleChange({
+                        segments: e.target.value
+                          ? e.target.value.split(",").map((s) => s.trim())
+                          : [],
+                      })
+                    }
+                    placeholder="e.g., Retail, Cloud, Gaming"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Brand-specific fields */}
+            {localNode.type === "Brand" && (
+              <>
+                <div className="form-field">
+                  <label className="form-label">Brand Type</label>
+                  <Select
+                    value={(localNode.properties?.brand_type as string) || ""}
+                    onValueChange={(value) =>
+                      handlePropertyChange("brand_type", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select brand type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="product">Product</SelectItem>
+                      <SelectItem value="service">Service</SelectItem>
+                      <SelectItem value="trademark">Trademark</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="form-field">
+                  <label className="form-label">Company ID</label>
+                  <Input
+                    value={(localNode.properties?.company_id as string) || ""}
+                    onChange={(e) => handlePropertyChange("company_id", e.target.value)}
+                    placeholder="UUID of owning legal entity"
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label className="form-label">Category</label>
+                  <Input
+                    value={(localNode.properties?.category as string) || ""}
+                    onChange={(e) => handlePropertyChange("category", e.target.value)}
+                    placeholder="e.g., Gaming Console, Social Media App, Fast Food"
+                  />
+                </div>
+              </>
+            )}
+
+            <Separator className="my-4" />
 
             {/* Properties Section */}
             <div className="form-field">

@@ -22,14 +22,6 @@ export interface BaseNode {
   updatedBy: string;
 }
 
-export interface CompanyGroup {
-  id: string;
-  name: string;
-  sector: GICS | null; // Primary GICS-style sector
-  createdAt: number;
-  createdBy: string;
-}
-
 export type PropertyValue = string | number | boolean | null | string[];
 
 export type NodeProperties = Record<string, PropertyValue>;

@@ -176,6 +176,26 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
             </Section>
           )}
 
+          {/* Data Quality & Provenance */}
+          {node.metadata && (
+            <>
+              <Separator className="my-6" />
+              <Section title="Data Quality & Provenance">
+                <Field label="Parsing Method" value={node.metadata.parsingMethod} />
+                <Field
+                  label="Confidence Score"
+                  value={node.metadata.confidenceScore?.toFixed(2)}
+                />
+                <Field
+                  label="Is Complete"
+                  value={node.metadata.isComplete}
+                />
+                <Field label="Data Source ID" value={node.metadata.dataSourceId} mono />
+                <Field label="Source Filing ID" value={node.metadata.sourceFilingId} mono />
+              </Section>
+            </>
+          )}
+
           {/* Metadata */}
           <Separator className="my-6" />
           <Section title="Metadata">
@@ -198,13 +218,31 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Field({ label, value, mono = false }: { label: string; value?: string; mono?: boolean }) {
-  if (!value) return null;
+type FieldValue = string | number | boolean | string[] | null | undefined;
+
+function Field({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value?: FieldValue;
+  mono?: boolean;
+}) {
+  if (value === undefined || value === null || value === "") return null;
+
+  const display = Array.isArray(value)
+    ? value.join(", ")
+    : typeof value === "boolean"
+    ? value
+      ? "Yes"
+      : "No"
+    : String(value);
 
   return (
     <div className="detail-field">
       <dt className="detail-field-label">{label}</dt>
-      <dd className={`detail-field-value ${mono ? "font-mono" : ""}`}>{value}</dd>
+      <dd className={`detail-field-value ${mono ? "font-mono" : ""}`}>{display}</dd>
     </div>
   );
 }

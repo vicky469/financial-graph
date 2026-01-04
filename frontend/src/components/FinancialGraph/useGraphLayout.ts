@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import dagre from "dagre";
 import type { Node as GraphNode, Edge } from "../../types";
-import { Position } from "reactflow";
 
 // Diagram Layout Configuration
 const NODE_WIDTH = 180;

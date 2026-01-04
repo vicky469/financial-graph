@@ -19,7 +19,6 @@ const FinancialGraph = ({
   context,
   onSelectEdge,
   onSelectNode,
-  onFocusNode,
   onViewNode,
   onClearFocus,
   showNodes = true,
