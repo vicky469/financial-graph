@@ -36,12 +36,6 @@ const Sidebar = ({
   const selectedNode = entities.find((e) => e.id === context.selectedNodeId);
   const selectedEdge = edges.find((e) => e.id === context.selectedEdgeId);
 
-  // Check if selected edge is node-node edge
-  const entityIds = entities.map((e) => e.id);
-  const isEntityEdge =
-    selectedEdge &&
-    (entityIds.includes(selectedEdge.sourceId) || entityIds.includes(selectedEdge.targetId));
-
   // Check if anything is selected (editing mode)
   const isEditing = selectedNode || selectedEdge || showForm !== null;
 
@@ -164,7 +158,6 @@ const Sidebar = ({
       {selectedEdge && (
         <EdgePanel
           edge={selectedEdge}
-          isEntityEdge={!!isEntityEdge}
           onCancel={() => onSelectEdge?.(null)}
         />
       )}
