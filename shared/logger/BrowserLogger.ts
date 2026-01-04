@@ -13,10 +13,10 @@ import { shouldLog } from "./types";
 export class BrowserLogger implements ILogger {
   private config: LoggerConfig;
   private logQueue: LogEntry[] = [];
-  private flushTimer?: number;
-  private sessionId: string;
+  private flushTimer: number | undefined;
+  private readonly sessionId: string;
 
-  constructor(config: Partial<LoggerConfig> = {}) {
+  public constructor(config: Partial<LoggerConfig> = {}) {
     this.config = {
       level: config.level || "info",
       enableConsole: config.enableConsole ?? true,
@@ -75,8 +75,8 @@ export class BrowserLogger implements ILogger {
   private logToConsole(entry: LogEntry): void {
     if (!this.config.enableConsole) return;
 
-    const style = this.getConsoleStyle(entry.level);
-    const timestamp = new Date(entry.timestamp).toLocaleTimeString();
+    const style: string = this.getConsoleStyle(entry.level);
+    const timestamp: string = new Date(entry.timestamp).toLocaleTimeString();
 
     if (entry.metadata && Object.keys(entry.metadata).length > 0) {
       console[entry.level === "debug" ? "log" : entry.level](
@@ -119,13 +119,13 @@ export class BrowserLogger implements ILogger {
    * Flush queued logs to remote endpoint
    * @param sync - Use synchronous request (for beforeunload)
    */
-  private flush(sync = false): void {
+  private flush(sync: boolean = false): void {
     if (!this.config.enableRemote || this.logQueue.length === 0) return;
 
-    const logsToSend = [...this.logQueue];
+    const logsToSend: LogEntry[] = [...this.logQueue];
     this.logQueue = [];
 
-    const payload = JSON.stringify({ logs: logsToSend });
+    const payload: string = JSON.stringify({ logs: logsToSend });
 
     if (sync && navigator.sendBeacon) {
       // Use sendBeacon for synchronous unload events
@@ -137,7 +137,7 @@ export class BrowserLogger implements ILogger {
         headers: { "Content-Type": "application/json" },
         body: payload,
         keepalive: true,
-      }).catch((err) => {
+      }).catch((err: unknown) => {
         // Silently fail remote logging to avoid infinite loops
         console.error("Failed to send logs to remote:", err);
       });
@@ -152,26 +152,26 @@ export class BrowserLogger implements ILogger {
     this.queueForRemote(entry);
   }
 
-  debug(message: string, meta?: LogMetadata): void {
+  public debug(message: string, meta?: LogMetadata): void {
     this.log("debug", message, meta);
   }
 
-  info(message: string, meta?: LogMetadata): void {
+  public info(message: string, meta?: LogMetadata): void {
     this.log("info", message, meta);
   }
 
-  warn(message: string, meta?: LogMetadata): void {
+  public warn(message: string, meta?: LogMetadata): void {
     this.log("warn", message, meta);
   }
 
-  error(message: string, meta?: LogMetadata): void {
+  public error(message: string, meta?: LogMetadata): void {
     this.log("error", message, meta);
   }
 
   /**
    * Update logger configuration at runtime
    */
-  setConfig(config: Partial<LoggerConfig>): void {
+  public setConfig(config: Partial<LoggerConfig>): void {
     this.config = { ...this.config, ...config };
 
     // Restart flush timer if remote logging settings changed
@@ -188,14 +188,14 @@ export class BrowserLogger implements ILogger {
   /**
    * Manually flush logs
    */
-  flushNow(): void {
+  public flushNow(): void {
     this.flush();
   }
 
   /**
    * Destroy logger and clean up resources
    */
-  destroy(): void {
+  public destroy(): void {
     if (this.flushTimer) {
       clearInterval(this.flushTimer);
     }

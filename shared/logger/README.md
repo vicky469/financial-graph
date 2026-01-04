@@ -6,12 +6,12 @@ A streamlined logging experience shared between frontend and backend using TypeS
 
 - **Unified Interface**: Same logger API across frontend and backend
 - **Type-Safe**: Full TypeScript support with shared types
+- **Simple & Clean**: Minimal configuration, just works
 - **Environment-Specific**:
-  - Backend: File rotation with 14-day retention via Winston
-  - Frontend: Console logging + optional remote aggregation
+  - Backend: JSON console logging via Winston
+  - Frontend: Browser console + optional remote aggregation
 - **Structured Logging**: JSON-formatted logs with metadata
 - **Log Levels**: debug, info, warn, error
-- **Automatic Cleanup**: Old logs are automatically deleted (14-day retention)
 - **Batch Processing**: Frontend logs are batched before sending to backend
 
 ## Architecture
@@ -95,11 +95,10 @@ try {
 LOG_LEVEL=info  # Options: debug, info, warn, error
 ```
 
-Logs are written to:
-- `backend/output/logs/backend/combined-YYYY-MM-DD.log` - All logs
-- `backend/output/logs/backend/error-YYYY-MM-DD.log` - Errors only
-
-**Retention**: 14 days, 20MB max per file, automatic compression
+Logs are written to **stdout** in JSON format, perfect for:
+- Local development (view in terminal)
+- Production deployment (captured by Docker/systemd/CloudWatch/etc.)
+- Log aggregation services (Datadog, Splunk, etc.)
 
 ### Frontend (.env)
 
@@ -184,15 +183,20 @@ logger.error("Payment processing failed", {
 
 ### View Backend Logs
 
+Backend logs are written to **stdout** in JSON format. View them in your terminal:
+
 ```bash
-# View combined logs for today
-cat backend/output/logs/backend/combined-$(date +%Y-%m-%d).log | jq
+# Run the backend
+npm run dev
 
-# View error logs
-cat backend/output/logs/backend/error-$(date +%Y-%m-%d).log | jq
+# Or pipe through jq for pretty formatting
+npm run dev | jq
 
-# Search for specific errors
-grep "payment" backend/output/logs/backend/*.log | jq
+# Filter by level
+npm run dev | jq 'select(.level == "error")'
+
+# Search for specific messages
+npm run dev | jq 'select(.message | contains("payment"))'
 ```
 
 ### View Frontend Logs
@@ -267,11 +271,11 @@ logger.destroy(); // Clean up and flush before unmounting
 
 ## Troubleshooting
 
-### Logs not appearing in backend files
+### Backend logs not appearing
 
-1. Check directory permissions for `backend/output/sec/logs/`
-2. Verify `LOG_LEVEL` environment variable
-3. Check winston transport errors in console
+1. Verify `LOG_LEVEL` environment variable is set correctly
+2. Check that winston is outputting to console (it should by default)
+3. Ensure stdout is not being redirected elsewhere
 
 ### Frontend logs not reaching backend
 
@@ -280,12 +284,3 @@ logger.destroy(); // Clean up and flush before unmounting
 3. Ensure backend server is running
 4. Check CORS configuration
 5. Check network tab for failed requests
-
-### Log files too large
-
-Adjust retention in `backend/src/logger.ts`:
-
-```typescript
-maxSize: "20m",  // Increase/decrease max file size
-maxFiles: "14d", // Adjust retention period
-```

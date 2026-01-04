@@ -20,9 +20,9 @@ interface RegistrantEntry {
   sourceQuarter: string;
 }
 
-const HEADER_SEPARATOR_REGEX = /^-{3,}$/;
+const HEADER_SEPARATOR_REGEX: RegExp = /^-{3,}$/;
 
-async function main() {
+async function main(): Promise<void> {
   logger.info("Starting SEC metadata ingestion", {
     years: SEC_YEARS,
     quarters: SEC_QUARTERS,
@@ -35,20 +35,27 @@ async function main() {
   // Parse all quarterly body files
   for (const year of SEC_YEARS) {
     for (const quarter of SEC_QUARTERS) {
-      const bodyPath = path.join(SEC_RAW_DIR, `${year}-Q${quarter}.body`);
+      const bodyPath: string = path.join(
+        SEC_RAW_DIR,
+        `${year}-Q${quarter}.body`
+      );
 
       let text: string;
       try {
         text = await fs.readFile(bodyPath, "utf-8");
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-          logger.warn("Missing raw SEC index file", { bodyPath, year, quarter });
+          logger.warn("Missing raw SEC index file", {
+            bodyPath,
+            year,
+            quarter,
+          });
           continue;
         }
         throw error;
       }
 
-      const entries = parseBodyFile(text, year, quarter);
+      const entries: RegistrantEntry[] = parseBodyFile(text, year, quarter);
       logger.info("Parsed SEC quarterly index", {
         year,
         quarter,
@@ -67,9 +74,12 @@ async function main() {
   });
 
   // Deduplicate by CIK + accession number
-  const deduped = new Map<string, RegistrantEntry>();
+  const deduped: Map<string, RegistrantEntry> = new Map<
+    string,
+    RegistrantEntry
+  >();
   for (const entry of results) {
-    const key = `${entry.cik}-${entry.accessionNumberNoDashes}`;
+    const key: string = `${entry.cik}-${entry.accessionNumberNoDashes}`;
     if (!deduped.has(key)) {
       deduped.set(key, entry);
     }
