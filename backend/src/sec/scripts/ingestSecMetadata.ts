@@ -1,20 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { config as loadEnv } from "dotenv";
-
-loadEnv();
-
-const YEARS = [2025];
-const QUARTERS = [1, 2, 3, 4] as const;
-const METADATA_DIR = path.resolve(__dirname, "../output");
-const RAW_DIR = path.resolve(__dirname, "../raw");
-const OUTPUT_FILE = path.join(METADATA_DIR, "registrant_metadata.csv");
-const REQUEST_DELAY_MS = Number(process.env.SEC_REQUEST_DELAY_MS ?? 400);
-
-const USER_AGENT = process.env.SEC_USER_AGENT ?? "";
-if (!USER_AGENT) {
-  throw new Error("Missing SEC_USER_AGENT env variable");
-}
+import {
+  SEC_OUTPUT_DIR,
+  SEC_QUARTERS,
+  SEC_RAW_DIR,
+  SEC_YEARS,
+} from "../config";
+import { logger } from "../../logger";
 
 interface RegistrantEntry {
   registrantName: string;
@@ -28,62 +20,53 @@ interface RegistrantEntry {
   sourceQuarter: string;
 }
 
+const HEADER_SEPARATOR_REGEX = /^-{3,}$/;
+
 async function main() {
-  await Promise.all([
-    fs.mkdir(METADATA_DIR, { recursive: true }),
-    fs.mkdir(RAW_DIR, { recursive: true }),
-  ]);
+  logger.info("Starting SEC metadata ingestion", {
+    years: SEC_YEARS,
+    quarters: SEC_QUARTERS,
+  });
+
+  await fs.mkdir(SEC_OUTPUT_DIR, { recursive: true });
 
   const results: RegistrantEntry[] = [];
 
-  for (const year of YEARS) {
-    for (const quarter of QUARTERS) {
-      const url = `https://www.sec.gov/Archives/edgar/full-index/${year}/QTR${quarter}/company.idx`;
-      console.log(`Fetching ${url}`);
-      await delay(REQUEST_DELAY_MS);
+  // Parse all quarterly body files
+  for (const year of SEC_YEARS) {
+    for (const quarter of SEC_QUARTERS) {
+      const bodyPath = path.join(SEC_RAW_DIR, `${year}-Q${quarter}.body`);
 
-      const requestHeaders = {
-        "User-Agent": USER_AGENT,
-        Accept: "text/plain",
-      };
-
-      const response = await fetch(url, {
-        headers: new Headers(requestHeaders),
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch ${url}: ${response.status} ${response.statusText}`
-        );
+      let text: string;
+      try {
+        text = await fs.readFile(bodyPath, "utf-8");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          logger.warn("Missing raw SEC index file", { bodyPath, year, quarter });
+          continue;
+        }
+        throw error;
       }
 
-      const text = await response.text();
-      await persistRawFetch({
+      const entries = parseBodyFile(text, year, quarter);
+      logger.info("Parsed SEC quarterly index", {
         year,
         quarter,
-        url,
-        requestHeaders,
-        response,
-        body: text,
+        entriesFound: entries.length,
       });
-      const contentType = response.headers.get("content-type") ?? "";
-      if (
-        contentType.includes("text/html") &&
-        text.includes(
-          "Your Request Originates from an Undeclared Automated Tool"
-        )
-      ) {
-        throw new Error(
-          `Blocked by SEC automated-tool firewall for ${year} Q${quarter}. Update User-Agent or slow down.`
-        );
-      }
 
-      const entries = parseCompanyIdx(text, year, quarter);
-      results.push(...entries);
+      // Avoid stack overflow with large arrays - concat instead of spread
+      for (const entry of entries) {
+        results.push(entry);
+      }
     }
   }
 
-  // Deduplicate by CIK + accession
+  logger.info("Completed parsing all quarters", {
+    totalEntries: results.length,
+  });
+
+  // Deduplicate by CIK + accession number
   const deduped = new Map<string, RegistrantEntry>();
   for (const entry of results) {
     const key = `${entry.cik}-${entry.accessionNumberNoDashes}`;
@@ -92,6 +75,24 @@ async function main() {
     }
   }
 
+  logger.info("Deduplicated entries", {
+    beforeDedup: results.length,
+    afterDedup: deduped.size,
+    duplicatesRemoved: results.length - deduped.size,
+  });
+
+  if (deduped.size === 0) {
+    logger.warn("No SEC rows parsed. Keeping existing CSV contents.");
+    return;
+  }
+
+  await writeCsvOutput(Array.from(deduped.values()));
+}
+
+/**
+ * Write registrant entries to CSV file
+ */
+async function writeCsvOutput(entries: RegistrantEntry[]): Promise<void> {
   const header = [
     "registrant_name",
     "cik",
@@ -105,7 +106,7 @@ async function main() {
   ];
 
   const lines = [header.join(",")];
-  for (const entry of deduped.values()) {
+  for (const entry of entries) {
     lines.push(
       [
         csvEscape(entry.registrantName),
@@ -121,59 +122,111 @@ async function main() {
     );
   }
 
-  if (deduped.size === 0) {
-    console.warn(
-      "No SEC rows parsed. Keeping existing CSV contents and stopping early."
-    );
-    return;
-  }
-
-  await fs.writeFile(OUTPUT_FILE, lines.join("\n") + "\n", "utf-8");
-  console.log(`Wrote ${deduped.size} rows to ${OUTPUT_FILE}`);
+  const minYear = Math.min(...SEC_YEARS);
+  const maxYear = Math.max(...SEC_YEARS);
+  const yearsLabel = Number.isFinite(minYear)
+    ? minYear === maxYear
+      ? `${minYear}`
+      : `${minYear}-${maxYear}`
+    : "unknown";
+  const outputFile = path.join(
+    SEC_OUTPUT_DIR,
+    `registrant_metadata_${yearsLabel}.csv`
+  );
+  await fs.writeFile(outputFile, lines.join("\n") + "\n", "utf-8");
+  logger.info("Successfully wrote SEC metadata CSV", {
+    outputFile,
+    rowCount: entries.length,
+    yearsLabel,
+  });
 }
 
-function parseCompanyIdx(
+/**
+ * Process a single line from the SEC master index file
+ * Returns a RegistrantEntry if the line is valid, null otherwise
+ */
+function processLine(
+  line: string,
+  sourceQuarter: string
+): RegistrantEntry | null {
+  // Skip empty lines
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // Split on 2+ spaces to separate columns
+  const columns = trimmed.split(/\s{2,}/);
+  if (columns.length < 5) {
+    logger.error("Skipping malformed line (expected ≥5 columns)", {
+      line: trimmed,
+      columnCount: columns.length,
+      sourceQuarter,
+    });
+    return null;
+  }
+
+  const companyName = columns[0];
+  const formType = columns[1];
+  const cik = columns[2];
+  const dateFiled = columns[3];
+  const filePath = columns[4];
+
+  // Validate all required fields exist
+  if (!companyName || !formType || !cik || !dateFiled || !filePath) return null;
+
+  // Validate date format (YYYY-MM-DD)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateFiled)) return null;
+
+  // Validate file path contains edgar
+  if (!filePath.includes("edgar/")) return null;
+
+  // Extract accession number from file path
+  // Example: edgar/data/107136/0001214659-25-002647.txt -> 0001214659-25-002647
+  const fileName = filePath.split("/").pop() ?? "";
+  const accessionNumber = fileName.replace(/\.[^.]+$/, "");
+  const accessionNumberNoDashes = accessionNumber.replace(/-/g, "");
+
+  return {
+    registrantName: companyName.trim(),
+    cik: cik.trim(),
+    accessionNumber,
+    accessionNumberNoDashes,
+    formType: formType.trim(),
+    filingDate: dateFiled.trim(),
+    fileName,
+    filePath,
+    sourceQuarter,
+  };
+}
+
+/**
+ * Parse SEC master index body file
+ * Format: Fixed-width columns separated by 2+ spaces
+ * Columns: Company Name | Form Type | CIK | Date Filed | File Name
+ */
+function parseBodyFile(
   content: string,
   year: number,
   quarter: number
 ): RegistrantEntry[] {
   const lines = content.split(/\r?\n/);
-  const headerIndex = lines.findIndex((line) =>
-    line.startsWith("Company Name")
-  );
-  if (headerIndex === -1) {
-    return [];
-  }
-
-  const dataLines = lines
-    .slice(headerIndex + 1)
-    .filter((line) => line.trim().length > 0);
+  const sourceQuarter = `${year}-Q${quarter}`;
   const entries: RegistrantEntry[] = [];
 
-  for (const rawLine of dataLines) {
-    const parts = rawLine.split("|");
-    if (parts.length < 5) continue;
-    const [registrantName, formType, cik, filingDate, filePath] = parts
-      .slice(0, 5)
-      .map((p) => p.trim()) as [string, string, string, string, string];
-    if (!registrantName || !cik || !filePath) continue;
+  let inDataSection = false;
 
-    const accessionWithExtension = filePath.split("/").pop() ?? "";
-    const accessionNumber = accessionWithExtension.replace(/\.[^.]+$/, "");
-    const accessionNumberNoDashes = accessionNumber.replace(/-/g, "");
-    const fileName = accessionWithExtension;
+  for (const line of lines) {
+    // Skip until we find the header separator line (dashes)
+    if (!inDataSection) {
+      if (HEADER_SEPARATOR_REGEX.test(line.trim())) {
+        inDataSection = true;
+      }
+      continue;
+    }
 
-    entries.push({
-      registrantName,
-      cik,
-      accessionNumber,
-      accessionNumberNoDashes,
-      formType,
-      filingDate,
-      fileName,
-      filePath,
-      sourceQuarter: `${year}-Q${quarter}`,
-    });
+    const entry = processLine(line, sourceQuarter);
+    if (entry) {
+      entries.push(entry);
+    }
   }
 
   return entries;
@@ -186,45 +239,10 @@ function csvEscape(value: string): string {
   return value;
 }
 
-async function persistRawFetch({
-  year,
-  quarter,
-  url,
-  requestHeaders,
-  response,
-  body,
-}: {
-  year: number;
-  quarter: number;
-  url: string;
-  requestHeaders: Record<string, string>;
-  response: Response;
-  body: string;
-}) {
-  const prefix = path.join(RAW_DIR, `${year}-Q${quarter}`);
-  const metadata = {
-    timestamp: new Date().toISOString(),
-    url,
-    requestHeaders,
-    responseStatus: response.status,
-    responseStatusText: response.statusText,
-    responseHeaders: Object.fromEntries(response.headers.entries()),
-  };
-  await Promise.all([
-    fs.writeFile(
-      `${prefix}.meta.json`,
-      JSON.stringify(metadata, null, 2),
-      "utf-8"
-    ),
-    fs.writeFile(`${prefix}.body`, body, "utf-8"),
-  ]);
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 main().catch((err) => {
-  console.error("Failed to ingest SEC metadata", err);
+  logger.error("Failed to ingest SEC metadata", {
+    error: err.message,
+    stack: err.stack,
+  });
   process.exit(1);
 });
