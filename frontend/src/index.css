@@ -5,15 +5,15 @@
 @layer base {
   :root {
     /* Linear-inspired dark theme - minimal and professional */
-    --background: 240 6% 6%;        /* Very dark, almost black #0F0F10 */
-    --foreground: 240 5% 84%;       /* Muted white for text */
-    --card: 240 5% 9%;              /* Slightly lighter than bg #16161A */
+    --background: 240 6% 6%; /* Very dark, almost black #0F0F10 */
+    --foreground: 240 5% 84%; /* Muted white for text */
+    --card: 240 5% 9%; /* Slightly lighter than bg #16161A */
     --card-foreground: 240 5% 84%;
     --popover: 240 5% 9%;
     --popover-foreground: 240 5% 84%;
-    --primary: 250 70% 60%;         /* Subtle purple accent */
+    --primary: 250 70% 60%; /* Subtle purple accent */
     --primary-foreground: 240 5% 96%;
-    --secondary: 240 4% 16%;        /* Very subtle secondary */
+    --secondary: 240 4% 16%; /* Very subtle secondary */
     --secondary-foreground: 240 5% 84%;
     --muted: 240 4% 16%;
     --muted-foreground: 240 4% 46%; /* Lower contrast muted text */
@@ -21,10 +21,10 @@
     --accent-foreground: 240 5% 84%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 240 5% 96%;
-    --border: 240 4% 16%;           /* Very subtle borders */
+    --border: 240 4% 16%; /* Very subtle borders */
     --input: 240 5% 12%;
     --ring: 250 70% 60%;
-    --radius: 0.375rem;             /* Slightly smaller radius */
+    --radius: 0.375rem; /* Slightly smaller radius */
   }
 }
 
@@ -32,15 +32,29 @@
   * {
     border-color: hsl(var(--border));
   }
-  html,
-  body,
-  #root {
+  html {
     height: 100%;
     margin: 0;
+    overflow: hidden; /* Prevent html scroll */
   }
   body {
-    background-color: hsl(var(--background));
+    height: 100vh;
+    width: 100vw;
+    margin: 0;
+    padding: 12px;
+    background-color: hsl(240 6% 3%);
     color: hsl(var(--foreground));
+    box-sizing: border-box;
+    overflow: hidden; /* Prevent body scroll */
+  }
+  #root {
+    height: 100%;
+    width: 100%;
+    background-color: hsl(var(--background));
+    border-radius: 12px;
+    overflow: hidden; /* Prevent root scroll leaks */
+    display: flex; /* Ensure immediate flex behavior */
+    flex-direction: column;
   }
 
   /* Custom scrollbar styling */

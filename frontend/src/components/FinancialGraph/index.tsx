@@ -1,16 +1,11 @@
 // FinancialGraph - Main graph visualization component
 
 import { useCallback, useMemo } from "react";
-import ReactFlow, {
-  Controls,
-  Background,
-  BackgroundVariant,
-} from "reactflow";
+import ReactFlow, { Controls, Background, BackgroundVariant } from "reactflow";
 import type { Node, Edge as FlowEdge, Connection } from "reactflow";
 import "reactflow/dist/style.css";
 
 import GraphNode from "../GraphNode";
-import { DetailPanel } from "../DetailPanel";
 import { useGraphNodes } from "./useGraphNodes";
 import { useGraphEdges } from "./useGraphEdges";
 import { getEntityWithDescendants } from "./graphUtils";
@@ -45,7 +40,6 @@ const FinancialGraph = ({
   showNodes = true,
   showBrands = true,
 }: FinancialGraphProps) => {
-
   // Calculate visible node IDs based on focus and visibility toggles
   const visibleIds = useMemo(() => {
     let candidateIds = new Set<string>();
@@ -80,10 +74,7 @@ const FinancialGraph = ({
           if (selectedNode?.type === "Company") {
             // Check if this brand belongs to the selected company
             const isOwnedBySelect = edges.some(
-              (e) =>
-                e.sourceId === selectedNode.id &&
-                e.targetId === id &&
-                e.label === "owns"
+              (e) => e.sourceId === selectedNode.id && e.targetId === id && e.label === "owns"
             );
             if (isOwnedBySelect) {
               finalVisibleSet.add(id);
@@ -145,21 +136,6 @@ const FinancialGraph = ({
     [onSelectEdge]
   );
 
-  // Find selected graph node
-  const selectedGraphNode = selectedGraphNodeId
-    ? entities.find((e) => e.id === selectedGraphNodeId)
-    : null;
-
-  // Determine if selected node is public and subsidiary
-  const isPublic = selectedGraphNode?.cik ? true : false;
-  const isSubsidiary = selectedGraphNode
-    ? edges.some(
-        (e) =>
-          e.targetId === selectedGraphNode.id &&
-          (e.label === "owns" || e.label === "controls")
-      )
-    : false;
-
   return (
     <div className="w-full h-full bg-background relative flex">
       <div className="flex-1">
@@ -188,18 +164,15 @@ const FinancialGraph = ({
           edgesFocusable={false}
           attributionPosition="bottom-left"
         >
-          <Background variant={BackgroundVariant.Dots} color="hsl(var(--muted-foreground) / 0.2)" gap={16} size={1} />
+          <Background
+            variant={BackgroundVariant.Dots}
+            color="hsl(var(--muted-foreground) / 0.2)"
+            gap={16}
+            size={1}
+          />
           <Controls className="!bg-card/90 !border-border/50 !text-muted-foreground/70 [&_button]:hover:!bg-accent/50" />
         </ReactFlow>
       </div>
-      {selectedGraphNode && (
-        <DetailPanel
-          node={selectedGraphNode}
-          onClose={() => onSelectGraphNode(null)}
-          isPublic={isPublic}
-          isSubsidiary={isSubsidiary}
-        />
-      )}
     </div>
   );
 };

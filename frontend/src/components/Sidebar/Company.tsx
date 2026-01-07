@@ -1,15 +1,8 @@
-import { ChevronRight, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { Node } from "../../types";
 import { useCompanySubsidiaries, useCompanyBrands, useCompanyFilings } from "../../db/queries";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 
 interface CompanyProps {
   node: Node;
@@ -27,10 +20,10 @@ export function Company({ node, onBack }: CompanyProps) {
       <div className="px-3 py-3 border-b shrink-0 flex items-center gap-3">
         <button
           onClick={onBack}
-          className="h-5 w-5 shrink-0 cursor-pointer rounded-full border border-border/50 flex items-center justify-center hover:bg-accent/50 transition-colors"
           title="Back to list"
+          className="bg-transparent border-none p-0 cursor-pointer hover:opacity-80 transition-opacity"
         >
-          <ChevronRight size={17} className="rotate-180" />
+          <ArrowLeft size={20} color="white" className="stroke-[1.5]" />
         </button>
         <span className="text-sm font-medium truncate capitalize">{node.name.toLowerCase()}</span>
       </div>
@@ -49,11 +42,16 @@ export function Company({ node, onBack }: CompanyProps) {
               <p className="text-xs text-muted-foreground">Loading subsidiaries...</p>
             </div>
           ) : subsidiaries.length === 0 ? (
-            <div className="p-8 text-center text-xs text-muted-foreground">No subsidiaries found</div>
+            <div className="p-8 text-center text-xs text-muted-foreground">
+              No subsidiaries found
+            </div>
           ) : (
             <div className="pb-4">
               {subsidiaries.map((subsidiary) => (
-                <div key={subsidiary.id} className="flex items-center gap-2 py-2.5 px-2 rounded-md mb-2">
+                <div
+                  key={subsidiary.id}
+                  className="flex items-center gap-2 py-2.5 px-2 rounded-md mb-2"
+                >
                   <div className="w-4 shrink-0" />
                   <div
                     className={cn(
@@ -61,7 +59,10 @@ export function Company({ node, onBack }: CompanyProps) {
                       subsidiary.cik ? "bg-green-500" : "bg-muted-foreground/40"
                     )}
                   />
-                  <span className="text-xs font-medium text-foreground/85 capitalize" title={subsidiary.name}>
+                  <span
+                    className="text-xs font-medium text-foreground/85 capitalize"
+                    title={subsidiary.name}
+                  >
                     {subsidiary.name.toLowerCase()}
                   </span>
                 </div>
@@ -93,11 +94,16 @@ export function Company({ node, onBack }: CompanyProps) {
                     )}
                   />
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-medium text-foreground/85 capitalize" title={brand.name}>
+                    <span
+                      className="text-xs font-medium text-foreground/85 capitalize"
+                      title={brand.name}
+                    >
                       {brand.name.toLowerCase()}
                     </span>
                     {brand.category && (
-                      <span className="text-xs text-muted-foreground/60 ml-2">({brand.category})</span>
+                      <span className="text-xs text-muted-foreground/60 ml-2">
+                        ({brand.category})
+                      </span>
                     )}
                   </div>
                 </div>
@@ -108,7 +114,9 @@ export function Company({ node, onBack }: CompanyProps) {
 
         {/* SEC Filings Section */}
         <div className="px-3 py-2.5 text-xs text-muted-foreground border-b border-t">
-          <span className="font-medium">SEC Filings {!loadingFilings && `(${filings.length})`}</span>
+          <span className="font-medium">
+            SEC Filings {!loadingFilings && `(${filings.length})`}
+          </span>
         </div>
         <div className="px-2 py-2">
           {loadingFilings ? (
@@ -123,10 +131,18 @@ export function Company({ node, onBack }: CompanyProps) {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/20">
-                    <TableHead className="text-xs font-semibold text-foreground/80 w-24">Date</TableHead>
-                    <TableHead className="text-xs font-semibold text-foreground/80 w-16">Type</TableHead>
-                    <TableHead className="text-xs font-semibold text-foreground/80 w-16">Filing</TableHead>
-                    <TableHead className="text-xs font-semibold text-foreground/80">Attachments</TableHead>
+                    <TableHead className="text-xs font-semibold text-foreground/80 w-24">
+                      Date
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-foreground/80 w-16">
+                      Type
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-foreground/80 w-16">
+                      Filing
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-foreground/80">
+                      Attachments
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

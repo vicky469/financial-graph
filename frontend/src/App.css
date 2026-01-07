@@ -77,16 +77,17 @@ body {
 }
 
 /* Detail Panel - Right side read-only view */
+/* Detail Panel - Right side read-only view */
 .detail-panel {
-  position: fixed;
-  right: 0;
-  top: 64px;
-  height: calc(100vh - 64px);
-  width: 320px;
+  width: 380px;
+  min-width: 380px;
+  max-width: 380px;
+  height: 100%;
   background: hsl(var(--background));
-  border-left: 1px solid hsl(var(--border));
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
+  border-left: 1px solid hsl(var(--border) / 0.5);
   z-index: 40;
+  display: flex;
+  flex-direction: column;
 }
 
 .detail-panel-content {

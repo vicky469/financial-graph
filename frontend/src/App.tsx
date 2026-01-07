@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import FinancialGraph from "./components/FinancialGraph";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
+import { DetailPanel } from "./components/DetailPanel";
 import { useCompanyGraph } from "./db/queries";
 
 function App() {
@@ -12,14 +13,24 @@ function App() {
 
   const { nodes, edges, isLoading } = useCompanyGraph(selectedNodeId);
 
+  // Find the selected graph node for DetailPanel
+  const selectedGraphNode = useMemo(
+    () => nodes.find((n) => n.id === selectedGraphNodeId) ?? null,
+    [nodes, selectedGraphNodeId]
+  );
+
+  // Determine if selected node is public/subsidiary for DetailPanel
+  const isPublic = selectedGraphNode?.cik ? true : false;
+  const isSubsidiary = selectedGraphNode?.id !== selectedNodeId;
+
   return (
-    <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden font-sans">
+    <div className="flex flex-col h-screen w-screen max-w-screen bg-background text-foreground overflow-hidden font-sans p-3">
       <Header />
 
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden relative max-w-full">
         <Sidebar onSelectNode={setSelectedNodeId} selectedNodeId={selectedNodeId} />
 
-        <main className="flex-1 relative bg-background flex flex-col">
+        <main className="flex-1 min-w-0 relative bg-background flex flex-col overflow-hidden">
           {!selectedNodeId ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground/60 gap-3">
               <div className="w-16 h-16 rounded-full bg-accent/30 flex items-center justify-center">
@@ -65,13 +76,17 @@ function App() {
             />
           )}
         </main>
-      </div>
 
-      <footer className="border-t border-border/50 bg-card/50 px-4 py-2 shrink-0">
-        <p className="text-xs text-muted-foreground/60 text-center">
-          Data Source: SEC | Included Years: 2025
-        </p>
-      </footer>
+        {/* Right Detail Panel */}
+        {selectedGraphNode && (
+          <DetailPanel
+            node={selectedGraphNode}
+            onClose={() => setSelectedGraphNodeId(null)}
+            isPublic={isPublic}
+            isSubsidiary={isSubsidiary}
+          />
+        )}
+      </div>
     </div>
   );
 }
