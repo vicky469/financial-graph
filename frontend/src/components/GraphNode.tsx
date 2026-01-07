@@ -2,7 +2,6 @@ import { memo } from "react";
 import { Handle, Position } from "reactflow";
 import type { NodeProps } from "reactflow";
 import { cn } from "../lib/utils";
-import { Badge } from "./ui/badge";
 
 // Adapter for ReactFlow's NodeProps check
 type NodeData = {
@@ -11,11 +10,10 @@ type NodeData = {
   isSelected: boolean;
   isPublic: boolean;
   isSubsidiary: boolean;
-  [key: string]: any;
 };
 
 const GraphNode = memo(({ data, selected }: NodeProps<NodeData>) => {
-  const { name, type, isSelected, isPublic, isSubsidiary } = data;
+  const { name, type, isSelected, isPublic } = data;
 
   // Company Node
   if (type === "Company") {
@@ -55,23 +53,24 @@ const GraphNode = memo(({ data, selected }: NodeProps<NodeData>) => {
           className="!w-2 !h-2 !bg-muted-foreground !border-0"
         />
 
-        {/* Badges - Top Right */}
-        <div className="absolute top-3 right-3 flex gap-1.5">
-          {isSubsidiary && (
-            <Badge className="bg-orange-600 hover:bg-orange-600 text-[9px] font-extrabold uppercase tracking-wide px-2 py-0.5">
-              SUB
-            </Badge>
-          )}
-          <Badge
-            className={cn(
-              "text-[9px] font-extrabold uppercase tracking-wide px-2 py-0.5",
-              isPublic
-                ? "bg-green-600 hover:bg-green-600"
-                : "bg-secondary hover:bg-secondary"
-            )}
+        {/* Badge - Top Right Corner (outside node) */}
+        <div style={{ position: "absolute", top: "-12px", right: "-12px", zIndex: 10 }}>
+          <span
+            style={{
+              display: "inline-block",
+              fontSize: "9px",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              padding: "4px 10px",
+              borderRadius: "4px",
+              backgroundColor: isPublic ? "rgba(34, 197, 94, 0.3)" : "rgba(100, 100, 100, 0.3)",
+              color: isPublic ? "#4ade80" : "#a1a1aa",
+              border: isPublic ? "1px solid rgba(34, 197, 94, 0.5)" : "1px solid rgba(100, 100, 100, 0.5)",
+            }}
           >
             {isPublic ? "PUB" : "PVT"}
-          </Badge>
+          </span>
         </div>
 
         {/* Content */}
@@ -95,6 +94,26 @@ const GraphNode = memo(({ data, selected }: NodeProps<NodeData>) => {
           : "border-purple-500 hover:border-purple-400"
       )}
     >
+      {/* Badge - Top Right Corner */}
+      <div style={{ position: "absolute", top: "-8px", right: "-8px", zIndex: 10 }}>
+        <span
+          style={{
+            display: "inline-block",
+            fontSize: "9px",
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            padding: "4px 10px",
+            borderRadius: "4px",
+            backgroundColor: "rgba(168, 85, 247, 0.3)",
+            color: "#c084fc",
+            border: "1px solid rgba(168, 85, 247, 0.5)",
+          }}
+        >
+          BRD
+        </span>
+      </div>
+
       {/* Handles */}
       <Handle
         id="top"

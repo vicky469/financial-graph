@@ -9,10 +9,10 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onSelectNode, selectedNodeId }: SidebarProps) {
-  const MIN_WIDTH = 208;
-  const MAX_WIDTH = 350;
-  const DEFAULT_LIST_WIDTH = 208;
-  const DEFAULT_COMPANY_WIDTH = 350;
+  const MIN_WIDTH = 240;
+  const MAX_WIDTH = 400;
+  const DEFAULT_LIST_WIDTH = 260;
+  const DEFAULT_COMPANY_WIDTH = 360;
 
   const [width, setWidth] = useState(DEFAULT_LIST_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
@@ -26,20 +26,18 @@ export function Sidebar({ onSelectNode, selectedNodeId }: SidebarProps) {
 
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Auto-resize when switching between list and company view
   useEffect(() => {
     if (selectedNode) {
       if (width < DEFAULT_COMPANY_WIDTH && !isCollapsed) {
         setWidth(DEFAULT_COMPANY_WIDTH);
       }
     } else {
-      // Reset collapse state when going back to list
       setIsCollapsed(false);
       if (width > DEFAULT_LIST_WIDTH) {
         setWidth(DEFAULT_LIST_WIDTH);
       }
     }
-  }, [selectedNode, isCollapsed]); // Remove width from dependency to avoid loop
+  }, [selectedNode, isCollapsed, width]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isCollapsed) return;
@@ -50,16 +48,13 @@ export function Sidebar({ onSelectNode, selectedNodeId }: SidebarProps) {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-
       const newWidth = e.clientX;
       if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
         setWidth(newWidth);
       }
     };
 
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
+    const handleMouseUp = () => setIsResizing(false);
 
     if (isResizing) {
       document.addEventListener("mousemove", handleMouseMove);
@@ -82,18 +77,16 @@ export function Sidebar({ onSelectNode, selectedNodeId }: SidebarProps) {
 
   const currentWidth = isCollapsed ? 12 : width;
 
-  const sidebarStyle = {
-    width: `${currentWidth}px`,
-    minWidth: `${currentWidth}px`,
-    maxWidth: `${currentWidth}px`,
-    transition: isResizing ? "none" : "width 300ms cubic-bezier(0.4, 0, 0.2, 1)",
-  };
-
   return (
     <aside
       ref={sidebarRef}
       className="border-r border-border/50 bg-card flex flex-col h-full overflow-hidden shrink-0 relative group/sidebar"
-      style={sidebarStyle}
+      style={{
+        width: `${currentWidth}px`,
+        minWidth: `${currentWidth}px`,
+        maxWidth: `${currentWidth}px`,
+        transition: isResizing ? "none" : "width 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+      }}
     >
       <div
         className={`flex-1 overflow-hidden ${
@@ -122,7 +115,32 @@ export function Sidebar({ onSelectNode, selectedNodeId }: SidebarProps) {
       {selectedNode && (
         <button
           onClick={toggleCollapse}
-          className="absolute top-1/2 -translate-y-1/2 -right-3 z-50 w-6 h-6 bg-border rounded-full flex items-center justify-center border border-border/50 shadow-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+          style={{
+            position: "absolute",
+            top: "50%",
+            transform: "translateY(-50%)",
+            right: "-14px",
+            zIndex: 50,
+            width: "28px",
+            height: "28px",
+            borderRadius: "14px",
+            border: "1px solid rgba(255,255,255,0.15)",
+            background: isCollapsed ? "rgba(255,255,255,0.95)" : "rgba(30,30,35,0.95)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            transition: "all 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = isCollapsed ? "#ffffff" : "rgba(50,50,60,0.95)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = isCollapsed ? "rgba(255,255,255,0.95)" : "rgba(30,30,35,0.95)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+          }}
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {isCollapsed ? (
@@ -132,8 +150,8 @@ export function Sidebar({ onSelectNode, selectedNodeId }: SidebarProps) {
               height="14"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+              stroke="#1a1a1a"
+              strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
@@ -146,8 +164,8 @@ export function Sidebar({ onSelectNode, selectedNodeId }: SidebarProps) {
               height="14"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+              stroke="rgba(255,255,255,0.7)"
+              strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             >

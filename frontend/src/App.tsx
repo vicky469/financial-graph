@@ -27,6 +27,9 @@ function App() {
     <div className="flex flex-col h-screen w-screen max-w-screen bg-background text-foreground overflow-hidden font-sans p-3">
       <Header />
 
+      {/* Horizontal divider under header */}
+      <div style={{ height: "1px", background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
+
       <div className="flex-1 flex overflow-hidden relative max-w-full">
         <Sidebar onSelectNode={setSelectedNodeId} selectedNodeId={selectedNodeId} />
 

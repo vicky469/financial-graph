@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Building2, Sparkles, FileText } from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { Node } from "../../types";
 import { useCompanySubsidiaries, useCompanyBrands, useCompanyFilings } from "../../db/queries";
@@ -15,179 +15,287 @@ export function Company({ node, onBack }: CompanyProps) {
   const { filings, isLoading: loadingFilings } = useCompanyFilings(node.id);
 
   return (
-    <>
-      {/* Header with back button */}
-      <div className="px-3 py-3 border-b shrink-0 flex items-center gap-3">
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div
+        style={{
+          padding: "16px",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+        }}
+      >
         <button
           onClick={onBack}
-          title="Back to list"
-          className="bg-transparent border-none p-0 cursor-pointer hover:opacity-80 transition-opacity"
+          style={{
+            width: "32px",
+            height: "32px",
+            borderRadius: "8px",
+            border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(255,255,255,0.03)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+          }}
         >
-          <ArrowLeft size={20} color="white" className="stroke-[1.5]" />
+          <ArrowLeft size={16} color="rgba(255,255,255,0.6)" />
         </button>
-        <span className="text-sm font-medium truncate capitalize">{node.name.toLowerCase()}</span>
+        <span
+          style={{
+            fontSize: "14px",
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.9)",
+            textTransform: "capitalize",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {node.name.toLowerCase()}
+        </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        {/* Company Structure Section */}
-        <div className="px-3 py-2.5 text-xs text-muted-foreground border-b">
-          <span className="font-medium">
-            Company Structure {!loadingSubsidiaries && `(${subsidiaries.length})`}
-          </span>
-        </div>
-        <div className="px-2 py-1">
+      <div className="flex-1 overflow-y-auto">
+        {/* Company Structure */}
+        <Section
+          icon={<Building2 size={14} />}
+          title="Structure"
+          count={subsidiaries.length}
+          loading={loadingSubsidiaries}
+        >
           {loadingSubsidiaries ? (
-            <div className="flex flex-col items-center justify-center py-8 gap-3">
-              <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-              <p className="text-xs text-muted-foreground">Loading subsidiaries...</p>
-            </div>
+            <LoadingState />
           ) : subsidiaries.length === 0 ? (
-            <div className="p-8 text-center text-xs text-muted-foreground">
-              No subsidiaries found
-            </div>
+            <EmptyState icon={<Building2 size={20} />} text="No subsidiaries" />
           ) : (
-            <div className="pb-4">
-              {subsidiaries.map((subsidiary) => (
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              {subsidiaries.map((sub) => (
                 <div
-                  key={subsidiary.id}
-                  className="flex items-center gap-2 py-2.5 px-2 rounded-md mb-2"
+                  key={sub.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "10px 12px",
+                    borderRadius: "6px",
+                    transition: "background 0.15s ease",
+                    cursor: "default",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
-                  <div className="w-4 shrink-0" />
                   <div
-                    className={cn(
-                      "w-1.5 h-1.5 rounded-full shrink-0",
-                      subsidiary.cik ? "bg-green-500" : "bg-muted-foreground/40"
-                    )}
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      backgroundColor: sub.cik ? "#34d399" : "rgba(255,255,255,0.2)",
+                    }}
                   />
                   <span
-                    className="text-xs font-medium text-foreground/85 capitalize"
-                    title={subsidiary.name}
+                    style={{
+                      fontSize: "13px",
+                      color: "rgba(255,255,255,0.75)",
+                      textTransform: "capitalize",
+                    }}
                   >
-                    {subsidiary.name.toLowerCase()}
+                    {sub.name.toLowerCase()}
                   </span>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Section>
 
-        {/* Brands Section */}
-        <div className="px-3 py-2.5 text-xs text-muted-foreground border-b border-t">
-          <span className="font-medium">Brands {!loadingBrands && `(${brands.length})`}</span>
-        </div>
-        <div className="px-2 py-1">
+        {/* Brands */}
+        <Section
+          icon={<Sparkles size={14} />}
+          title="Brands"
+          count={brands.length}
+          loading={loadingBrands}
+        >
           {loadingBrands ? (
-            <div className="flex flex-col items-center justify-center py-8 gap-3">
-              <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-              <p className="text-xs text-muted-foreground">Loading brands...</p>
-            </div>
+            <LoadingState />
           ) : brands.length === 0 ? (
-            <div className="p-8 text-center text-xs text-muted-foreground">No brands found</div>
+            <EmptyState icon={<Sparkles size={20} />} text="No brands" />
           ) : (
-            <div className="pb-4">
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               {brands.map((brand) => (
-                <div key={brand.id} className="flex items-center gap-2 py-2.5 px-2 rounded-md mb-2">
+                <div
+                  key={brand.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "10px 12px",
+                    borderRadius: "6px",
+                    transition: "background 0.15s ease",
+                    cursor: "default",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
                   <div
-                    className={cn(
-                      "w-1.5 h-1.5 rounded-full shrink-0",
-                      brand.status === "active" ? "bg-blue-500" : "bg-muted-foreground/40"
-                    )}
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      backgroundColor: brand.status === "active" ? "#60a5fa" : "rgba(255,255,255,0.2)",
+                    }}
                   />
-                  <div className="flex-1 min-w-0">
+                  <span
+                    style={{
+                      fontSize: "13px",
+                      color: "rgba(255,255,255,0.75)",
+                      textTransform: "capitalize",
+                      flex: 1,
+                    }}
+                  >
+                    {brand.name.toLowerCase()}
+                  </span>
+                  {brand.category && (
                     <span
-                      className="text-xs font-medium text-foreground/85 capitalize"
-                      title={brand.name}
+                      style={{
+                        fontSize: "11px",
+                        color: "rgba(255,255,255,0.35)",
+                      }}
                     >
-                      {brand.name.toLowerCase()}
+                      {brand.category}
                     </span>
-                    {brand.category && (
-                      <span className="text-xs text-muted-foreground/60 ml-2">
-                        ({brand.category})
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Section>
 
-        {/* SEC Filings Section */}
-        <div className="px-3 py-2.5 text-xs text-muted-foreground border-b border-t">
-          <span className="font-medium">
-            SEC Filings {!loadingFilings && `(${filings.length})`}
-          </span>
-        </div>
-        <div className="px-2 py-2">
+        {/* SEC Filings */}
+        <Section
+          icon={<FileText size={14} />}
+          title="SEC Filings"
+          count={filings.length}
+          loading={loadingFilings}
+        >
           {loadingFilings ? (
-            <div className="flex flex-col items-center justify-center py-8 gap-3">
-              <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-              <p className="text-xs text-muted-foreground">Loading filings...</p>
-            </div>
+            <LoadingState />
           ) : filings.length === 0 ? (
-            <div className="p-8 text-center text-xs text-muted-foreground">No filings found</div>
+            <EmptyState icon={<FileText size={20} />} text="No filings" />
           ) : (
-            <div className="border border-border/30 rounded-md overflow-hidden">
+            <div
+              style={{
+                borderRadius: "8px",
+                border: "1px solid rgba(255,255,255,0.08)",
+                overflow: "hidden",
+              }}
+            >
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/20">
-                    <TableHead className="text-xs font-semibold text-foreground/80 w-24">
+                  <TableRow style={{ background: "rgba(255,255,255,0.03)" }}>
+                    <TableHead
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 500,
+                        color: "rgba(255,255,255,0.4)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.03em",
+                        padding: "10px 12px",
+                      }}
+                    >
                       Date
                     </TableHead>
-                    <TableHead className="text-xs font-semibold text-foreground/80 w-16">
+                    <TableHead
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 500,
+                        color: "rgba(255,255,255,0.4)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.03em",
+                        padding: "10px 12px",
+                      }}
+                    >
                       Type
                     </TableHead>
-                    <TableHead className="text-xs font-semibold text-foreground/80 w-16">
-                      Filing
-                    </TableHead>
-                    <TableHead className="text-xs font-semibold text-foreground/80">
-                      Attachments
+                    <TableHead
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 500,
+                        color: "rgba(255,255,255,0.4)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.03em",
+                        padding: "10px 12px",
+                      }}
+                    >
+                      Link
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filings.map((filing) => (
-                    <TableRow key={filing.id} className="hover:bg-muted/20">
-                      <TableCell className="text-xs text-foreground/70 align-top py-3">
+                    <TableRow
+                      key={filing.id}
+                      style={{
+                        borderTop: "1px solid rgba(255,255,255,0.05)",
+                        transition: "background 0.15s ease",
+                      }}
+                    >
+                      <TableCell
+                        style={{
+                          fontSize: "12px",
+                          color: "rgba(255,255,255,0.6)",
+                          padding: "12px",
+                        }}
+                      >
                         {new Date(filing.filingDate).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
                         })}
                       </TableCell>
-                      <TableCell className="text-xs font-medium text-foreground/90 align-top py-3">
-                        {filing.formType}
+                      <TableCell style={{ padding: "12px" }}>
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            color: "rgba(255,255,255,0.8)",
+                            background: "rgba(99, 102, 241, 0.15)",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                          }}
+                        >
+                          {filing.formType}
+                        </span>
                       </TableCell>
-                      <TableCell className="text-xs align-top py-3">
+                      <TableCell style={{ padding: "12px" }}>
                         <a
                           href={filing.fileUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 hover:underline"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontSize: "12px",
+                            color: "#818cf8",
+                            textDecoration: "none",
+                            transition: "color 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "#a5b4fc")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "#818cf8")}
                         >
                           View
-                          <ExternalLink className="w-3 h-3" />
+                          <ExternalLink size={11} />
                         </a>
-                      </TableCell>
-                      <TableCell className="text-xs align-top py-3">
-                        {Object.keys(filing.attachments).length > 0 ? (
-                          <div className="flex flex-col gap-1.5">
-                            {Object.entries(filing.attachments).map(([name, url]) => (
-                              <a
-                                key={name}
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-blue-400/70 hover:text-blue-300 hover:underline w-fit text-xs"
-                              >
-                                {name}
-                                <ExternalLink className="w-2.5 h-2.5" />
-                              </a>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground/40">—</span>
-                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -195,8 +303,128 @@ export function Company({ node, onBack }: CompanyProps) {
               </Table>
             </div>
           )}
-        </div>
+        </Section>
       </div>
-    </>
+    </div>
+  );
+}
+
+function Section({
+  icon,
+  title,
+  count,
+  loading,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  count?: number;
+  loading?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          padding: "14px 16px",
+        }}
+      >
+        <span style={{ color: "rgba(255,255,255,0.35)" }}>{icon}</span>
+        <span
+          style={{
+            fontSize: "12px",
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.5)",
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+          }}
+        >
+          {title}
+        </span>
+        <span style={{ flex: 1 }} />
+        {loading ? (
+          <div
+            style={{
+              width: "12px",
+              height: "12px",
+              border: "2px solid rgba(99, 102, 241, 0.2)",
+              borderTopColor: "#818cf8",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+            }}
+          />
+        ) : (
+          <span
+            style={{
+              fontSize: "11px",
+              color: "rgba(255,255,255,0.3)",
+              fontWeight: 500,
+            }}
+          >
+            {count}
+          </span>
+        )}
+      </div>
+      <div style={{ padding: "0 12px 16px" }}>{children}</div>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "32px",
+      }}
+    >
+      <div
+        style={{
+          width: "20px",
+          height: "20px",
+          border: "2px solid rgba(99, 102, 241, 0.2)",
+          borderTopColor: "#818cf8",
+          borderRadius: "50%",
+          animation: "spin 0.8s linear infinite",
+        }}
+      />
+    </div>
+  );
+}
+
+function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "32px 16px",
+        gap: "8px",
+      }}
+    >
+      <div
+        style={{
+          width: "40px",
+          height: "40px",
+          borderRadius: "10px",
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "rgba(255,255,255,0.2)",
+        }}
+      >
+        {icon}
+      </div>
+      <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>{text}</span>
+    </div>
   );
 }
