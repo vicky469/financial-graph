@@ -15,19 +15,15 @@ export function CompanyDetail({ node, onBack }: CompanyDetailProps) {
   return (
     <>
       {/* Header with back button */}
-      <div className="px-3 py-3 border-b shrink-0 flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 shrink-0 cursor-pointer"
+      <div className="px-3 py-3 border-b shrink-0 flex items-center gap-3">
+        <button
           onClick={onBack}
+          className="h-5 w-5 shrink-0 cursor-pointer rounded-full border border-border/50 flex items-center justify-center hover:bg-accent/50 transition-colors"
           title="Back to list"
         >
-          <ChevronRight className="h-4 w-4 rotate-180" />
-        </Button>
-        <span className="text-sm font-medium truncate capitalize">
-          {node.name.toLowerCase()}
-        </span>
+          <ChevronRight size={17} className="rotate-180" />
+        </button>
+        <span className="text-sm font-medium truncate capitalize">{node.name.toLowerCase()}</span>
       </div>
 
       {/* Company Structure Section */}
@@ -44,9 +40,7 @@ export function CompanyDetail({ node, onBack }: CompanyDetailProps) {
             <p className="text-xs text-muted-foreground">Loading subsidiaries...</p>
           </div>
         ) : subsidiaries.length === 0 ? (
-          <div className="p-8 text-center text-xs text-muted-foreground">
-            No subsidiaries found
-          </div>
+          <div className="p-8 text-center text-xs text-muted-foreground">No subsidiaries found</div>
         ) : (
           <div className="pb-4">
             {subsidiaries.map((subsidiary) => (
