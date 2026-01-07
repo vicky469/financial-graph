@@ -11,17 +11,17 @@ import {
 } from "./adapters";
 import type { Node } from "../types";
 
-// Load ALL companies (minimal data only: id, name, ticker, cik)
+// Load ALL public companies: id, name, ticker, cik)
 // Client-side search is faster than database search
 export const useAllCompanies = () => {
   const { data, isLoading } = db.useQuery({
-    companies: {},
-  });
-
-  console.log("useAllCompanies debug:", {
-    isLoading,
-    dataCompaniesLength: data?.companies?.length ?? 0,
-    sampleData: data?.companies?.slice(0, 2),
+    companies: {
+      $: {
+        where: {
+          type: "public",
+        },
+      },
+    },
   });
 
   const companies = (data?.companies ?? []).map((c) => ({
@@ -31,11 +31,6 @@ export const useAllCompanies = () => {
     ticker: c.identity?.tickers?.[0] ?? null,
     cik: c.identity?.cik ?? null,
   }));
-
-  console.log("useAllCompanies result:", {
-    companiesLength: companies.length,
-    sampleCompanies: companies.slice(0, 2),
-  });
 
   return { companies, isLoading };
 };
@@ -55,10 +50,7 @@ export const useCompanyGraph = (companyId: string | null) => {
           parent_of: {
             $: {
               where: {
-                or: [
-                  { from_company_id: companyId },
-                  { to_company_id: companyId },
-                ],
+                or: [{ from_company_id: companyId }, { to_company_id: companyId }],
               },
             },
           },
@@ -70,7 +62,7 @@ export const useCompanyGraph = (companyId: string | null) => {
             },
           },
         }
-      : null as any
+      : (null as any)
   );
 
   const nodes: Node[] = [];
@@ -96,9 +88,7 @@ export const useCompanyGraph = (companyId: string | null) => {
   const parentOfEdges = (data?.parent_of ?? []).map((p) =>
     parentOfToEdge(p as unknown as ParentOf)
   );
-  const ownsEdges = (data?.owns ?? []).map((o) =>
-    ownsToEdge(o as unknown as Owns)
-  );
+  const ownsEdges = (data?.owns ?? []).map((o) => ownsToEdge(o as unknown as Owns));
   edges.push(...parentOfEdges, ...ownsEdges);
 
   return { nodes, edges, isLoading };
@@ -118,7 +108,7 @@ export const useCompanySubsidiaries = (companyId: string | null) => {
           },
           companies: {},
         }
-      : null as any
+      : (null as any)
   );
 
   const subsidiaryIds = new Set((data?.parent_of ?? []).map((p) => p.to_company_id));
@@ -146,7 +136,7 @@ export const useCompanyDetails = (companyId: string | null) => {
             },
           },
         }
-      : null as any
+      : (null as any)
   );
 
   const company = data?.companies?.[0];

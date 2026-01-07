@@ -67,6 +67,12 @@ function App() {
           )}
         </main>
       </div>
+
+      <footer className="border-t border-border/50 bg-card/50 px-4 py-2 shrink-0">
+        <p className="text-xs text-muted-foreground/60 text-center">
+          Data Source: SEC @2025
+        </p>
+      </footer>
     </div>
   );
 }

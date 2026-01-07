@@ -46,6 +46,10 @@ export const CompanyList = memo(function CompanyList({ onSelectNode }: CompanyLi
         />
       </div>
 
+      <div className="px-3 py-2 text-xs text-muted-foreground/50 shrink-0 font-medium">
+        {isLoading ? "Loading..." : `Public Companies (${companies.length})`}
+      </div>
+
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-1">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full gap-3">
