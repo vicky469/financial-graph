@@ -258,23 +258,30 @@ async function writeOutputFiles(results: ParseOutput[]) {
 
   logger.info(`Writing output files...`);
 
-  // 1. Summary CSV (all results)
+  // 1. SUCCESS files
   await writeSummaryCSV(
     successful,
-    path.join(outputDir, "subsidiary_parsing_SUCCESS.csv")
+    path.join(outputDir, "subsidiaries_SUCCESS.csv")
+  );
+  await writeFlattenedCSV(
+    successful,
+    path.join(outputDir, "subsidiaries_SUCCESS_details.csv")
   );
 
+  // 2. FAILED - Excel with two worksheets (Stats + Details)
   if (failed.length > 0) {
-    await writeSummaryCSV(
-      failed,
-      path.join(outputDir, "subsidiary_parsing_FAILED.csv")
-    );
+    await writeFailedExcel(failed, path.join(outputDir, "subsidiaries_FAILED.xlsx"));
   }
 
+  // 3. NESTED files
   if (nested.length > 0) {
     await writeSummaryCSV(
       nested,
-      path.join(outputDir, "subsidiary_parsing_NESTED.csv")
+      path.join(outputDir, "subsidiaries_NESTED.csv")
+    );
+    await writeFlattenedCSV(
+      nested,
+      path.join(outputDir, "subsidiaries_NESTED_details.csv")
     );
     await writeNestedURLsJSON(
       nested,
@@ -282,27 +289,114 @@ async function writeOutputFiles(results: ParseOutput[]) {
     );
   }
 
-  // 2. Flattened CSV (one row per subsidiary)
-  await writeFlattenedCSV(
-    successful,
-    path.join(outputDir, "subsidiaries_flattened_SUCCESS.csv")
-  );
-
-  if (failed.length > 0) {
-    await writeFlattenedCSV(
-      failed,
-      path.join(outputDir, "subsidiaries_flattened_FAILED.csv")
-    );
-  }
-
-  if (nested.length > 0) {
-    await writeFlattenedCSV(
-      nested,
-      path.join(outputDir, "subsidiaries_flattened_NESTED.csv")
-    );
-  }
-
   logger.info(`Output files written to ${outputDir}`);
+}
+
+async function writeFailedExcel(results: ParseOutput[], filePath: string) {
+  const ExcelJS = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
+
+  // Worksheet 1: Stats (Summary)
+  const statsSheet = workbook.addWorksheet("Stats");
+  statsSheet.columns = [
+    { header: "Accession", key: "accession", width: 20 },
+    { header: "ExhibitType", key: "exhibitType", width: 12 },
+    { header: "URL", key: "url", width: 60 },
+    { header: "Method", key: "method", width: 12 },
+    { header: "Success", key: "success", width: 10 },
+    { header: "SubsidiaryCount", key: "subsidiaryCount", width: 15 },
+    { header: "MaxNestingLevel", key: "maxNestingLevel", width: 15 },
+    { header: "HasNested", key: "hasNestedStructure", width: 12 },
+    { header: "ErrorMessage", key: "errorMessage", width: 50 },
+  ];
+
+  results.forEach((r) => {
+    statsSheet.addRow({
+      accession: r.accession,
+      exhibitType: r.exhibitType,
+      url: r.url,
+      method: r.method,
+      success: r.success,
+      subsidiaryCount: r.subsidiaryCount,
+      maxNestingLevel: r.maxNestingLevel,
+      hasNestedStructure: r.hasNestedStructure,
+      errorMessage: r.errorMessage || "",
+    });
+  });
+
+  // Style header row
+  statsSheet.getRow(1).font = { bold: true };
+  statsSheet.getRow(1).fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFE0E0E0" },
+  };
+
+  // Worksheet 2: Details (Flattened subsidiaries)
+  const detailsSheet = workbook.addWorksheet("Details");
+  detailsSheet.columns = [
+    { header: "Accession", key: "accession", width: 20 },
+    { header: "ExhibitType", key: "exhibitType", width: 12 },
+    { header: "URL", key: "url", width: 60 },
+    { header: "Method", key: "method", width: 12 },
+    { header: "Subsidiary", key: "subsidiary", width: 40 },
+    { header: "Jurisdiction", key: "jurisdiction", width: 30 },
+    { header: "NestingLevel", key: "nestingLevel", width: 12 },
+    { header: "ParentName", key: "parentName", width: 30 },
+    { header: "ParentId", key: "parentId", width: 15 },
+    { header: "Ownership", key: "ownership", width: 12 },
+    { header: "Footnotes", key: "footnotes", width: 30 },
+    { header: "IsNested", key: "isNested", width: 10 },
+  ];
+
+  for (const r of results) {
+    if (r.subsidiaries.length === 0) {
+      // Write a placeholder row for failed parsing
+      detailsSheet.addRow({
+        accession: r.accession,
+        exhibitType: r.exhibitType,
+        url: r.url,
+        method: r.method,
+        subsidiary: "FAILED",
+        jurisdiction: "",
+        nestingLevel: 0,
+        parentName: "",
+        parentId: "",
+        ownership: "",
+        footnotes: "",
+        isNested: false,
+      });
+      continue;
+    }
+
+    for (const sub of r.subsidiaries) {
+      detailsSheet.addRow({
+        accession: r.accession,
+        exhibitType: r.exhibitType,
+        url: r.url,
+        method: r.method,
+        subsidiary: sub.name,
+        jurisdiction: sub.jurisdiction,
+        nestingLevel: sub.nestingLevel,
+        parentName: sub.parentName || "",
+        parentId: sub.parentId || "",
+        ownership: sub.ownership ?? "",
+        footnotes: sub.footnotes.join(", "),
+        isNested: sub.isNested,
+      });
+    }
+  }
+
+  // Style header row
+  detailsSheet.getRow(1).font = { bold: true };
+  detailsSheet.getRow(1).fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFE0E0E0" },
+  };
+
+  await workbook.xlsx.writeFile(filePath);
+  logger.info(`Wrote FAILED Excel: ${filePath} (Stats: ${results.length} rows, Details sheet included)`);
 }
 
 async function writeSummaryCSV(results: ParseOutput[], filePath: string) {

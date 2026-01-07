@@ -11,7 +11,6 @@
     "ingest:ex21": "ts-node src/ingest/ex21.ts",
     "ingest:ex8": "ts-node src/ingest/ex8.ts",
     "ingest:subsidiaries": "ts-node src/ingest/subsidiaries.ts",
-    "migrate:fiscal-year": "ts-node src/ingest/migrate_fiscal_year.ts",
     "download:ex21": "ts-node src/data_source/sec/scripts/download_exhibit_files.ts EX-21",
     "download:ex8": "ts-node src/data_source/sec/scripts/download_exhibit_files.ts EX-8"
   },
@@ -19,17 +18,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@financial-graph/shared": "file:../shared",
     "@faker-js/faker": "^10.2.0",
+    "@financial-graph/shared": "file:../shared",
     "@instantdb/admin": "^0.22.96",
     "@instantdb/core": "^0.22.96",
     "cheerio": "^1.1.2",
     "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
     "ollama": "^0.6.3",
     "uuid": "^13.0.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "xlsx": "^0.18.5",
     "zod": "^4.3.5"
   },
   "devDependencies": {
