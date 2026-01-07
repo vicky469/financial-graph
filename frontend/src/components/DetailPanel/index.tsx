@@ -7,6 +7,7 @@ import { Separator } from "../ui/separator";
 import { ScrollArea } from "../ui/scroll-area";
 import { ExternalLink, AlertCircle, CheckCircle2 } from "lucide-react";
 import type { Node } from "../../types";
+import { useCompanyDetails } from "../../db/queries";
 
 interface DetailPanelProps {
   node: Node | null;
@@ -17,6 +18,14 @@ interface DetailPanelProps {
 
 export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Fetch full details only when panel is open
+  const { node: fullNode, isLoading } = useCompanyDetails(
+    node?.type === "Company" ? node.id : null
+  );
+
+  // Use full node data if available, otherwise fall back to minimal node data
+  const displayNode = fullNode || node;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -38,8 +47,8 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
 
   if (!node) return null;
 
-  const isEntity = node.type === "Company";
-  const isBrand = node.type === "Brand";
+  const isEntity = displayNode?.type === "Company";
+  const isBrand = displayNode?.type === "Brand";
 
   return (
     <aside ref={panelRef} className="detail-panel">
@@ -49,7 +58,10 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
           <div className="detail-panel-header">
             <div className="flex-1">
               <div className="detail-panel-title-row">
-                <h2 className="detail-panel-title">{node.name}</h2>
+                <h2 className="detail-panel-title capitalize">{node.name.toLowerCase()}</h2>
+                {isLoading && (
+                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                )}
                 <div className="flex gap-2 mt-2">
                   {isEntity ? (
                     <>
@@ -60,7 +72,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
                     </>
                   ) : (
                     <Badge variant="secondary" className="detail-panel-badge">
-                      {node.type}
+                      {displayNode?.type}
                     </Badge>
                   )}
                 </div>
@@ -79,31 +91,31 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
           </div>
 
           {/* Entity-specific fields */}
-          {isEntity && (
+          {isEntity && displayNode && (
             <>
               {/* Core Identity */}
               <Section title="Core Identity">
-                <Field label="CIK" value={node.cik} mono />
-                <Field label="Jurisdiction" value={node.jurisdiction} />
-                <Field label="Sector" value={node.properties?.primary_sector} />
-                <Field label="Industry" value={node.properties?.primary_industry} />
+                <Field label="CIK" value={displayNode.cik} mono />
+                <Field label="Jurisdiction" value={displayNode.jurisdiction} />
+                <Field label="Sector" value={displayNode.properties?.primary_sector} />
+                <Field label="Industry" value={displayNode.properties?.primary_industry} />
               </Section>
 
               <Separator className="my-6" />
 
               {/* Hierarchy */}
               <Section title="Hierarchy">
-                <Field label="Company Group" value={node.properties?.company_group_id} mono />
-                <Field label="Parent Entity" value={node.properties?.parent_id} mono />
-                <Field label="Ownership %" value={node.properties?.ownership_percent} />
+                <Field label="Company Group" value={displayNode.properties?.company_group_id} mono />
+                <Field label="Parent Entity" value={displayNode.properties?.parent_id} mono />
+                <Field label="Ownership %" value={displayNode.properties?.ownership_percent} />
               </Section>
 
               <Separator className="my-6" />
 
               {/* Enrichment Data */}
               <Section title="External Identifiers">
-                <Field label="LEI" value={node.properties?.lei} mono />
-                <Field label="FIGI" value={node.properties?.figi} mono />
+                <Field label="LEI" value={displayNode.properties?.lei} mono />
+                <Field label="FIGI" value={displayNode.properties?.figi} mono />
               </Section>
 
               <Separator className="my-6" />
@@ -111,30 +123,30 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
               {/* Data Quality */}
               <Section title="Data Quality">
                 <div className="detail-quality-indicator">
-                  {node.properties?.is_complete === "true" ? (
+                  {displayNode.properties?.is_complete === "true" ? (
                     <CheckCircle2 className="detail-icon-success" />
                   ) : (
                     <AlertCircle className="detail-icon-warning" />
                   )}
                   <span className="detail-quality-text">
-                    {node.properties?.is_complete === "true" ? "Complete" : "Partial Data"}
+                    {displayNode.properties?.is_complete === "true" ? "Complete" : "Partial Data"}
                   </span>
                 </div>
-                <Field label="Parsing Method" value={node.properties?.parsing_method} />
-                <Field label="Confidence Score" value={node.properties?.confidence_score} />
-                <Field label="Data Source" value={node.properties?.data_source_id} mono />
+                <Field label="Parsing Method" value={displayNode.properties?.parsing_method} />
+                <Field label="Confidence Score" value={displayNode.properties?.confidence_score} />
+                <Field label="Data Source" value={displayNode.properties?.data_source_id} mono />
               </Section>
             </>
           )}
 
           {/* Brand-specific fields */}
-          {isBrand && (
+          {isBrand && displayNode && (
             <>
               <Section title="Brand Information">
-                <Field label="Brand Type" value={node.properties?.brand_type} />
-                <Field label="Sector" value={node.properties?.sector} />
-                <Field label="Industry" value={node.properties?.industry} />
-                <Field label="Owner Entity" value={node.properties?.entity_id} mono />
+                <Field label="Brand Type" value={displayNode.properties?.brand_type} />
+                <Field label="Sector" value={displayNode.properties?.sector} />
+                <Field label="Industry" value={displayNode.properties?.industry} />
+                <Field label="Owner Entity" value={displayNode.properties?.entity_id} mono />
               </Section>
 
               <Separator className="my-6" />
@@ -142,29 +154,31 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
           )}
 
           {/* Temporal Data (both Entity and Brand) */}
-          <Section title="Temporal Data">
-            <Field
-              label="Valid From"
-              value={node.validFrom ? new Date(node.validFrom).toLocaleDateString() : undefined}
-            />
-            <Field
-              label="Valid To"
-              value={node.validTo ? new Date(node.validTo).toLocaleDateString() : "Current"}
-            />
-          </Section>
+          {displayNode && (
+            <Section title="Temporal Data">
+              <Field
+                label="Valid From"
+                value={displayNode.validFrom ? new Date(displayNode.validFrom).toLocaleDateString() : undefined}
+              />
+              <Field
+                label="Valid To"
+                value={displayNode.validTo ? new Date(displayNode.validTo).toLocaleDateString() : "Current"}
+              />
+            </Section>
+          )}
 
           <Separator className="my-6" />
 
           {/* Links */}
-          {node.url && (
+          {displayNode?.url && (
             <Section title="External Links">
-              <a href={node.url} target="_blank" rel="noopener noreferrer" className="detail-link">
+              <a href={displayNode.url} target="_blank" rel="noopener noreferrer" className="detail-link">
                 <ExternalLink className="w-4 h-4" />
                 <span>Corporate Website</span>
               </a>
-              {node.cik && (
+              {displayNode.cik && (
                 <a
-                  href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${node.cik}`}
+                  href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${displayNode.cik}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="detail-link"
@@ -177,31 +191,35 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
           )}
 
           {/* Data Quality & Provenance */}
-          {node.metadata && (
+          {displayNode?.metadata && (
             <>
               <Separator className="my-6" />
               <Section title="Data Quality & Provenance">
-                <Field label="Parsing Method" value={node.metadata.parsingMethod} />
+                <Field label="Parsing Method" value={displayNode.metadata.parsingMethod} />
                 <Field
                   label="Confidence Score"
-                  value={node.metadata.confidenceScore?.toFixed(2)}
+                  value={displayNode.metadata.confidenceScore?.toFixed(2)}
                 />
                 <Field
                   label="Is Complete"
-                  value={node.metadata.isComplete}
+                  value={displayNode.metadata.isComplete}
                 />
-                <Field label="Data Source ID" value={node.metadata.dataSourceId} mono />
-                <Field label="Source Filing ID" value={node.metadata.sourceFilingId} mono />
+                <Field label="Data Source ID" value={displayNode.metadata.dataSourceId} mono />
+                <Field label="Source Filing ID" value={displayNode.metadata.sourceFilingId} mono />
               </Section>
             </>
           )}
 
           {/* Metadata */}
-          <Separator className="my-6" />
-          <Section title="Metadata">
-            <Field label="Created By" value={node.createdBy} />
-            <Field label="Created At" value={new Date(node.createdAt).toLocaleString()} />
-          </Section>
+          {displayNode && (
+            <>
+              <Separator className="my-6" />
+              <Section title="Metadata">
+                <Field label="Created By" value={displayNode.createdBy} />
+                <Field label="Created At" value={new Date(displayNode.createdAt).toLocaleString()} />
+              </Section>
+            </>
+          )}
         </div>
       </ScrollArea>
     </aside>

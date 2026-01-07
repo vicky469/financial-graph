@@ -1,51 +1,61 @@
 // Graph nodes builder hook
 
 import { useMemo } from "react";
-import type { Node } from "reactflow";
-import type { Node as GraphNode, Edge, NodeData, AppContext } from "../../types";
-import type { UserSelection } from "../../types";
+import type { Node as FlowNode } from "reactflow";
+import type { Node, Edge } from "../../types";
 import { useGraphLayout } from "./useGraphLayout";
 
 export function useGraphNodes(
-  entities: GraphNode[],
+  nodes: Node[],
   edges: Edge[],
   visibleIds: Set<string>,
-  selections: UserSelection[],
-  context: AppContext
-): Node<NodeData>[] {
-  const positions = useGraphLayout(entities, edges);
+  selectedNodeId: string | null
+): FlowNode<any>[] {
+  // Filter to only visible nodes and edges BEFORE layout calculation
+  const visibleNodes = useMemo(
+    () => nodes.filter((n) => visibleIds.has(n.id)),
+    [nodes, visibleIds]
+  );
+  const visibleEdges = useMemo(
+    () =>
+      edges.filter(
+        (e) => visibleIds.has(e.sourceId) && visibleIds.has(e.targetId)
+      ),
+    [edges, visibleIds]
+  );
+
+  const positions = useGraphLayout(visibleNodes, visibleEdges);
 
   return useMemo(() => {
-    const visible = entities.filter((e) => visibleIds.has(e.id));
 
-    return visible.map((entity) => {
-      const other = selections.find(
-        (s) => s.selectedNodeId === entity.id && s.odxerId !== context.userId
-      );
-
+    return visibleNodes.map((node) => {
       // Determine entity properties
       // Public usually implies having a CIK (SEC reporting)
-      const isPublic = !!entity.cik;
+      const isPublic = !!node.cik;
 
       // Subsidiary: Has a parent Company node via ownership edge
-      const isSubsidiary = edges.some(
+      const isSubsidiary = visibleEdges.some(
         (e) =>
-          e.targetId === entity.id && entities.find((n) => n.id === e.sourceId)?.type === "Company"
+          e.targetId === node.id &&
+          e.label === "parent_of" &&
+          visibleNodes.find((n) => n.id === e.sourceId)?.type === "Company"
       );
 
       return {
-        id: entity.id,
-        type: "entityNode",
-        position: positions.get(entity.id) ?? { x: 0, y: 0 },
+        id: node.id,
+        type: "entityNode", // Must match nodeTypes key in FinancialGraph
+        position: positions.get(node.id) ?? { x: 0, y: 0 },
         data: {
-          ...entity,
+          ...node,
+          ...node.properties,
+          type: node.type,
+          label: node.name,
           isPublic,
           isSubsidiary,
-          isSelected: context.selectedNodeId === entity.id,
-          otherUserSelecting: other ? { userName: other.userName, color: other.color } : null,
-        } as NodeData,
-        selected: context.selectedNodeId === entity.id,
+          isSelected: selectedNodeId === node.id,
+        },
+        selected: selectedNodeId === node.id,
       };
     });
-  }, [entities, visibleIds, selections, context, positions]);
+  }, [visibleNodes, visibleEdges, selectedNodeId, positions]);
 }

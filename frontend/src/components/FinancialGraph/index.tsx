@@ -1,45 +1,69 @@
 // FinancialGraph - Main graph visualization component
 
-import { useCallback, useMemo, useEffect } from "react";
-import ReactFlow, { type Node, type Edge as FlowEdge, Controls, Background } from "reactflow";
-import { BackgroundVariant, useNodesState, useEdgesState } from "reactflow";
-import { type Connection } from "reactflow";
+import { useCallback, useMemo } from "react";
+import ReactFlow, {
+  Controls,
+  Background,
+  BackgroundVariant,
+} from "reactflow";
+import type { Node, Edge as FlowEdge, Connection } from "reactflow";
 import "reactflow/dist/style.css";
 
 import GraphNode from "../GraphNode";
-import { useGraph, createEdge, deleteEdge } from "../../db";
-import type { NodeData, UserSelection, FinancialGraphProps } from "../../types";
+import { DetailPanel } from "../DetailPanel";
 import { useGraphNodes } from "./useGraphNodes";
 import { useGraphEdges } from "./useGraphEdges";
 import { getEntityWithDescendants } from "./graphUtils";
+import type { Node as AppNode, Edge as AppEdge } from "../../types";
 
 const nodeTypes = { entityNode: GraphNode };
 
+interface FinancialGraphProps {
+  focusedNodeId: string | null;
+  selectedNodeId: string | null;
+  selectedGraphNodeId: string | null;
+  selectedEdgeId: string | null;
+  nodes: AppNode[];
+  edges: AppEdge[];
+  onSelectGraphNode: (id: string | null) => void;
+  onSelectEdge: (id: string | null) => void;
+  onClearFocus: () => void;
+  showNodes?: boolean;
+  showBrands?: boolean;
+}
+
 const FinancialGraph = ({
-  context,
+  focusedNodeId,
+  selectedNodeId,
+  selectedGraphNodeId,
+  selectedEdgeId,
+  nodes: entities,
+  edges,
+  onSelectGraphNode,
   onSelectEdge,
-  onSelectNode,
-  onViewNode,
   onClearFocus,
   showNodes = true,
   showBrands = true,
 }: FinancialGraphProps) => {
-  const { nodes: entities, edges, selections, isLoading } = useGraph();
 
   // Calculate visible node IDs based on focus and visibility toggles
   const visibleIds = useMemo(() => {
     let candidateIds = new Set<string>();
 
-    // 1. Determine candidate nodes (Focus Mode vs Global)
-    if (context.focusedNodeId) {
-      candidateIds = getEntityWithDescendants(context.focusedNodeId, entities, edges);
+    // 1. Determine candidate nodes (Focus Mode vs Selected Node)
+    if (focusedNodeId) {
+      candidateIds = getEntityWithDescendants(focusedNodeId, entities, edges);
+    } else if (selectedNodeId) {
+      // Only show the selected node and its descendants
+      candidateIds = getEntityWithDescendants(selectedNodeId, entities, edges);
     } else {
-      candidateIds = new Set(entities.map((e) => e.id));
+      // No selection - show nothing
+      return new Set<string>();
     }
 
     // 2. Apply Visibility Filters
     const finalVisibleSet = new Set<string>();
-    const selectedNode = entities.find((n) => n.id === context.selectedNodeId);
+    const selectedNode = entities.find((n) => n.id === selectedNodeId);
 
     candidateIds.forEach((id) => {
       const node = entities.find((e) => e.id === id);
@@ -54,7 +78,14 @@ const FinancialGraph = ({
         if (showBrands) {
           // If a company is selected, show ONLY its brands
           if (selectedNode?.type === "Company") {
-            if (node.properties?.entity_id === selectedNode.id) {
+            // Check if this brand belongs to the selected company
+            const isOwnedBySelect = edges.some(
+              (e) =>
+                e.sourceId === selectedNode.id &&
+                e.targetId === id &&
+                e.label === "owns"
+            );
+            if (isOwnedBySelect) {
               finalVisibleSet.add(id);
             }
           } else {
@@ -70,105 +101,105 @@ const FinancialGraph = ({
     });
 
     return finalVisibleSet;
-  }, [context.focusedNodeId, context.selectedNodeId, entities, edges, showNodes, showBrands]);
+  }, [focusedNodeId, selectedNodeId, entities, edges, showNodes, showBrands]);
 
   // Build nodes and edges using hooks
-  const flowNodes = useGraphNodes(
-    entities,
-    edges,
-    visibleIds,
-    selections as UserSelection[],
-    context
-  );
-
-  const flowEdges = useGraphEdges(edges, entities, visibleIds, context.selectedEdgeId);
-
-  // React Flow state
-  const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
-  const [edgesState, setEdges, onEdgesChange] = useEdgesState(flowEdges);
-
-  useEffect(() => setNodes(flowNodes), [flowNodes, setNodes]);
-  useEffect(() => setEdges(flowEdges), [flowEdges, setEdges]);
-
-  // Delete selected edge on Delete/Backspace key press
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.key === "Delete" || event.key === "Backspace") && context.selectedEdgeId) {
-        const edge = edges.find((e) => e.id === context.selectedEdgeId);
-        if (edge) {
-          deleteEdge(edge.id, edge);
-          onSelectEdge?.(null);
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [context.selectedEdgeId, edges, onSelectEdge]);
+  const nodes = useGraphNodes(entities, edges, visibleIds, selectedGraphNodeId);
+  const edgesFlow = useGraphEdges(edges, visibleIds, selectedEdgeId);
 
   // Event handlers
-  const onConnect = useCallback((c: Connection) => {
-    if (c.source && c.target) createEdge(c.source, c.target);
+  const onNodesChange = useCallback(() => {
+    // Nodes are read-only in this visualization
+  }, []);
+
+  const onEdgesChange = useCallback(() => {
+    // Edges are read-only in this visualization
+  }, []);
+
+  // Event handlers
+  const onConnect = useCallback((_c: Connection) => {
+    // Connections are disabled in this visualization
   }, []);
 
   const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node<NodeData>) => {
+    (_: React.MouseEvent, node: Node) => {
       if (node.type === "entityNode") {
-        onViewNode(node.id);
+        onSelectGraphNode(node.id);
       }
     },
-    [onViewNode]
+    [onSelectGraphNode]
   );
 
   const onPaneClick = useCallback(() => {
-    if (context.focusedNodeId) {
+    if (focusedNodeId) {
       onClearFocus();
     }
-    onSelectNode?.(null);
-    onSelectEdge?.(null);
-  }, [context.focusedNodeId, onClearFocus, onSelectNode, onSelectEdge]);
+    onSelectGraphNode(null);
+    onSelectEdge(null);
+  }, [focusedNodeId, onClearFocus, onSelectGraphNode, onSelectEdge]);
 
   const onEdgeClick = useCallback(
     (_: React.MouseEvent, edge: FlowEdge) => {
-      onSelectEdge?.(edge.id);
+      onSelectEdge(edge.id);
     },
     [onSelectEdge]
   );
 
-  if (isLoading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner" />
-        <p>Loading graph...</p>
-      </div>
-    );
-  }
+  // Find selected graph node
+  const selectedGraphNode = selectedGraphNodeId
+    ? entities.find((e) => e.id === selectedGraphNodeId)
+    : null;
+
+  // Determine if selected node is public and subsidiary
+  const isPublic = selectedGraphNode?.cik ? true : false;
+  const isSubsidiary = selectedGraphNode
+    ? edges.some(
+        (e) =>
+          e.targetId === selectedGraphNode.id &&
+          (e.label === "owns" || e.label === "controls")
+      )
+    : false;
 
   return (
-    <div className="graph-container">
-      <ReactFlow
-        nodes={nodes}
-        edges={edgesState}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeClick={onNodeClick}
-        onEdgeClick={onEdgeClick}
-        onPaneClick={onPaneClick}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        proOptions={{ hideAttribution: true }}
-        panOnScroll
-        selectionOnDrag
-        panOnDrag={false}
-        zoomOnScroll={false}
-      >
-        <Background variant={BackgroundVariant.Dots} color="#334155" gap={20} />
-        <Controls className="flow-controls" />
-      </ReactFlow>
+    <div className="w-full h-full bg-background relative flex">
+      <div className="flex-1">
+        <ReactFlow
+          nodes={nodes}
+          edges={edgesFlow}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          onEdgeClick={onEdgeClick}
+          onPaneClick={onPaneClick}
+          nodeTypes={nodeTypes}
+          fitView
+          fitViewOptions={{ padding: 0.2, duration: 0 }}
+          panOnScroll
+          selectionOnDrag
+          panOnDrag
+          zoomOnScroll={false}
+          elementsSelectable={true}
+          minZoom={0.1}
+          maxZoom={2}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          nodesFocusable={false}
+          edgesFocusable={false}
+          attributionPosition="bottom-left"
+        >
+          <Background variant={BackgroundVariant.Dots} color="hsl(var(--muted-foreground) / 0.2)" gap={16} size={1} />
+          <Controls className="!bg-card/90 !border-border/50 !text-muted-foreground/70 [&_button]:hover:!bg-accent/50" />
+        </ReactFlow>
+      </div>
+      {selectedGraphNode && (
+        <DetailPanel
+          node={selectedGraphNode}
+          onClose={() => onSelectGraphNode(null)}
+          isPublic={isPublic}
+          isSubsidiary={isSubsidiary}
+        />
+      )}
     </div>
   );
 };

@@ -1,27 +1,44 @@
 {
-  "name": "backend",
+  "name": "financial-graph-benchmark",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Benchmarking and Playground for Financial Knowledge Graph with InstantDB",
+  "main": "src/index.ts",
   "scripts": {
-    "dev": "nodemon --watch src --exec ts-node src/server.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js",
-    "lint": "tsc --noEmit",
-    "ingest:sec": "ts-node src/sec/scripts/ingestSecMetadata.ts"
+    "clear": "ts-node src/db/clear.ts",
+    "ingest:metadata": "ts-node src/data_source/sec/scripts/ingestSecMetadata.ts",
+    "ingest:tickers": "ts-node src/ingest/tickers.ts",
+    "ingest:filings": "ts-node src/ingest/filings.ts",
+    "ingest:ex21": "ts-node src/ingest/ex21.ts",
+    "ingest:ex8": "ts-node src/ingest/ex8.ts",
+    "ingest:subsidiaries": "ts-node src/ingest/subsidiaries.ts",
+    "migrate:fiscal-year": "ts-node src/ingest/migrate_fiscal_year.ts",
+    "download:ex21": "ts-node src/data_source/sec/scripts/download_exhibit_files.ts EX-21",
+    "download:ex8": "ts-node src/data_source/sec/scripts/download_exhibit_files.ts EX-8"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "@financial-graph/shared": "file:../shared",
+    "@faker-js/faker": "^10.2.0",
+    "@instantdb/admin": "^0.22.96",
+    "@instantdb/core": "^0.22.96",
+    "cheerio": "^1.1.2",
     "dotenv": "^17.2.3",
-    "express": "^5.2.1",
-    "winston": "^3.19.0"
+    "ollama": "^0.6.3",
+    "uuid": "^13.0.0",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
-    "nodemon": "^3.1.11",
+    "@types/cheerio": "^0.22.35",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.0.3",
+    "@types/uuid": "^10.0.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

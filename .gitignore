@@ -6,3 +6,12 @@
 
 # Documentation (internal notes)
 docs/
+
+# Global Safety Nets
+node_modules
+.env
+.env.local
+dist
+build
+logs
+*.log

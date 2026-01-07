@@ -2,9 +2,6 @@
 // All database operations can be imported from '@/db'
 
 export * from "./client";
-export * from "./repos/nodes";
-export * from "./repos/edges";
-export * from "./repos/history";
-export * from "./repos/users";
 export * from "./queries";
-export { default as schema } from "./schema";
+// Note: Schema is in @financial-graph/shared, used by backend only
+

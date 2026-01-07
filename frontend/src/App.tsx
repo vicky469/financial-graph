@@ -1,97 +1,71 @@
-import { useCallback, useEffect, useState } from "react";
-import { useMachine } from "@xstate/react";
+import { useState } from "react";
 import FinancialGraph from "./components/FinancialGraph";
-import Sidebar from "./components/Sidebar";
-import Header from "./components/Header";
-import { DetailPanel } from "./components/DetailPanel";
-import { appMachine } from "./machines/appMachine";
-import { updateUserSelection, setCurrentUser } from "./db";
-import { useGraph } from "./db/queries";
-import "./App.css";
+import { Header } from "./components/Header";
+import { Sidebar } from "./components/Sidebar";
+import { useCompanyGraph } from "./db/queries";
 
 function App() {
-  const [state, send] = useMachine(appMachine);
-  const [editMode, setEditMode] = useState(true);
-  const [showNodes, setShowNodes] = useState(true);
-  const [showBrands, setShowBrands] = useState(true);
-  const ctx = state.context;
-  const { nodes, edges } = useGraph();
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null); // Selected from sidebar
+  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null); // Selected from graph
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
-  // Find the node for the detail panel (read-only view on right)
-  const viewingNode = ctx.viewingNodeId
-    ? nodes.find((n) => n.id === ctx.viewingNodeId) || null
-    : null;
-
-  // Determine viewing node properties for badges
-  const isPublic = !!viewingNode?.cik;
-  const isSubsidiary =
-    !!viewingNode &&
-    edges.some(
-      (e) =>
-        e.targetId === viewingNode.id && nodes.find((n) => n.id === e.sourceId)?.type === "Company"
-    );
-
-  // Set current user for edit tracking
-  useEffect(() => {
-    setCurrentUser(ctx.userId, ctx.userName);
-  }, [ctx.userId, ctx.userName]);
-
-  // Sync selection to InstantDB for collaboration
-  useEffect(() => {
-    updateUserSelection(ctx.userId, ctx.userName, ctx.selectedNodeId, ctx.userColor);
-  }, [ctx.userId, ctx.userName, ctx.selectedNodeId, ctx.userColor]);
-
-  const handleFocusNode = useCallback(
-    (id: string) => send({ type: "FOCUS_NODE", nodeId: id }),
-    [send]
-  );
-  const handleClear = useCallback(() => send({ type: "CLEAR_FOCUS" }), [send]);
-
-  const handleViewNode = useCallback(
-    (id: string) => send({ type: "VIEW_NODE", nodeId: id }),
-    [send]
-  );
-
-  const handleSelectNode = useCallback(
-    (id: string | null) => send({ type: "SELECT_NODE", nodeId: id }),
-    [send]
-  );
+  const { nodes, edges, isLoading } = useCompanyGraph(selectedNodeId);
 
   return (
-    <div className="app">
-      <Header context={ctx} isEditMode={editMode} onToggleEditMode={() => setEditMode(!editMode)} />
-      <div className="app-body">
+    <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden font-sans">
+      <Header />
+
+      <div className="flex-1 flex overflow-hidden relative">
         <Sidebar
-          context={ctx}
-          onFocusNode={handleFocusNode}
-          onSelectNode={handleSelectNode}
-          onSelectEdge={(id: string | null) => send({ type: "SELECT_EDGE", edgeId: id })}
-          showNodes={showNodes}
-          onToggleNodes={() => setShowNodes(!showNodes)}
-          showBrands={showBrands}
-          onToggleBrands={() => setShowBrands(!showBrands)}
+          onSelectNode={setSelectedNodeId}
+          selectedNodeId={selectedNodeId}
         />
-        <main className="main-content">
-          <FinancialGraph
-            context={ctx}
-            onSelectEdge={(id: string | null) => send({ type: "SELECT_EDGE", edgeId: id })}
-            onSelectNode={handleSelectNode}
-            onFocusNode={handleFocusNode}
-            onViewNode={handleViewNode}
-            onClearFocus={handleClear}
-            showNodes={showNodes}
-            showBrands={showBrands}
-          />
+
+        <main className="flex-1 relative bg-background flex flex-col">
+          {!selectedNodeId ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground/60 gap-3">
+              <div className="w-16 h-16 rounded-full bg-accent/30 flex items-center justify-center">
+                <svg
+                  className="w-8 h-8"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                  />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium mb-1">Search and select a company</p>
+                <p className="text-xs text-muted-foreground/50">Use the search box to find companies</p>
+              </div>
+            </div>
+          ) : isLoading ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground animate-pulse">
+              Loading Graph Data...
+            </div>
+          ) : (
+            <FinancialGraph
+              focusedNodeId={focusedNodeId}
+              selectedNodeId={selectedNodeId}
+              selectedGraphNodeId={selectedGraphNodeId}
+              selectedEdgeId={selectedEdgeId}
+              nodes={nodes}
+              edges={edges}
+              onSelectGraphNode={setSelectedGraphNodeId}
+              onSelectEdge={setSelectedEdgeId}
+              onClearFocus={() => setFocusedNodeId(null)}
+              showNodes={true}
+              showBrands={true}
+            />
+          )}
         </main>
-        {/* Right Detail Panel - read-only view when viewing a node */}
-        {viewingNode && (
-          <DetailPanel
-            node={viewingNode}
-            onClose={() => send({ type: "CLEAR_VIEW" })}
-            isPublic={isPublic}
-            isSubsidiary={isSubsidiary}
-          />
-        )}
       </div>
     </div>
   );

@@ -4,27 +4,27 @@
 
 @layer base {
   :root {
-    /* Dark theme by default */
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 47.4% 11.2%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 47.4% 11.2%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 1.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-    --radius: 0.5rem;
+    /* Linear-inspired dark theme - minimal and professional */
+    --background: 240 6% 6%;        /* Very dark, almost black #0F0F10 */
+    --foreground: 240 5% 84%;       /* Muted white for text */
+    --card: 240 5% 9%;              /* Slightly lighter than bg #16161A */
+    --card-foreground: 240 5% 84%;
+    --popover: 240 5% 9%;
+    --popover-foreground: 240 5% 84%;
+    --primary: 250 70% 60%;         /* Subtle purple accent */
+    --primary-foreground: 240 5% 96%;
+    --secondary: 240 4% 16%;        /* Very subtle secondary */
+    --secondary-foreground: 240 5% 84%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 4% 46%; /* Lower contrast muted text */
+    --accent: 240 4% 16%;
+    --accent-foreground: 240 5% 84%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 240 5% 96%;
+    --border: 240 4% 16%;           /* Very subtle borders */
+    --input: 240 5% 12%;
+    --ring: 250 70% 60%;
+    --radius: 0.375rem;             /* Slightly smaller radius */
   }
 }
 
@@ -32,8 +32,39 @@
   * {
     border-color: hsl(var(--border));
   }
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+  }
+
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* For Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--background));
   }
 }

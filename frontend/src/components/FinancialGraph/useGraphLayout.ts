@@ -5,13 +5,14 @@ import dagre from "dagre";
 import type { Node as GraphNode, Edge } from "../../types";
 
 // Diagram Layout Configuration
-const NODE_WIDTH = 180;
-const NODE_HEIGHT = 100;
-const RANK_SEP = 120; // Vertical gap between levels
-const NODE_SEP = 80; // Horizontal gap between nodes
+const NODE_WIDTH = 220; // Company node width
+const NODE_HEIGHT = 140; // Company node height
+const RANK_SEP = 150; // Vertical gap between levels
+const NODE_SEP = 100; // Horizontal gap between nodes
 
 export function useGraphLayout(nodes: GraphNode[], edges: Edge[]) {
   return useMemo(() => {
+    if (nodes.length === 0) return new Map();
     return calculatePositions(nodes, edges);
   }, [nodes, edges]);
 }
@@ -37,7 +38,10 @@ function calculatePositions(
   });
 
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    // Use different dimensions for brands (circular nodes)
+    const width = node.type === "Brand" ? 160 : NODE_WIDTH;
+    const height = node.type === "Brand" ? 160 : NODE_HEIGHT;
+    dagreGraph.setNode(node.id, { width, height });
   });
 
   edges.forEach((edge) => {
@@ -49,14 +53,13 @@ function calculatePositions(
   nodes.forEach((node) => {
     const nodeWithPosition = dagreGraph.node(node.id);
 
-    // We need to pass a slightly off-center position to handle React Flow's center anchor
-    // but React Flow handles handle positions automatically if we just give the top-left or center.
-    // Dagre gives center. React Flow nodes default to top-left unless anchor is set?
-    // Usually React Flow nodes x/y are top-left. Dagre gives center x/y.
+    // Dagre gives center x/y, React Flow needs top-left
+    const width = node.type === "Brand" ? 160 : NODE_WIDTH;
+    const height = node.type === "Brand" ? 160 : NODE_HEIGHT;
 
     positions.set(node.id, {
-      x: nodeWithPosition.x - NODE_WIDTH / 2,
-      y: nodeWithPosition.y - NODE_HEIGHT / 2,
+      x: nodeWithPosition.x - width / 2,
+      y: nodeWithPosition.y - height / 2,
     });
   });
 

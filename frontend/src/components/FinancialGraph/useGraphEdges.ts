@@ -1,93 +1,76 @@
 // Graph edges builder hook
 
 import { useMemo } from "react";
-import type { Edge as FlowEdge } from "reactflow";
 import { MarkerType } from "reactflow";
-import type { Edge, Node as GraphNode } from "../../types";
+import type { Edge as FlowEdge } from "reactflow";
+import type { Edge } from "../../types";
 
 export function useGraphEdges(
   edges: Edge[],
-  nodes: GraphNode[],
   visibleIds: Set<string>,
-  selectedEdgeId?: string | null
+  selectedEdgeId: string | null
 ): FlowEdge[] {
+  const visibleEdges = useMemo(
+    () => edges.filter((e) => visibleIds.has(e.sourceId) && visibleIds.has(e.targetId)),
+    [edges, visibleIds]
+  );
+
   return useMemo(() => {
-    // Build set of node IDs for detecting node-to-event edges
-    const nodeIds = new Set(nodes.map((e) => e.id));
+    return visibleEdges.map((e) => {
+        const isBrandConnection = e.label === "owns";
+        const isOwnership = e.label === "parent_of" || e.ownership !== undefined;
+        const isSelected = selectedEdgeId === e.id;
 
-    // Build parent map for simultaneous rerouting (EVENT edges only)
-    const parentMap = new Map<string, string>();
-    edges.forEach((e) => {
-      // Only build parent map from causal event-to-event edges
-      if (e.edgeType !== "simultaneous" && !nodeIds.has(e.sourceId)) {
-        parentMap.set(e.targetId, e.sourceId);
-      }
-    });
-
-    return edges
-      .filter((e) => visibleIds.has(e.sourceId) && visibleIds.has(e.targetId))
-      .map((e) => {
-        const isSimultaneous = e.edgeType === "simultaneous";
-        const isNodeEdge = nodeIds.has(e.sourceId); // Source is a node
-
-        // Node edges (Company/Brand connections)
-        if (isNodeEdge) {
-          const targetNode = nodes.find((n) => n.id === e.targetId);
-          const isBrandConnection = targetNode?.type === "Brand";
-
-          return {
-            id: e.id,
-            source: e.sourceId,
-            target: e.targetId,
-            // Dagre layout (Top-Bottom) works best with Top/Bottom handles
-            sourceHandle: "bottom",
-            targetHandle: "top",
-            type: isBrandConnection ? "straight" : "smoothstep", // Straight for brands (dots), Orthogonal (smoothstep) for entities
-            label: e.label,
-            animated: false,
-            style: {
-              strokeWidth: isBrandConnection ? 1.5 : 2,
-              strokeDasharray: isBrandConnection ? "6 4" : "none", // Dashed for brands, Solid for companies
-              stroke:
-                selectedEdgeId === e.id ? "#3b82f6" : isBrandConnection ? "#a78bfa" : "#94a3b8",
-            },
-            labelStyle: { fill: "#94a3b8", fontSize: 11 },
-            markerEnd: isBrandConnection
-              ? undefined
-              : {
-                  type: MarkerType.ArrowClosed,
-                  color: selectedEdgeId === e.id ? "#3b82f6" : "#94a3b8",
-                },
-          };
+        // Edge colors based on type
+        let strokeColor = "#64748b"; // Default gray
+        if (isSelected) {
+          strokeColor = "#60a5fa"; // Blue when selected
+        } else if (isBrandConnection) {
+          strokeColor = "#a78bfa"; // Purple for brand connections
+        } else if (isOwnership) {
+          strokeColor = "#94a3b8"; // Light gray for ownership
         }
 
-        // Event-to-event edges: apply simultaneous rerouting
-        let source = e.sourceId;
-        if (isSimultaneous) {
-          const parent = parentMap.get(e.sourceId);
-          if (parent) source = parent; // Reroute to parent for sibling appearance
+        // Label text - show ownership percentage if available
+        let labelText = e.label;
+        if (e.ownership && e.ownership > 0) {
+          labelText = `owns ${e.ownership}%`;
         }
 
         return {
           id: e.id,
-          source: source,
+          source: e.sourceId,
           target: e.targetId,
           sourceHandle: "bottom",
           targetHandle: "top",
-          type: "default",
-          label: e.label,
-          animated: !isSimultaneous,
+          type: isBrandConnection ? "straight" : "smoothstep",
+          label: labelText,
+          animated: false,
           style: {
             strokeWidth: 2,
-            strokeDasharray: "none",
-            stroke: selectedEdgeId === e.id ? "#3b82f6" : "#64748b",
+            strokeDasharray: isBrandConnection ? "8 4" : "none",
+            stroke: strokeColor,
           },
-          labelStyle: { fill: "#94a3b8", fontSize: 11 },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: selectedEdgeId === e.id ? "#3b82f6" : "#64748b",
+          labelStyle: {
+            fill: "#1e293b",
+            fontSize: 11,
+            fontWeight: 500,
           },
+          labelBgStyle: {
+            fill: "#ffffff",
+            fillOpacity: 0.95,
+          },
+          labelBgPadding: [6, 8] as [number, number],
+          labelBgBorderRadius: 4,
+          markerEnd: isBrandConnection
+            ? undefined
+            : {
+                type: MarkerType.ArrowClosed,
+                color: strokeColor,
+                width: 20,
+                height: 20,
+              },
         };
       });
-  }, [edges, nodes, visibleIds, selectedEdgeId]);
+  }, [visibleEdges, selectedEdgeId]);
 }
