@@ -2,7 +2,14 @@ import { ChevronRight, ExternalLink } from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { Node } from "../../types";
 import { useCompanySubsidiaries, useCompanyBrands, useCompanyFilings } from "../../db/queries";
-import { useMemo } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
 
 interface CompanyProps {
   node: Node;
@@ -13,22 +20,6 @@ export function Company({ node, onBack }: CompanyProps) {
   const { subsidiaries, isLoading: loadingSubsidiaries } = useCompanySubsidiaries(node.id);
   const { brands, isLoading: loadingBrands } = useCompanyBrands(node.id);
   const { filings, isLoading: loadingFilings } = useCompanyFilings(node.id);
-
-  // Group filings by year, then by form type
-  const filingsByYear = useMemo(() => {
-    const grouped: Record<number, Record<string, typeof filings>> = {};
-    filings.forEach((filing) => {
-      const year = filing.fiscalYear || new Date(filing.filingDate).getFullYear();
-      if (!grouped[year]) grouped[year] = {};
-      if (!grouped[year][filing.formType]) grouped[year][filing.formType] = [];
-      grouped[year][filing.formType].push(filing);
-    });
-    return grouped;
-  }, [filings]);
-
-  const years = Object.keys(filingsByYear)
-    .map(Number)
-    .sort((a, b) => b - a);
 
   return (
     <>
@@ -119,7 +110,7 @@ export function Company({ node, onBack }: CompanyProps) {
         <div className="px-3 py-2.5 text-xs text-muted-foreground border-b border-t">
           <span className="font-medium">SEC Filings {!loadingFilings && `(${filings.length})`}</span>
         </div>
-        <div className="px-2 py-1">
+        <div className="px-2 py-2">
           {loadingFilings ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
               <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -128,50 +119,64 @@ export function Company({ node, onBack }: CompanyProps) {
           ) : filings.length === 0 ? (
             <div className="p-8 text-center text-xs text-muted-foreground">No filings found</div>
           ) : (
-            <div className="pb-4">
-              {years.map((year) => (
-                <div key={year} className="mb-4">
-                  <div className="px-2 py-2 text-xs font-semibold text-foreground/70">{year}</div>
-                  {Object.entries(filingsByYear[year]).map(([formType, yearFilings]) => (
-                    <div key={formType} className="mb-3">
-                      <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">{formType}</div>
-                      {yearFilings.map((filing) => (
-                        <div key={filing.id} className="mb-2">
-                          <a
-                            href={filing.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 py-2 px-2 rounded-md hover:bg-accent/50 transition-colors group"
-                          >
-                            <ExternalLink className="w-3 h-3 text-muted-foreground/60 group-hover:text-foreground/80 shrink-0" />
-                            <span className="text-xs text-foreground/70 group-hover:text-foreground">
-                              {new Date(filing.filingDate).toLocaleDateString()}
-                            </span>
-                          </a>
-                          {Object.keys(filing.attachments).length > 0 && (
-                            <div className="pl-7 space-y-1">
-                              {Object.entries(filing.attachments).map(([name, url]) => (
-                                <a
-                                  key={name}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2 py-1 px-2 rounded-md hover:bg-accent/30 transition-colors group text-xs"
-                                >
-                                  <ExternalLink className="w-2.5 h-2.5 text-muted-foreground/40 group-hover:text-foreground/60 shrink-0" />
-                                  <span className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground truncate">
-                                    {name}
-                                  </span>
-                                </a>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+            <div className="border border-border/30 rounded-md overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/20">
+                    <TableHead className="text-xs font-semibold text-foreground/80 w-24">Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-foreground/80 w-16">Type</TableHead>
+                    <TableHead className="text-xs font-semibold text-foreground/80 w-16">Filing</TableHead>
+                    <TableHead className="text-xs font-semibold text-foreground/80">Attachments</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filings.map((filing) => (
+                    <TableRow key={filing.id} className="hover:bg-muted/20">
+                      <TableCell className="text-xs text-foreground/70 align-top py-3">
+                        {new Date(filing.filingDate).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </TableCell>
+                      <TableCell className="text-xs font-medium text-foreground/90 align-top py-3">
+                        {filing.formType}
+                      </TableCell>
+                      <TableCell className="text-xs align-top py-3">
+                        <a
+                          href={filing.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 hover:underline"
+                        >
+                          View
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </TableCell>
+                      <TableCell className="text-xs align-top py-3">
+                        {Object.keys(filing.attachments).length > 0 ? (
+                          <div className="flex flex-col gap-1.5">
+                            {Object.entries(filing.attachments).map(([name, url]) => (
+                              <a
+                                key={name}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-blue-400/70 hover:text-blue-300 hover:underline w-fit text-xs"
+                              >
+                                {name}
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground/40">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </div>
-              ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </div>

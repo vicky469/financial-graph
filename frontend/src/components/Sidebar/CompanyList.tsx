@@ -11,25 +11,16 @@ export const CompanyList = memo(function CompanyList({ onSelectNode }: CompanyLi
   // Load all companies (minimal data), do client-side search
   const { companies: allCompanies, isLoading } = useAllCompanies();
 
-  console.log("CompanyList debug:", {
-    isLoading,
-    allCompaniesLength: allCompanies.length,
-    searchQuery,
-    sampleCompanies: allCompanies.slice(0, 3),
-  });
-
   // Client-side filtering by name or ticker
   const companies = useMemo(() => {
     if (!searchQuery.trim()) return allCompanies;
 
     const query = searchQuery.toLowerCase();
-    const filtered = allCompanies.filter((c) => {
+    return allCompanies.filter((c) => {
       const name = c.name.toLowerCase();
       const ticker = c.ticker?.toLowerCase() ?? "";
       return name.includes(query) || ticker.includes(query);
     });
-    console.log("Filtered companies:", { query, count: filtered.length });
-    return filtered;
   }, [allCompanies, searchQuery]);
 
   return (
