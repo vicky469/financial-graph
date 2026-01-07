@@ -123,6 +123,76 @@ export const useCompanySubsidiaries = (companyId: string | null) => {
   return { subsidiaries, isLoading };
 };
 
+// Fetch brands for a company
+export const useCompanyBrands = (companyId: string | null) => {
+  const { data, isLoading } = db.useQuery(
+    companyId
+      ? {
+          owns: {
+            $: {
+              where: {
+                from_company_id: companyId,
+              },
+            },
+          },
+          brands: {},
+        }
+      : (null as any)
+  );
+
+  const brandIds = new Set((data?.owns ?? []).map((o) => o.to_brand_id));
+  const brands = (data?.brands ?? [])
+    .filter((b) => brandIds.has(b.id))
+    .map((b) => ({
+      id: b.id,
+      name: b.name,
+      category: b.category,
+      status: b.status,
+    }));
+
+  return { brands, isLoading };
+};
+
+// Fetch SEC filings for a company (query directly from filings table)
+export const useCompanyFilings = (companyId: string | null) => {
+  const { data, isLoading } = db.useQuery(
+    companyId
+      ? {
+          filings: {
+            $: {
+              where: {
+                company_id: companyId,
+              },
+            },
+          },
+        }
+      : (null as any)
+  );
+
+  const filings = (data?.filings ?? [])
+    .map((f) => {
+      const attachments = f.attachments as Record<string, string> | null;
+
+      return {
+        id: f.id,
+        formType: f.form_type,
+        filingDate: f.filing_date,
+        fiscalYear: f.fiscal_year,
+        fileUrl: f.file_url,
+        attachments: attachments || {},
+      };
+    })
+    .sort((a, b) => {
+      // Sort by fiscal year desc, then by filing date desc
+      if (b.fiscalYear !== a.fiscalYear) {
+        return (b.fiscalYear || 0) - (a.fiscalYear || 0);
+      }
+      return b.filingDate.localeCompare(a.filingDate);
+    });
+
+  return { filings, isLoading };
+};
+
 // Fetch full details for a specific company when needed
 export const useCompanyDetails = (companyId: string | null) => {
   const { data, isLoading } = db.useQuery(

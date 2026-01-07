@@ -17,10 +17,7 @@ function App() {
       <Header />
 
       <div className="flex-1 flex overflow-hidden relative">
-        <Sidebar
-          onSelectNode={setSelectedNodeId}
-          selectedNodeId={selectedNodeId}
-        />
+        <Sidebar onSelectNode={setSelectedNodeId} selectedNodeId={selectedNodeId} />
 
         <main className="flex-1 relative bg-background flex flex-col">
           {!selectedNodeId ? (
@@ -43,7 +40,9 @@ function App() {
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium mb-1">Search and select a company</p>
-                <p className="text-xs text-muted-foreground/50">Use the search box to find companies</p>
+                <p className="text-xs text-muted-foreground/50">
+                  Use the search box to find companies
+                </p>
               </div>
             </div>
           ) : isLoading ? (
@@ -70,7 +69,7 @@ function App() {
 
       <footer className="border-t border-border/50 bg-card/50 px-4 py-2 shrink-0">
         <p className="text-xs text-muted-foreground/60 text-center">
-          Data Source: SEC @2025
+          Data Source: SEC | Included Years: 2025
         </p>
       </footer>
     </div>

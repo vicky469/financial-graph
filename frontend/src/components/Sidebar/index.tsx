@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { CompanyList } from "./CompanyList";
-import { CompanyDetail } from "./CompanyDetail";
+import { Company } from "./Company";
 import { useCompanyGraph } from "../../db/queries";
 
 interface SidebarProps {
@@ -27,7 +27,7 @@ export function Sidebar({ onSelectNode, selectedNodeId }: SidebarProps) {
       style={sidebarStyle}
     >
       {selectedNode ? (
-        <CompanyDetail node={selectedNode} onBack={() => onSelectNode(null)} />
+        <Company node={selectedNode} onBack={() => onSelectNode(null)} />
       ) : (
         <CompanyList onSelectNode={onSelectNode} />
       )}
