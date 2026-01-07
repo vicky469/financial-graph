@@ -1,4 +1,60 @@
-export function Header() {
+import { useState } from "react";
+import { Search } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+interface HeaderProps {
+  onSearchFiling?: (companyId: string) => void;
+}
+
+export function Header({ onSearchFiling }: HeaderProps) {
+  const navigate = useNavigate();
+  const [accessionSearch, setAccessionSearch] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSearch = async () => {
+    if (!accessionSearch.trim()) return;
+    
+    setIsSearching(true);
+    setError(null);
+    
+    try {
+      const { db } = await import("../../db/client");
+      
+      const result = await db.queryOnce({
+        filings: {
+          $: {
+            where: {
+              accession_number_nodashes: accessionSearch.trim(),
+            },
+          },
+        },
+      });
+
+      const filing = result.data?.filings?.[0];
+      if (filing) {
+        if (onSearchFiling) {
+          onSearchFiling(filing.company_id);
+        } else {
+          navigate(`/company/${filing.company_id}`);
+        }
+        setAccessionSearch("");
+      } else {
+        setError("Filing not found");
+      }
+    } catch {
+      setError("Search failed");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
   return (
     <header className="h-11 flex items-center px-4 shrink-0">
       <div className="flex items-center gap-4">
@@ -22,6 +78,53 @@ export function Header() {
           </svg>
         </div>
         <span style={{ marginLeft: "4px" }} className="text-sm font-medium text-foreground/80">Financial Graph</span>
+      </div>
+
+      {/* Accession Number Search */}
+      <div className="ml-auto flex items-center gap-2">
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: "6px",
+          padding: "0 10px",
+          height: "32px",
+        }}>
+          <Search size={14} style={{ color: "rgba(255,255,255,0.4)" }} />
+          <input
+            type="text"
+            placeholder="Accession # (no dashes)"
+            value={accessionSearch}
+            onChange={(e) => {
+              setAccessionSearch(e.target.value);
+              setError(null);
+            }}
+            onKeyDown={handleKeyDown}
+            style={{
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              fontSize: "12px",
+              color: "rgba(255,255,255,0.8)",
+              width: "160px",
+            }}
+          />
+          {isSearching && (
+            <div style={{
+              width: "12px",
+              height: "12px",
+              border: "2px solid rgba(255,255,255,0.2)",
+              borderTopColor: "rgba(255,255,255,0.6)",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+            }} />
+          )}
+        </div>
+        {error && (
+          <span style={{ fontSize: "11px", color: "#f87171" }}>{error}</span>
+        )}
       </div>
     </header>
   );

@@ -10,7 +10,7 @@ interface SidebarProps {
 
 export function Sidebar({ onSelectNode, selectedNodeId }: SidebarProps) {
   const MIN_WIDTH = 240;
-  const MAX_WIDTH = 400;
+  const MAX_WIDTH = 360;
   const DEFAULT_LIST_WIDTH = 260;
   const DEFAULT_COMPANY_WIDTH = 360;
 

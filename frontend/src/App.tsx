@@ -1,37 +1,55 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { Routes, Route, useParams, useNavigate } from "react-router-dom";
 import FinancialGraph from "./components/FinancialGraph";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { DetailPanel } from "./components/DetailPanel";
 import { useCompanyGraph } from "./db/queries";
 
-function App() {
-  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null); // Selected from sidebar
-  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null); // Selected from graph
+function AppContent() {
+  const { companyId } = useParams<{ companyId?: string }>();
+  const navigate = useNavigate();
+  
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(companyId || null);
+  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+
+  // Sync URL param to state
+  useEffect(() => {
+    if (companyId && companyId !== selectedNodeId) {
+      setSelectedNodeId(companyId);
+    }
+  }, [companyId]);
+
+  // Update URL when company is selected
+  const handleSelectNode = (nodeId: string | null) => {
+    setSelectedNodeId(nodeId);
+    if (nodeId) {
+      navigate(`/company/${nodeId}`);
+    } else {
+      navigate("/");
+    }
+  };
 
   const { nodes, edges, isLoading } = useCompanyGraph(selectedNodeId);
 
-  // Find the selected graph node for DetailPanel
   const selectedGraphNode = useMemo(
     () => nodes.find((n) => n.id === selectedGraphNodeId) ?? null,
     [nodes, selectedGraphNodeId]
   );
 
-  // Determine if selected node is public/subsidiary for DetailPanel
   const isPublic = selectedGraphNode?.cik ? true : false;
   const isSubsidiary = selectedGraphNode?.id !== selectedNodeId;
 
   return (
     <div className="flex flex-col h-screen w-screen max-w-screen bg-background text-foreground overflow-hidden font-sans p-3">
-      <Header />
+      <Header onSearchFiling={handleSelectNode} />
 
-      {/* Horizontal divider under header */}
       <div style={{ height: "1px", background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
 
       <div className="flex-1 flex overflow-hidden relative max-w-full">
-        <Sidebar onSelectNode={setSelectedNodeId} selectedNodeId={selectedNodeId} />
+        <Sidebar onSelectNode={handleSelectNode} selectedNodeId={selectedNodeId} />
 
         <main className="flex-1 min-w-0 relative bg-background flex flex-col overflow-hidden">
           {!selectedNodeId ? (
@@ -80,7 +98,6 @@ function App() {
           )}
         </main>
 
-        {/* Right Detail Panel */}
         {selectedGraphNode && (
           <DetailPanel
             node={selectedGraphNode}
@@ -91,6 +108,15 @@ function App() {
         )}
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<AppContent />} />
+      <Route path="/company/:companyId" element={<AppContent />} />
+    </Routes>
   );
 }
 

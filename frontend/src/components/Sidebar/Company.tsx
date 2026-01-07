@@ -1,5 +1,4 @@
 import { ArrowLeft, ExternalLink, Building2, Sparkles, FileText } from "lucide-react";
-import { cn } from "../../lib/utils";
 import type { Node } from "../../types";
 import { useCompanySubsidiaries, useCompanyBrands, useCompanyFilings } from "../../db/queries";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
@@ -202,103 +201,71 @@ export function Company({ node, onBack }: CompanyProps) {
               <Table>
                 <TableHeader>
                   <TableRow style={{ background: "rgba(255,255,255,0.03)" }}>
-                    <TableHead
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 500,
-                        color: "rgba(255,255,255,0.4)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.03em",
-                        padding: "10px 12px",
-                      }}
-                    >
-                      Date
-                    </TableHead>
-                    <TableHead
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 500,
-                        color: "rgba(255,255,255,0.4)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.03em",
-                        padding: "10px 12px",
-                      }}
-                    >
-                      Type
-                    </TableHead>
-                    <TableHead
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 500,
-                        color: "rgba(255,255,255,0.4)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.03em",
-                        padding: "10px 12px",
-                      }}
-                    >
-                      Link
-                    </TableHead>
+                    <TableHead style={tableHeadStyle}>Date</TableHead>
+                    <TableHead style={tableHeadStyle}>Type</TableHead>
+                    <TableHead style={tableHeadStyle}>Filing</TableHead>
+                    <TableHead style={tableHeadStyle}>Attachments</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filings.map((filing) => (
-                    <TableRow
-                      key={filing.id}
-                      style={{
-                        borderTop: "1px solid rgba(255,255,255,0.05)",
-                        transition: "background 0.15s ease",
-                      }}
-                    >
-                      <TableCell
+                  {filings.map((filing) => {
+                    // Get all attachments
+                    const attachments = Object.entries(filing.attachments || {})
+                      .filter(([key]) => key.startsWith("EX-"))
+                      .map(([key, url]) => ({ key, url }));
+
+                    return (
+                      <TableRow
+                        key={filing.id}
                         style={{
-                          fontSize: "12px",
-                          color: "rgba(255,255,255,0.6)",
-                          padding: "12px",
+                          borderTop: "1px solid rgba(255,255,255,0.05)",
+                          transition: "background 0.15s ease",
                         }}
                       >
-                        {new Date(filing.filingDate).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </TableCell>
-                      <TableCell style={{ padding: "12px" }}>
-                        <span
+                        <TableCell
                           style={{
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            color: "rgba(255,255,255,0.8)",
-                            background: "rgba(99, 102, 241, 0.15)",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                          }}
-                        >
-                          {filing.formType}
-                        </span>
-                      </TableCell>
-                      <TableCell style={{ padding: "12px" }}>
-                        <a
-                          href={filing.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "4px",
                             fontSize: "12px",
-                            color: "#818cf8",
-                            textDecoration: "none",
-                            transition: "color 0.15s ease",
+                            color: "rgba(255,255,255,0.6)",
+                            padding: "10px 12px",
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.color = "#a5b4fc")}
-                          onMouseLeave={(e) => (e.currentTarget.style.color = "#818cf8")}
                         >
-                          View
-                          <ExternalLink size={11} />
-                        </a>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          {new Date(filing.filingDate).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </TableCell>
+                        <TableCell style={{ padding: "10px 12px" }}>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              color: "rgba(255,255,255,0.8)",
+                              background: "rgba(99, 102, 241, 0.15)",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                            }}
+                          >
+                            {filing.formType}
+                          </span>
+                        </TableCell>
+                        <TableCell style={{ padding: "10px 12px" }}>
+                          <FilingLink url={filing.fileUrl} />
+                        </TableCell>
+                        <TableCell style={{ padding: "10px 12px" }}>
+                          {attachments.length > 0 ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                              {attachments.map(({ key, url }) => (
+                                <FilingLink key={key} url={url} label={key} />
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -426,5 +393,43 @@ function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
       </div>
       <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>{text}</span>
     </div>
+  );
+}
+
+// Shared table head style
+const tableHeadStyle: React.CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 500,
+  color: "rgba(255,255,255,0.4)",
+  textTransform: "uppercase",
+  letterSpacing: "0.03em",
+  padding: "10px 12px",
+};
+
+// Filing link component
+function FilingLink({ url, label = "View" }: { url: string; label?: string }) {
+  // Transform .txt URLs to -index.html for better SEC viewer
+  const displayUrl = url.replace(/\.txt$/, "-index.html");
+  
+  return (
+    <a
+      href={displayUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "4px",
+        fontSize: "12px",
+        color: "#818cf8",
+        textDecoration: "none",
+        transition: "color 0.15s ease",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.color = "#a5b4fc")}
+      onMouseLeave={(e) => (e.currentTarget.style.color = "#818cf8")}
+    >
+      {label}
+      <ExternalLink size={11} />
+    </a>
   );
 }
