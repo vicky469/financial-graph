@@ -97,15 +97,38 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
         )}
 
 
-        {/* Metadata */}
+        {/* Metadata - compact two column layout, no bottom border */}
         {displayNode && (
-          <Section title="Metadata">
-            <FieldRow
-              label="Created"
-              value={new Date(displayNode.createdAt).toLocaleDateString()}
-            />
-            <FieldRow label="Source" value={displayNode.createdBy} />
-          </Section>
+          <div style={{ padding: "20px" }}>
+            <h3 style={{ 
+              fontSize: "11px", 
+              fontWeight: 500, 
+              color: "rgba(255,255,255,0.4)", 
+              textTransform: "uppercase", 
+              letterSpacing: "0.05em",
+              marginBottom: "12px" 
+            }}>
+              Metadata
+            </h3>
+            <div style={{ display: "flex", gap: "24px" }}>
+              <div>
+                <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginBottom: "2px" }}>
+                  Created At
+                </div>
+                <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
+                  {new Date(displayNode.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginBottom: "2px" }}>
+                  Created By
+                </div>
+                <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
+                  {displayNode.createdBy || "—"}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Data Quality */}
@@ -223,31 +246,6 @@ function TickerField({ tickers }: { tickers?: string | string[] | null }) {
         })}
       </div>
     </div>
-  );
-}
-
-function LinkRow({
-  href,
-  icon,
-  label,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 py-2 px-3 -mx-3 rounded-md text-sm text-foreground/80 hover:text-foreground hover:bg-accent/40 transition-colors group"
-    >
-      <span className="text-muted-foreground/50 group-hover:text-primary transition-colors">
-        {icon}
-      </span>
-      <span className="flex-1">{label}</span>
-      <ExternalLink size={12} className="text-muted-foreground/40 group-hover:text-primary/60" />
-    </a>
   );
 }
 
