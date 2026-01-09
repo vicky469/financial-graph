@@ -78,7 +78,7 @@ const latestTransport = new winston.transports.File({
 
 // Logger Instance (Internal)
 const baseLogger = winston.createLogger({
-  level: "info",
+  level: process.env.LOG_LEVEL || "info", // Allow configurable log level
   transports: [
     new winston.transports.Console({ format: consoleFormat }),
     dailyTransport,
@@ -91,6 +91,9 @@ export const createLogger = (context: string) => {
   const commonMeta = { module: context };
 
   return {
+    debug: (msg: string, meta: Record<string, any> = {}) => {
+      baseLogger.debug(msg, { ...commonMeta, ...meta });
+    },
     info: (msg: string, meta: Record<string, any> = {}) => {
       baseLogger.info(msg, { ...commonMeta, ...meta });
     },

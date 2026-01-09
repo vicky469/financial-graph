@@ -4,12 +4,19 @@
  * Orchestrates the ingestion of subsidiary data from SEC filings:
  * 1. Loads cached EX-21 and EX-8 exhibit files
  * 2. Parses HTML to extract subsidiary relationships
- * 3. Outputs to CSV files (currently)
- * 4. TODO: Inject to InstantDB
+ * 3. Outputs to sink (excel, db, or both)
+ *
+ * Usage:
+ *   npm run ingest:subsidiaries                    # Default: excel output
+ *   npm run ingest:subsidiaries -- --sink=excel    # Excel only
+ *   npm run ingest:subsidiaries -- --sink=db       # InstantDB only
+ *   npm run ingest:subsidiaries -- --sink=excel,db # Both
+ *   npm run ingest:subsidiaries -- --sink=none     # Dry run (parse only)
  */
 
 import { createLogger } from "../utils/logger";
 import { parseExhibit, SubsidiaryRecord } from "../parsers/subsidiary-parser";
+import { MissingDBValueError } from "../parsers/subsidiary/errors";
 import fs from "fs/promises";
 import path from "path";
 import { gunzip } from "zlib";
@@ -19,10 +26,44 @@ import "dotenv/config";
 const gunzipAsync = promisify(gunzip);
 const logger = createLogger("ingest/subsidiaries");
 
+// ============================================================================
+// CLI Arguments
+// ============================================================================
+
+type SinkType = "excel" | "db" | "none";
+
+function parseArgs(): { sinks: SinkType[] } {
+  const args = process.argv.slice(2);
+  const sinkArg = args.find((a) => a.startsWith("--sink="));
+
+  if (!sinkArg) {
+    return { sinks: ["excel"] }; // Default
+  }
+
+  const sinkValue = sinkArg.replace("--sink=", "");
+  const sinks = sinkValue.split(",").map((s) => s.trim()) as SinkType[];
+
+  // Validate
+  const validSinks: SinkType[] = ["excel", "db", "none"];
+  for (const sink of sinks) {
+    if (!validSinks.includes(sink)) {
+      logger.error(
+        `Invalid sink: ${sink}. Valid options: ${validSinks.join(", ")}`
+      );
+      process.exit(1);
+    }
+  }
+
+  return { sinks };
+}
+
+// ============================================================================
 // Configuration
+// ============================================================================
+
 const CONCURRENCY = parseInt(process.env.CONCURRENCY_LOCAL_ANALYSIS!);
 const TARGET_YEAR = parseInt(process.env.SEC_YEARS!);
-const USE_LLM_FALLBACK = process.env.USE_LLM_FALLBACK === "true";
+const USE_LLM = process.env.USE_LLM === "true";
 const CACHE_BASE_DIR = path.resolve(__dirname, "../data_source/sec/output");
 
 // Exhibit types to process
@@ -58,10 +99,14 @@ interface ParseOutput {
 // ============================================================================
 
 async function main() {
+  const { sinks } = parseArgs();
   const startTime = performance.now();
+
   logger.info(`Starting Subsidiary Ingestion for Year ${TARGET_YEAR}...`);
   logger.info(
-    `Configuration: Concurrency=${CONCURRENCY}, LLM Fallback=${USE_LLM_FALLBACK}`
+    `Configuration: Concurrency=${CONCURRENCY}, LLM Fallback=${USE_LLM}, Sinks=${sinks.join(
+      ","
+    )}`
   );
 
   // Load cached files for all exhibit types
@@ -102,33 +147,44 @@ async function main() {
       }
     });
 
-    if (processed % 50 === 0) {
-      logger.info(
-        `Progress: ${processed}/${allTargets.length} (${(
-          (processed / allTargets.length) *
-          100
-        ).toFixed(1)}%)`
-      );
-    }
+    // Log progress every batch
+    logger.info(
+      `Progress: ${processed}/${allTargets.length} (${(
+        (processed / allTargets.length) *
+        100
+      ).toFixed(1)}%)`
+    );
   }
 
   const totalTime = performance.now() - startTime;
 
-  // Write CSV output files
-  await writeOutputFiles(results);
+  // Write outputs based on sink configuration
+  if (sinks.includes("excel")) {
+    await writeOutputFiles(results);
+  }
+
+  if (sinks.includes("db")) {
+    // TODO: Implement InstantDB writer
+    logger.warn("InstantDB sink not yet implemented");
+  }
+
+  if (sinks.includes("none")) {
+    logger.info("Dry run - no output written");
+  }
 
   const successful = results.filter((r) => r.success).length;
+  const empty = results.filter(
+    (r) => r.success && r.subsidiaryCount === 0
+  ).length;
   const failed = results.filter((r) => !r.success).length;
+  const totalSeconds = (totalTime / 1000).toFixed(2);
 
-  logger.info("Ingestion Complete", {
-    total: processed,
-    successful,
-    failed,
-    heuristic: stats.heuristic,
-    llm: stats.llm,
-    successRate: `${((successful / processed) * 100).toFixed(1)}%`,
-    totalTimeSeconds: (totalTime / 1000).toFixed(2),
-  });
+  logger.info(
+    `Ingestion Complete in ${totalSeconds}s - Total: ${processed}, Success: ${successful}, Empty: ${empty}, Failed: ${failed}, Rate: ${(
+      (successful / processed) *
+      100
+    ).toFixed(1)}%`
+  );
 }
 
 // ============================================================================
@@ -193,26 +249,25 @@ async function decompressFile(filePath: string): Promise<string> {
 async function processCachedFiling(target: CachedFile): Promise<ParseOutput> {
   const { filing, url, cachePath, exhibitType } = target;
 
+  // Validate CIK is present
+  if (!filing.cik) {
+    throw new Error(`CIK is required for filing ${filing.accession_number}`);
+  }
+
   try {
     // 1. Decompress and load HTML
     const html = await decompressFile(cachePath);
 
     // 2. Parse with multi-strategy approach
-    const parseResult = await parseExhibit(html, filing, USE_LLM_FALLBACK);
+    const parseResult = await parseExhibit(
+      html,
+      filing as { accession_number: string; cik: string },
+      USE_LLM
+    );
 
     const success =
       parseResult.method !== "Failed" && parseResult.subsidiaries.length > 0;
     const hasNestedStructure = parseResult.maxNestingLevel > 0;
-
-    if (success) {
-      logger.info(
-        `[${filing.accession_number}] Success: ${parseResult.subsidiaries.length} subsidiaries (${parseResult.method}, nesting: ${parseResult.maxNestingLevel})`
-      );
-    } else {
-      logger.warn(
-        `[${filing.accession_number}] Parsing failed or no subsidiaries found`
-      );
-    }
 
     return {
       accession: filing.accession_number,
@@ -223,24 +278,24 @@ async function processCachedFiling(target: CachedFile): Promise<ParseOutput> {
       subsidiaryCount: parseResult.subsidiaries.length,
       maxNestingLevel: parseResult.maxNestingLevel,
       hasNestedStructure,
+      errorMessage:
+        parseResult.errorMessage ||
+        (success ? undefined : "No subsidiaries found"),
       subsidiaries: parseResult.subsidiaries,
     };
-  } catch (e: any) {
-    logger.error(
-      `[${filing.accession_number}] Processing failed: ${e.message}`
-    );
-    return {
-      accession: filing.accession_number,
-      exhibitType,
-      url,
-      method: "Failed",
-      success: false,
-      subsidiaryCount: 0,
-      maxNestingLevel: 0,
-      hasNestedStructure: false,
-      errorMessage: e.message,
-      subsidiaries: [],
-    };
+  } catch (error) {
+    // Add Accession # context to MissingDBValueError while preserving stack trace
+    if (error instanceof MissingDBValueError) {
+      const enrichedError = new MissingDBValueError(
+        error.fieldName,
+        (error.context += `accession_number: ${filing.accession_number}`)
+      );
+      // Preserve the original stack trace
+      enrichedError.stack = error.stack;
+      throw enrichedError;
+    }
+    // Re-throw other errors unchanged
+    throw error;
   }
 }
 
@@ -252,188 +307,43 @@ async function writeOutputFiles(results: ParseOutput[]) {
   const outputDir = path.resolve(__dirname, "../../");
 
   // Split results by category
-  const successful = results.filter((r) => r.success);
+  const successful = results.filter((r) => r.success && r.subsidiaryCount > 0);
+  const empty = results.filter((r) => r.success && r.subsidiaryCount === 0);
   const failed = results.filter((r) => !r.success);
-  const nested = results.filter((r) => r.success && r.hasNestedStructure);
 
   logger.info(`Writing output files...`);
 
-  // 1. SUCCESS files
-  await writeSummaryCSV(
-    successful,
-    path.join(outputDir, "subsidiaries_SUCCESS.csv")
-  );
-  await writeFlattenedCSV(
-    successful,
-    path.join(outputDir, "subsidiaries_SUCCESS_details.csv")
-  );
-
-  // 2. FAILED - Excel with two worksheets (Stats + Details)
-  if (failed.length > 0) {
-    await writeFailedExcel(failed, path.join(outputDir, "subsidiaries_FAILED.xlsx"));
+  // 1. SUCCESS - Detail CSV with all subsidiaries
+  if (successful.length > 0) {
+    await writeDetailCSV(
+      successful,
+      path.join(outputDir, "subsidiaries_SUCCESS.csv")
+    );
   }
 
-  // 3. NESTED files
-  if (nested.length > 0) {
-    await writeSummaryCSV(
-      nested,
-      path.join(outputDir, "subsidiaries_NESTED.csv")
-    );
-    await writeFlattenedCSV(
-      nested,
-      path.join(outputDir, "subsidiaries_NESTED_details.csv")
-    );
-    await writeNestedURLsJSON(
-      nested,
-      path.join(outputDir, "nested_subsidiaries_urls.json")
+  // 2. EMPTY - Simple CSV with accessions that had no subsidiaries
+  if (empty.length > 0) {
+    await writeEmptyCSV(empty, path.join(outputDir, "subsidiaries_EMPTY.csv"));
+  }
+
+  // 3. FAILED - Excel with error details
+  if (failed.length > 0) {
+    await writeFailedExcel(
+      failed,
+      path.join(outputDir, "subsidiaries_FAILED.xlsx")
     );
   }
 
   logger.info(`Output files written to ${outputDir}`);
 }
 
-async function writeFailedExcel(results: ParseOutput[], filePath: string) {
-  const ExcelJS = await import("exceljs");
-  const workbook = new ExcelJS.Workbook();
-
-  // Worksheet 1: Stats (Summary)
-  const statsSheet = workbook.addWorksheet("Stats");
-  statsSheet.columns = [
-    { header: "Accession", key: "accession", width: 20 },
-    { header: "ExhibitType", key: "exhibitType", width: 12 },
-    { header: "URL", key: "url", width: 60 },
-    { header: "Method", key: "method", width: 12 },
-    { header: "Success", key: "success", width: 10 },
-    { header: "SubsidiaryCount", key: "subsidiaryCount", width: 15 },
-    { header: "MaxNestingLevel", key: "maxNestingLevel", width: 15 },
-    { header: "HasNested", key: "hasNestedStructure", width: 12 },
-    { header: "ErrorMessage", key: "errorMessage", width: 50 },
-  ];
-
-  results.forEach((r) => {
-    statsSheet.addRow({
-      accession: r.accession,
-      exhibitType: r.exhibitType,
-      url: r.url,
-      method: r.method,
-      success: r.success,
-      subsidiaryCount: r.subsidiaryCount,
-      maxNestingLevel: r.maxNestingLevel,
-      hasNestedStructure: r.hasNestedStructure,
-      errorMessage: r.errorMessage || "",
-    });
-  });
-
-  // Style header row
-  statsSheet.getRow(1).font = { bold: true };
-  statsSheet.getRow(1).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFE0E0E0" },
-  };
-
-  // Worksheet 2: Details (Flattened subsidiaries)
-  const detailsSheet = workbook.addWorksheet("Details");
-  detailsSheet.columns = [
-    { header: "Accession", key: "accession", width: 20 },
-    { header: "ExhibitType", key: "exhibitType", width: 12 },
-    { header: "URL", key: "url", width: 60 },
-    { header: "Method", key: "method", width: 12 },
-    { header: "Subsidiary", key: "subsidiary", width: 40 },
-    { header: "Jurisdiction", key: "jurisdiction", width: 30 },
-    { header: "NestingLevel", key: "nestingLevel", width: 12 },
-    { header: "ParentName", key: "parentName", width: 30 },
-    { header: "ParentId", key: "parentId", width: 15 },
-    { header: "Ownership", key: "ownership", width: 12 },
-    { header: "Footnotes", key: "footnotes", width: 30 },
-    { header: "IsNested", key: "isNested", width: 10 },
-  ];
-
-  for (const r of results) {
-    if (r.subsidiaries.length === 0) {
-      // Write a placeholder row for failed parsing
-      detailsSheet.addRow({
-        accession: r.accession,
-        exhibitType: r.exhibitType,
-        url: r.url,
-        method: r.method,
-        subsidiary: "FAILED",
-        jurisdiction: "",
-        nestingLevel: 0,
-        parentName: "",
-        parentId: "",
-        ownership: "",
-        footnotes: "",
-        isNested: false,
-      });
-      continue;
-    }
-
-    for (const sub of r.subsidiaries) {
-      detailsSheet.addRow({
-        accession: r.accession,
-        exhibitType: r.exhibitType,
-        url: r.url,
-        method: r.method,
-        subsidiary: sub.name,
-        jurisdiction: sub.jurisdiction,
-        nestingLevel: sub.nestingLevel,
-        parentName: sub.parentName || "",
-        parentId: sub.parentId || "",
-        ownership: sub.ownership ?? "",
-        footnotes: sub.footnotes.join(", "),
-        isNested: sub.isNested,
-      });
-    }
-  }
-
-  // Style header row
-  detailsSheet.getRow(1).font = { bold: true };
-  detailsSheet.getRow(1).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFE0E0E0" },
-  };
-
-  await workbook.xlsx.writeFile(filePath);
-  logger.info(`Wrote FAILED Excel: ${filePath} (Stats: ${results.length} rows, Details sheet included)`);
-}
-
-async function writeSummaryCSV(results: ParseOutput[], filePath: string) {
+async function writeDetailCSV(results: ParseOutput[], filePath: string) {
   const header =
-    "Accession,ExhibitType,URL,Method,Success,SubsidiaryCount,MaxNestingLevel,HasNested,ErrorMessage\n";
-
-  const rows = results
-    .map((r) => {
-      const escapedUrl = `"${r.url}"`;
-      const error = r.errorMessage
-        ? `"${r.errorMessage.replace(/"/g, '""')}"`
-        : "";
-      return `${r.accession},${r.exhibitType},${escapedUrl},${r.method},${r.success},${r.subsidiaryCount},${r.maxNestingLevel},${r.hasNestedStructure},${error}`;
-    })
-    .join("\n");
-
-  await fs.writeFile(filePath, header + rows);
-  logger.info(`Wrote summary CSV: ${filePath} (${results.length} rows)`);
-}
-
-async function writeFlattenedCSV(results: ParseOutput[], filePath: string) {
-  const header =
-    "Accession,ExhibitType,URL,Method,Subsidiary,Jurisdiction,NestingLevel,ParentName,ParentId,Ownership,Footnotes,IsNested\n";
+    "Accession,URL,SubsidiaryId,Subsidiary,Jurisdiction,NestingLevel,ParentName,ParentId,Ownership,Footnotes\n";
 
   const rows: string[] = [];
 
   for (const r of results) {
-    if (r.subsidiaries.length === 0) {
-      // Write a placeholder row for failed parsing
-      if (!r.success) {
-        rows.push(
-          `${r.accession},${r.exhibitType},"${r.url}",${r.method},"FAILED","","0","","","","","false"`
-        );
-      }
-      continue;
-    }
-
     for (const sub of r.subsidiaries) {
       const escapedName = `"${sub.name.replace(/"/g, '""')}"`;
       const escapedJur = `"${sub.jurisdiction.replace(/"/g, '""')}"`;
@@ -442,47 +352,62 @@ async function writeFlattenedCSV(results: ParseOutput[], filePath: string) {
         : "";
       const parentId = sub.parentId || "";
       const ownership = sub.ownership ?? "";
-      const footnotes = `"${sub.footnotes.join(", ")}"`;
+      const footnotes = `"${sub.footnoteRefs.join(", ")}"`;
 
       rows.push(
-        `${r.accession},${r.exhibitType},"${r.url}",${r.method},${escapedName},${escapedJur},${sub.nestingLevel},${escapedParent},${parentId},${ownership},${footnotes},${sub.isNested}`
+        `"\`${r.accession}","${r.url}",${sub.id},${escapedName},${escapedJur},${sub.nestingLevel},${escapedParent},${parentId},${ownership},${footnotes}`
       );
     }
   }
 
   await fs.writeFile(filePath, header + rows.join("\n"));
-  logger.info(`Wrote flattened CSV: ${filePath} (${rows.length} subsidiaries)`);
+  logger.info(
+    `Wrote SUCCESS CSV: ${filePath} (${rows.length} subsidiaries from ${results.length} filings)`
+  );
 }
 
-async function writeNestedURLsJSON(results: ParseOutput[], filePath: string) {
-  const nestedFilings = results.map((r) => ({
-    accession_number: r.accession,
-    exhibit_type: r.exhibitType,
-    url: r.url,
-    method: r.method,
-    subsidiary_count: r.subsidiaryCount,
-    nested_subsidiaries_count: r.subsidiaries.filter((s) => s.isNested).length,
-    max_nesting_level: r.maxNestingLevel,
-    analysis_timestamp: new Date().toISOString(),
-  }));
+async function writeEmptyCSV(results: ParseOutput[], filePath: string) {
+  const header = "Accession,URL\n";
 
-  const output = {
-    summary: {
-      total_filings_with_nested: results.length,
-      total_nested_subsidiaries: results.reduce(
-        (sum, r) => sum + r.subsidiaries.filter((s) => s.isNested).length,
-        0
-      ),
-      max_nesting_level_found: Math.max(
-        ...results.map((r) => r.maxNestingLevel)
-      ),
-      generated_at: new Date().toISOString(),
-    },
-    filings: nestedFilings,
+  const rows = results.map((r) => `"\`${r.accession}","${r.url}"`).join("\n");
+
+  await fs.writeFile(filePath, header + rows);
+  logger.info(
+    `Wrote EMPTY CSV: ${filePath} (${results.length} filings with no subsidiaries)`
+  );
+}
+
+async function writeFailedExcel(results: ParseOutput[], filePath: string) {
+  const ExcelJS = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
+
+  const sheet = workbook.addWorksheet("Failed");
+  sheet.columns = [
+    { header: "Accession", key: "accession", width: 20 },
+    { header: "URL", key: "url", width: 60 },
+    { header: "ErrorMessage", key: "errorMessage", width: 80 },
+  ];
+
+  results.forEach((r) => {
+    sheet.addRow({
+      accession: `\`${r.accession}`,
+      url: r.url,
+      errorMessage: r.errorMessage || "No subsidiaries found",
+    });
+  });
+
+  // Style header row
+  sheet.getRow(1).font = { bold: true };
+  sheet.getRow(1).fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFE0E0E0" },
   };
 
-  await fs.writeFile(filePath, JSON.stringify(output, null, 2));
-  logger.info(`Wrote nested URLs JSON: ${filePath}`);
+  await workbook.xlsx.writeFile(filePath);
+  logger.info(
+    `Wrote FAILED Excel: ${filePath} (${results.length} failed filings)`
+  );
 }
 
 // ============================================================================

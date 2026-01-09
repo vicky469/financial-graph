@@ -3,7 +3,7 @@ import path from "path";
 
 // Function to log validation errors to a file
 export function logValidationError(schema: string, error: any, data: any) {
-  const logDir = path.resolve(__dirname, "../../logs");
+  const logDir = path.resolve(__dirname, "../../../logs");
   const logFile = path.join(logDir, "validation_failures.jsonl");
 
   // Ensure log directory exists

@@ -1,6 +1,12 @@
-import { validate, FilingSchema } from "../../src/db/validation";
 import fs from "fs";
 import path from "path";
+
+// Reset modules to get real logger for this test
+jest.resetModules();
+jest.unmock("../../src/utils/logger");
+
+// Import after unmocking
+const { validate, FilingSchema } = require("../../src/db/validation");
 
 describe("Validation Logger", () => {
   const logDir = path.resolve(__dirname, "../../logs");

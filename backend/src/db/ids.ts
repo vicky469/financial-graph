@@ -14,6 +14,7 @@ import {
   HasPublicDetailsEdge,
   HasSegmentsEdge,
 } from "../types";
+import { MissingDBValueError } from "../parsers/subsidiary/errors";
 
 // Project namespace (Generated from "financial-knowledge-graph" using DNS namespace)
 const NAMESPACE_UUID = "9a969fbc-5094-53d9-aa8a-3a4d34598705";
@@ -28,12 +29,18 @@ export function generateCompanyId(company: Partial<Company>): string {
   }
 
   if (company.type === "private") {
-    const key = [
-      "company:private",
-      company.parent_company_id || "independent",
-      company.name!,
-      company.jurisdiction_raw || "unknown",
-    ].join(":");
+    // jurisdiction_raw is REQUIRED for private companies - it's critical for ID uniqueness
+    // A company's legal identity = registered name + jurisdiction (not ownership)
+    if (!company.jurisdiction_raw) {
+      throw new MissingDBValueError(
+        "jurisdiction_raw",
+        `Company: ${company.name},`
+      );
+    }
+
+    const key = ["company:private", company.name!, company.jurisdiction_raw].join(
+      ":"
+    );
     return uuidv5(key, NAMESPACE_UUID);
   }
 

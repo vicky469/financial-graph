@@ -77,11 +77,12 @@ export function Header({ onSearchFiling }: HeaderProps) {
             <circle cx="30" cy="70" r="5" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
           </svg>
         </div>
-        <span style={{ marginLeft: "4px" }} className="text-sm font-medium text-foreground/80">Financial Graph</span>
+        <span style={{ marginLeft: "5px" }} className="text-sm font-medium text-foreground/80">Financial Graph</span>
       </div>
 
       {/* Accession Number Search */}
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center mr-2">
+        <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)", marginRight: "5px"}}>Accession #</span>
         <div style={{
           display: "flex",
           alignItems: "center",
@@ -92,13 +93,13 @@ export function Header({ onSearchFiling }: HeaderProps) {
           padding: "0 10px",
           height: "32px",
         }}>
-          <Search size={14} style={{ color: "rgba(255,255,255,0.4)" }} />
+          <Search size={14} style={{ color: "rgba(255,255,255,0.4)", flexShrink: 0 }} />
           <input
             type="text"
-            placeholder="Accession # (no dashes)"
+            placeholder="e.g. 0001193125-24-012345"
             value={accessionSearch}
             onChange={(e) => {
-              setAccessionSearch(e.target.value);
+              setAccessionSearch(e.target.value.replace(/-/g, ""));
               setError(null);
             }}
             onKeyDown={handleKeyDown}
@@ -108,7 +109,7 @@ export function Header({ onSearchFiling }: HeaderProps) {
               outline: "none",
               fontSize: "12px",
               color: "rgba(255,255,255,0.8)",
-              width: "160px",
+              width: "170px",
             }}
           />
           {isSearching && (

@@ -4,6 +4,9 @@
   "description": "Benchmarking and Playground for Financial Knowledge Graph with InstantDB",
   "main": "src/index.ts",
   "scripts": {
+    "test": "jest --watch --testPathIgnorePatterns=integration --testPathIgnorePatterns=llm",
+    "test:all": "jest --testPathIgnorePatterns=integration --testPathIgnorePatterns=llm",
+    "test:integration": "jest --testPathPatterns=integration",
     "clear": "ts-node src/db/clear.ts",
     "ingest:metadata": "ts-node src/data_source/sec/scripts/ingestSecMetadata.ts",
     "ingest:tickers": "ts-node src/ingest/tickers.ts",
