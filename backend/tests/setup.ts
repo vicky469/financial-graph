@@ -11,3 +11,8 @@ jest.mock("../src/utils/logger", () => ({
     debug: jest.fn(),
   }),
 }));
+
+// Mock uuid to avoid checking for ESM issues in every test
+jest.mock("uuid", () => ({
+  v5: () => "mock-uuid-v5",
+}));

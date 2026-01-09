@@ -1,6 +1,6 @@
 /**
  * Tests for nesting detection utilities
- * 
+ *
  * Tests indentation analysis and parent-child hierarchy building
  * for nested subsidiary structures in SEC filings.
  */
@@ -10,8 +10,8 @@ import {
   analyzeIndentation,
   determineNestingLevel,
   ParentStack,
-} from "../../src/parsers/subsidiary/nesting";
-import type { SubsidiaryRecord } from "../../src/parsers/subsidiary/types";
+} from "../../src/parser/subsidiary/nesting";
+import type { SubsidiaryRecord } from "../../src/parser/subsidiary/types";
 
 // Helper to create a mock Cheerio cell element
 function createMockCell(html: string, style?: string) {
@@ -48,7 +48,9 @@ describe("analyzeIndentation", () => {
 
     it("ignores &nbsp; within text (not leading)", () => {
       // Dave & Buster's uses &#160; for spacing within company name
-      const cell = createMockCell("Dave&#160;&#38; Buster&#8217;s&#160;I, L.P.");
+      const cell = createMockCell(
+        "Dave&#160;&#38; Buster&#8217;s&#160;I, L.P."
+      );
       const result = analyzeIndentation(cell, "Dave & Buster's I, L.P.");
 
       expect(result.hasIndentation).toBe(false);
@@ -98,19 +100,25 @@ describe("analyzeIndentation", () => {
       expect(result.hasIndentation).toBe(true);
       expect(result.spaces).toBe(2); // 20 / 10 = 2
     });
-    
+
     it("detects indentation from shorthand padding (4 values)", () => {
       // Brink's style: padding:2px 1pt 2px 13pt (left = 13pt)
-      const cell = createMockCell("Subsidiary Name", "padding:2px 1pt 2px 13pt");
+      const cell = createMockCell(
+        "Subsidiary Name",
+        "padding:2px 1pt 2px 13pt"
+      );
       const result = analyzeIndentation(cell, "Subsidiary Name");
 
       expect(result.hasIndentation).toBe(true);
       expect(result.spaces).toBe(1); // 13 / 10 = 1
     });
-    
+
     it("detects deeper nesting from shorthand padding", () => {
       // padding:2px 1pt 2px 37pt (left = 37pt)
-      const cell = createMockCell("Subsidiary Name", "padding:2px 1pt 2px 37pt");
+      const cell = createMockCell(
+        "Subsidiary Name",
+        "padding:2px 1pt 2px 37pt"
+      );
       const result = analyzeIndentation(cell, "Subsidiary Name");
 
       expect(result.hasIndentation).toBe(true);

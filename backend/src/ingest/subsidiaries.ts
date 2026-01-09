@@ -15,8 +15,8 @@
  */
 
 import { createLogger } from "../utils/logger";
-import { parseExhibit, SubsidiaryRecord } from "../parsers/subsidiary-parser";
-import { MissingDBValueError } from "../parsers/subsidiary/errors";
+import { parseExhibit, SubsidiaryRecord } from "../parser/subsidiary-parser";
+import { MissingDBValueError } from "../parser/subsidiary/errors";
 import fs from "fs/promises";
 import path from "path";
 import { gunzip } from "zlib";
@@ -177,13 +177,16 @@ async function main() {
     (r) => r.success && r.subsidiaryCount === 0
   ).length;
   const failed = results.filter((r) => !r.success).length;
+  const withSubsidiaries = successful - empty;
   const totalSeconds = (totalTime / 1000).toFixed(2);
 
+  const successFailureRate = ((successful / processed) * 100).toFixed(1);
+  const successEmptyRate = successful > 0
+    ? ((withSubsidiaries / successful) * 100).toFixed(1)
+    : "0.0";
+
   logger.info(
-    `Ingestion Complete in ${totalSeconds}s - Total: ${processed}, Success: ${successful}, Empty: ${empty}, Failed: ${failed}, Rate: ${(
-      (successful / processed) *
-      100
-    ).toFixed(1)}%`
+    `Ingestion Complete in ${totalSeconds}s - Total: ${processed}, Success: ${withSubsidiaries}, Empty: ${empty}, Failed: ${failed}, Success/Failure Rate: ${successFailureRate}%, Success/Empty Rate: ${successEmptyRate}%`
   );
 }
 
@@ -265,8 +268,7 @@ async function processCachedFiling(target: CachedFile): Promise<ParseOutput> {
       USE_LLM
     );
 
-    const success =
-      parseResult.method !== "Failed" && parseResult.subsidiaries.length > 0;
+    const success = parseResult.method !== "Failed";
     const hasNestedStructure = parseResult.maxNestingLevel > 0;
 
     return {
@@ -278,21 +280,27 @@ async function processCachedFiling(target: CachedFile): Promise<ParseOutput> {
       subsidiaryCount: parseResult.subsidiaries.length,
       maxNestingLevel: parseResult.maxNestingLevel,
       hasNestedStructure,
-      errorMessage:
-        parseResult.errorMessage ||
-        (success ? undefined : "No subsidiaries found"),
+      errorMessage: parseResult.errorMessage,
       subsidiaries: parseResult.subsidiaries,
     };
   } catch (error) {
     // Add Accession # context to MissingDBValueError while preserving stack trace
     if (error instanceof MissingDBValueError) {
-      const enrichedError = new MissingDBValueError(
-        error.fieldName,
-        (error.context += `accession_number: ${filing.accession_number}`)
+      logger.error(
+        `[${filing.accession_number}] MissingDBValueError: ${error.message}`
       );
-      // Preserve the original stack trace
-      enrichedError.stack = error.stack;
-      throw enrichedError;
+      return {
+        accession: filing.accession_number,
+        exhibitType,
+        url,
+        method: "Failed",
+        success: false,
+        subsidiaryCount: 0,
+        maxNestingLevel: 0,
+        hasNestedStructure: false,
+        errorMessage: error.message,
+        subsidiaries: [],
+      };
     }
     // Re-throw other errors unchanged
     throw error;
@@ -392,7 +400,7 @@ async function writeFailedExcel(results: ParseOutput[], filePath: string) {
     sheet.addRow({
       accession: `\`${r.accession}`,
       url: r.url,
-      errorMessage: r.errorMessage || "No subsidiaries found",
+      errorMessage: r.errorMessage || "Unknown error",
     });
   });
 

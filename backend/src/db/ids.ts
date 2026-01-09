@@ -14,7 +14,7 @@ import {
   HasPublicDetailsEdge,
   HasSegmentsEdge,
 } from "../types";
-import { MissingDBValueError } from "../parsers/subsidiary/errors";
+import { MissingDBValueError } from "../parser/subsidiary/errors";
 
 // Project namespace (Generated from "financial-knowledge-graph" using DNS namespace)
 const NAMESPACE_UUID = "9a969fbc-5094-53d9-aa8a-3a4d34598705";
@@ -38,9 +38,11 @@ export function generateCompanyId(company: Partial<Company>): string {
       );
     }
 
-    const key = ["company:private", company.name!, company.jurisdiction_raw].join(
-      ":"
-    );
+    const key = [
+      "company:private",
+      company.name!,
+      company.jurisdiction_raw,
+    ].join(":");
     return uuidv5(key, NAMESPACE_UUID);
   }
 

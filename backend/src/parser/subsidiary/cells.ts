@@ -1,10 +1,13 @@
 /**
  * Cell parsing utilities
- * 
+ *
  * Each cell type has a dedicated parser that extracts all relevant data in one pass.
  */
 
-import { extractFootnoteRefFromName, parseOwnershipWithFootnoteRef } from "./footnotes";
+import {
+  extractFootnoteRefFromName,
+  parseOwnershipWithFootnoteRef,
+} from "./footnotes";
 
 // ============================================================================
 // Types
@@ -23,7 +26,7 @@ export interface ParsedOwnershipCell {
 }
 
 export interface ParsedJurisdictionCell {
-  jurisdiction: string;
+  jurisdiction_raw: string;
 }
 
 // ============================================================================
@@ -36,14 +39,16 @@ export interface ParsedJurisdictionCell {
 export function parseNameCell(text: string): ParsedNameCell {
   const rawName = text.trim();
   const footnoteRefs = extractFootnoteRefFromName(rawName);
-  
+
   // Extract ownership percentage from name like "Company Name (32.5%)" or "(100%)"
   // Match patterns: (32.5%), (100%), (99.75%)
   const ownershipMatch = rawName.match(/\((\d+(?:\.\d+)?)\s*%\)/);
-  const ownershipFromName = ownershipMatch ? parseFloat(ownershipMatch[1]) : undefined;
-  
+  const ownershipFromName = ownershipMatch
+    ? parseFloat(ownershipMatch[1])
+    : undefined;
+
   const cleanName = cleanSubsidiaryName(rawName);
-  
+
   return { rawName, cleanName, footnoteRefs, ownershipFromName };
 }
 
@@ -53,13 +58,20 @@ export function parseNameCell(text: string): ParsedNameCell {
  */
 export function parseOwnershipCell(text: string): ParsedOwnershipCell {
   const trimmed = text.trim();
-  
+
   // Try "100%1" pattern first (ownership + footnote)
   const withRef = parseOwnershipWithFootnoteRef(trimmed);
   if (withRef.ownership !== undefined) {
     return { ownership: withRef.ownership, footnoteRefs: withRef.refs };
   }
-  
+
+  // Fallback: Check for just footnote refs (e.g. "Note (1)")
+  // This allows mapping ownership cells that just point to a note
+  const refs = extractFootnoteRefFromName(trimmed);
+  if (refs.length > 0) {
+    return { ownership: undefined, footnoteRefs: refs };
+  }
+
   return { ownership: undefined, footnoteRefs: [] };
 }
 
@@ -68,22 +80,20 @@ export function parseOwnershipCell(text: string): ParsedOwnershipCell {
  */
 export function parseJurisdictionCell(text: string): ParsedJurisdictionCell {
   const trimmed = text.trim();
-  
+
   // Remove percentages if present (shouldn't be here, but clean up)
-  let jurisdiction = trimmed
+  let jurisdiction_raw = trimmed
     .replace(/\d+(\.\d+)?\s*%/g, "")
     .replace(/\s+/g, " ")
     .trim();
-  
+
   // If what's left is just a number, clear it
-  if (/^[\d.]+$/.test(jurisdiction)) {
-    jurisdiction = "";
+  // This likely means an ownership value shifted into jurisdiction column
+  if (/^[\d.]+$/.test(jurisdiction_raw)) {
+    jurisdiction_raw = "";
   }
-  
-  // Standardize common abbreviations
-  jurisdiction = normalizeJurisdiction(jurisdiction);
-  
-  return { jurisdiction };
+
+  return { jurisdiction_raw };
 }
 
 // ============================================================================
@@ -96,25 +106,8 @@ export function parseJurisdictionCell(text: string): ParsedJurisdictionCell {
 function cleanSubsidiaryName(name: string): string {
   return name
     .replace(/\([^)]*\)/g, "") // Remove parenthetical content (footnotes)
-    .replace(/\*\d+/g, "")     // Remove *1, *2 style refs
+    .replace(/\*\d+/g, "") // Remove *1, *2 style refs
     .replace(/[—\-]+\s*/g, "") // Remove bullets and dashes
-    .replace(/\s+/g, " ")      // Normalize whitespace
+    .replace(/\s+/g, " ") // Normalize whitespace
     .trim();
-}
-
-/**
- * Normalize common jurisdiction abbreviations
- */
-function normalizeJurisdiction(jurisdiction: string): string {
-  const stateMap: Record<string, string> = {
-    "Del": "Delaware",
-    "Del.": "Delaware",
-    "CA": "California",
-    "NY": "New York",
-    "TX": "Texas",
-    "NV": "Nevada",
-    "FL": "Florida",
-  };
-  
-  return stateMap[jurisdiction] || jurisdiction;
 }
