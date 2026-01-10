@@ -10,13 +10,11 @@ async function clearData() {
       companies: {},
       brands: {},
       business_segments: {},
-      public_company_details: {},
+      public_info: {},
       ma_events: {},
       filings: {},
       parent_of: {},
       owns: {},
-      has_public_details: {},
-      has_segments: {},
       filed: {},
     });
 
@@ -28,8 +26,8 @@ async function clearData() {
       ...result.business_segments.map((s: any) =>
         db.tx.business_segments[s.id].delete()
       ),
-      ...result.public_company_details.map((d: any) =>
-        db.tx.public_company_details[d.id].delete()
+      ...result.public_info.map((d: any) =>
+        db.tx.public_info[d.id].delete()
       ),
       ...(result.ma_events || []).map((e: any) =>
         db.tx.ma_events[e.id].delete()
@@ -40,12 +38,6 @@ async function clearData() {
         db.tx.parent_of[e.id].delete()
       ),
       ...(result.owns || []).map((e: any) => db.tx.owns[e.id].delete()),
-      ...(result.has_public_details || []).map((e: any) =>
-        db.tx.has_public_details[e.id].delete()
-      ),
-      ...(result.has_segments || []).map((e: any) =>
-        db.tx.has_segments[e.id].delete()
-      ),
       ...(result.filed || []).map((e: any) => db.tx.filed[e.id].delete()),
     ];
 

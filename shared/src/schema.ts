@@ -27,7 +27,7 @@ const schema = i.graph(
       updated_at: i.string(),
     }),
 
-    public_company_details: i.entity({
+    public_info: i.entity({
       id: i.string().indexed(),
       company_id: i.string().indexed(),
       sic_code: i.string().optional().indexed(),
@@ -157,41 +157,33 @@ const schema = i.graph(
       created_at: i.string(),
     }),
 
-    has_public_details: i.entity({
+    // Enrichment Metadata
+    subsidiary_enrichments: i.entity({
       id: i.string().indexed(),
-      from_company_id: i.string().indexed(),
-      to_details_id: i.string().indexed(),
+      company_id: i.string().indexed(),
+      filing_id: i.string().indexed(),
+      footnoteRefs: i.json(), // string[]
+      footnotesHtml: i.string().optional(),
+      llmEnriched: i.boolean().indexed(),
+      llmEnrichedAt: i.string().optional(),
       created_at: i.string(),
+      updated_at: i.string(),
     }),
 
-    has_segments: i.entity({
+    // Audit Trail
+    audits: i.entity({
       id: i.string().indexed(),
-      from_company_id: i.string().indexed(),
-      to_segment_id: i.string().indexed(),
-      created_at: i.string(),
+      entity_type: i.string().indexed(), // "companies" | "parent_of"
+      entity_id: i.string().indexed(), // UUID of audited entity
+      operation: i.string().indexed(), // "CREATE" | "UPDATE" | "DELETE"
+      changed_by: i.string().indexed(), // "heuristic" | "llm" | "human"
+      changed_at: i.string().indexed(), // ISO-8601 timestamp
+      source_id: i.string().optional().indexed(), // Filing ID
+      fields_changed: i.json(), // Array of { field, old_value, new_value }
+      expires_at: i.string().indexed(), // For 7-day TTL cleanup
     }),
   },
-  {
-    // Define relationships/links between entities
-    companies: {
-      subsidiaries: {
-        forward: { on: "parent_of", has: "many", label: "children" },
-        reverse: { on: "parent_of", has: "one", label: "parent" },
-      },
-      brands: {
-        forward: { on: "owns", has: "many", label: "brands" },
-      },
-      filings: {
-        forward: { on: "filed", has: "many", label: "filings" },
-      },
-      public_details: {
-        forward: { on: "has_public_details", has: "one", label: "details" },
-      },
-      segments: {
-        forward: { on: "has_segments", has: "many", label: "segments" },
-      },
-    },
-  }
+  {}
 );
 
 export default schema;
@@ -213,4 +205,9 @@ export type Schema = typeof schema;
  * parent_of:
  *   - from_company_id (indexed) ← For hierarchy traversal
  *   - to_company_id (indexed)   ← For reverse hierarchy
+ *
+ * subsidiary_enrichments:
+ *   - company_id (indexed)  ← For querying enrichments by company
+ *   - filing_id (indexed)   ← For querying enrichments by filing
+ *   - llmEnriched (indexed) ← For querying unenriched subsidiaries
  */

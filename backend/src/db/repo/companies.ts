@@ -3,9 +3,8 @@ import * as IDs from "../ids";
 import type * as Types from "../../types";
 import {
   CompanySchema,
-  PublicCompanyDetailsSchema,
+  PublicInfoSchema,
   ParentOfEdgeSchema,
-  HasPublicDetailsEdgeSchema,
   validate,
 } from "../validation";
 
@@ -59,13 +58,13 @@ export async function upsertCompany(
   return id;
 }
 
-export async function upsertPublicCompanyDetails(
-  detailsData: Partial<Types.PublicCompanyDetails>
+export async function upsertPublicInfo(
+  detailsData: Partial<Types.PublicInfo>
 ): Promise<string> {
   const company_id = detailsData.company_id!;
-  const id = IDs.generatePublicCompanyDetailsId(company_id);
+  const id = IDs.generatePublicInfoId(company_id);
 
-  const node: Types.PublicCompanyDetails = {
+  const node: Types.PublicInfo = {
     id,
     company_id,
     sic_code: detailsData.sic_code || null,
@@ -76,29 +75,10 @@ export async function upsertPublicCompanyDetails(
   };
 
   // Validate before inserting
-  const validatedNode = validate(PublicCompanyDetailsSchema, node);
-
-  // Also create the edge
-  const edgeId = IDs.generateHasPublicDetailsEdgeId(company_id, id);
-  const edge: Types.HasPublicDetailsEdge = {
-    id: edgeId,
-    from_company_id: company_id,
-    to_details_id: id,
-    created_at: new Date().toISOString(),
-  };
-
-  // Validate edge
-  const validatedEdge = validate(HasPublicDetailsEdgeSchema, edge);
+  const validatedNode = validate(PublicInfoSchema, node);
 
   await db.transact([
-    db.tx.public_company_details[id].update(validatedNode),
-    db.tx.has_public_details[edgeId].update(validatedEdge),
-    // Link nodes (InstantDB linking syntax might differ based on SDK version,
-    // but standard admin SDK usually supports linking via update of edge or link method.
-    // Assuming standard triple storage where edge node is sufficient or implicit linking)
-    db.tx.companies[company_id].link({ public_details: id }),
-    // Reverse link if needed
-    db.tx.public_company_details[id].link({ company: company_id }),
+    db.tx.public_info[id].update(validatedNode),
   ]);
 
   return id;

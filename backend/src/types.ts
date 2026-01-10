@@ -27,7 +27,7 @@ export type Company = {
   updated_at: string; // ISO-8601 UTC timestamp
 };
 
-export type PublicCompanyDetails = {
+export type PublicInfo = {
   id: string; // UUID v5 (deterministic)
   company_id: string; // References companies.id
 
@@ -206,16 +206,21 @@ export type FiledEdge = {
   created_at: string;
 };
 
-export type HasPublicDetailsEdge = {
-  id: string; // UUID v5
-  from_company_id: string; // companies.id
-  to_details_id: string; // public_company_details.id
-  created_at: string;
+// Audit Trail
+export type FieldChange = {
+  field: string;
+  old_value: unknown;
+  new_value: unknown;
 };
 
-export type HasSegmentsEdge = {
+export type Audit = {
   id: string; // UUID v5
-  from_company_id: string; // companies.id
-  to_segment_id: string; // business_segments.id
-  created_at: string;
+  entity_type: string; // "companies" | "parent_of"
+  entity_id: string; // UUID of audited entity
+  operation: "CREATE" | "UPDATE" | "DELETE";
+  changed_by: "heuristic" | "llm" | "human";
+  changed_at: string; // ISO-8601 timestamp
+  source_id: string | null; // Filing ID
+  fields_changed: FieldChange[];
+  expires_at: string; // For TTL cleanup
 };

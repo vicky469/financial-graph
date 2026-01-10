@@ -215,3 +215,42 @@ export const useCompanyDetails = (companyId: string | null) => {
   const node = companyToNode(company as unknown as Company);
   return { node, isLoading };
 };
+
+// Fetch audit trail for a company
+export const useCompanyAudits = (entityId: string | null) => {
+  const { data, isLoading } = db.useQuery(
+    entityId
+      ? {
+          audits: {
+            $: {
+              where: {
+                entity_type: "companies",
+                entity_id: entityId,
+              },
+              order: {
+                serverCreatedAt: "desc",
+              },
+            },
+          },
+        }
+      : (null as any)
+  );
+
+  const audits = (data?.audits ?? []).map((a) => ({
+    id: a.id,
+    entity_type: a.entity_type,
+    entity_id: a.entity_id,
+    operation: a.operation as "CREATE" | "UPDATE" | "DELETE",
+    changed_by: a.changed_by as "heuristic" | "llm" | "human",
+    changed_at: a.changed_at,
+    source_id: a.source_id,
+    fields_changed: a.fields_changed as Array<{
+      field: string;
+      old_value: unknown;
+      new_value: unknown;
+    }>,
+    expires_at: a.expires_at,
+  }));
+
+  return { audits, isLoading };
+};

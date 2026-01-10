@@ -92,6 +92,7 @@ interface ParseOutput {
   hasNestedStructure: boolean;
   errorMessage?: string;
   subsidiaries: SubsidiaryRecord[];
+  llmModifications?: any[]; // LLM modifications from parser
 }
 
 // ============================================================================
@@ -164,8 +165,9 @@ async function main() {
   }
 
   if (sinks.includes("db")) {
-    // TODO: Implement InstantDB writer
-    logger.warn("InstantDB sink not yet implemented");
+    const { writeSubsidiariesToDB } = await import("./subsidiaries-db");
+    const { created, errors } = await writeSubsidiariesToDB(results);
+    logger.info(`InstantDB: wrote ${created} subsidiaries (${errors} errors)`);
   }
 
   if (sinks.includes("none")) {
@@ -181,9 +183,8 @@ async function main() {
   const totalSeconds = (totalTime / 1000).toFixed(2);
 
   const successFailureRate = ((successful / processed) * 100).toFixed(1);
-  const successEmptyRate = successful > 0
-    ? ((withSubsidiaries / successful) * 100).toFixed(1)
-    : "0.0";
+  const successEmptyRate =
+    successful > 0 ? ((withSubsidiaries / successful) * 100).toFixed(1) : "0.0";
 
   logger.info(
     `Ingestion Complete in ${totalSeconds}s - Total: ${processed}, Success: ${withSubsidiaries}, Empty: ${empty}, Failed: ${failed}, Success/Failure Rate: ${successFailureRate}%, Success/Empty Rate: ${successEmptyRate}%`
@@ -282,6 +283,7 @@ async function processCachedFiling(target: CachedFile): Promise<ParseOutput> {
       hasNestedStructure,
       errorMessage: parseResult.errorMessage,
       subsidiaries: parseResult.subsidiaries,
+      llmModifications: parseResult.llmModifications,
     };
   } catch (error) {
     // Add Accession # context to MissingDBValueError while preserving stack trace

@@ -11,8 +11,6 @@ import {
   WasAcquiredByEdge,
   FiledEdge,
   BusinessSegment,
-  HasPublicDetailsEdge,
-  HasSegmentsEdge,
 } from "../types";
 import { MissingDBValueError } from "../parser/subsidiary/errors";
 
@@ -74,9 +72,9 @@ export function generateSnapshotId(snapshot: Partial<CompanySnapshot>): string {
   return uuidv5(key, NAMESPACE_UUID);
 }
 
-// Public Company Details
-export function generatePublicCompanyDetailsId(companyId: string): string {
-  return uuidv5(`public_details:${companyId}`, NAMESPACE_UUID);
+// Public Info
+export function generatePublicInfoId(companyId: string): string {
+  return uuidv5(`public_info:${companyId}`, NAMESPACE_UUID);
 }
 
 // Business Segments
@@ -118,16 +116,12 @@ export function generateFiledEdgeId(edge: Partial<FiledEdge>): string {
   return uuidv5(key, NAMESPACE_UUID);
 }
 
-export function generateHasPublicDetailsEdgeId(
-  companyId: string,
-  detailsId: string
+// Audit Records
+export function generateAuditId(
+  entityType: string,
+  entityId: string,
+  changedAt: string
 ): string {
-  return uuidv5(`has_public_details:${companyId}:${detailsId}`, NAMESPACE_UUID);
-}
-
-export function generateHasSegmentsEdgeId(
-  companyId: string,
-  segmentId: string
-): string {
-  return uuidv5(`has_segments:${companyId}:${segmentId}`, NAMESPACE_UUID);
+  const key = `audit:${entityType}:${entityId}:${changedAt}`;
+  return uuidv5(key, NAMESPACE_UUID);
 }

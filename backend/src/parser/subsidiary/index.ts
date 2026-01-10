@@ -48,21 +48,40 @@ export async function parseExhibit(
       logger.info(
         `[${filing.accession_number}] Heuristic parser succeeded: ${parseResult.subsidiaries.length} subsidiaries (maxNesting: ${parseResult.maxNestingLevel})`
       );
-      
+
+      let llmModifications: any[] | undefined;
+
       // Post-process: Enrich with LLM after all tables are processed
       if (useLLMEnrichment) {
         logger.info(`[${filing.accession_number}] Starting LLM enrichment...`);
-        parseResult.subsidiaries = await enrichWithLLM(
+
+        // Generate filing company ID from CIK
+        const { generateCompanyId } = await import("../../db/ids");
+        const filingCompanyId = generateCompanyId({
+          type: "public",
+          identity: { cik: filing.cik },
+        });
+
+        const enrichResult = await enrichWithLLM(
           parseResult.subsidiaries,
-          parseResult.footnotes,
-          filing.accession_number
+          parseResult.footnotesHtml,
+          { 
+            accession_number: filing.accession_number,
+            filingCompanyId,
+          }
         );
+
+        parseResult.subsidiaries = enrichResult.subsidiaries;
+        llmModifications = enrichResult.modifications;
       }
-      
+
       return {
         ...parseResult,
-        method: useLLMEnrichment ? "LLM" : "Heuristic",
+        method: useLLMEnrichment && llmModifications && llmModifications.length > 0
+          ? "heuristic+llm"
+          : "heuristic",
         status: "success",
+        llmModifications,
       };
     }
 
@@ -74,7 +93,7 @@ export async function parseExhibit(
       status: "empty",
       tableCount: parseResult?.tableCount ?? 0,
       maxNestingLevel: 0,
-      footnotes: parseResult?.footnotes ?? {},
+      footnotesHtml: parseResult?.footnotesHtml ?? "",
     };
   } catch (error: any) {
     // Only catch Cheerio/HTML parsing errors - everything else should fail
@@ -86,11 +105,11 @@ export async function parseExhibit(
         status: "failed",
         tableCount: 0,
         maxNestingLevel: 0,
-        footnotes: {},
+        footnotesHtml: "",
         errorMessage: error.message,
       };
     }
-    
+
     // All other errors (ParserError, system errors, etc.) - let them fail
     throw error;
   }
@@ -110,7 +129,7 @@ function parseTable(
   if (tables.length === 0) return null;
 
   // Extract footnotes from the entire document first
-  const footnotes = extractDocumentFootnotes($);
+  const footnotesHtml = extractDocumentFootnotes($);
 
   // Process ALL tables (not just those with keywords)
   // We'll filter out non-subsidiary tables during processing
@@ -233,8 +252,7 @@ function parseTable(
       rows,
       startRowIndex,
       headers,
-      filing,
-      footnotes
+      filing
     );
     
     allSubsidiaries.push(...subsidiaries);
@@ -251,6 +269,6 @@ function parseTable(
     subsidiaries: allSubsidiaries,
     tableCount: tables.length,
     maxNestingLevel,
-    footnotes,
+    footnotesHtml,
   };
 }

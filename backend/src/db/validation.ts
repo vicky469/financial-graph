@@ -38,8 +38,8 @@ export const CompanySchema = z.object({
   updated_at: ISODateString,
 });
 
-// Public Company Details
-export const PublicCompanyDetailsSchema = z.object({
+// Public Info
+export const PublicInfoSchema = z.object({
   id: UUIDString,
   company_id: UUIDString,
   sic_code: z.string().length(4).nullable(), // 4-digit SIC code
@@ -211,20 +211,6 @@ export const FiledEdgeSchema = z.object({
   created_at: ISODateString,
 });
 
-export const HasPublicDetailsEdgeSchema = z.object({
-  id: UUIDString,
-  from_company_id: UUIDString,
-  to_details_id: UUIDString,
-  created_at: ISODateString,
-});
-
-export const HasSegmentsEdgeSchema = z.object({
-  id: UUIDString,
-  from_company_id: UUIDString,
-  to_segment_id: UUIDString,
-  created_at: ISODateString,
-});
-
 import { logValidationError } from "../utils/db/validation_logger";
 
 /**
@@ -264,5 +250,4 @@ export const PartialCompanySchema = CompanySchema.partial();
 export const PartialFilingSchema = FilingSchema.partial();
 export const PartialBrandSchema = BrandSchema.partial();
 export const PartialBusinessSegmentSchema = BusinessSegmentSchema.partial();
-export const PartialPublicCompanyDetailsSchema =
-  PublicCompanyDetailsSchema.partial();
+export const PartialPublicInfoSchema = PublicInfoSchema.partial();

@@ -181,6 +181,94 @@ describe("LLM Enrichment (Integration)", () => {
         expect(result[0].ownership).toBe(100);
         expect(result[1].ownership).toBe(75);
       });
+
+      describe("HTML table footnotes", () => {
+        it("should extract ownership from table footnote (entire table format)", async () => {
+          const subsidiaries = [
+            createSubsidiary("Nuovo Pignone Holding S.p.a.", ["1"], undefined),
+            createSubsidiary("Baker Hughes Energy Europe B.V.", [], 100),
+          ];
+
+          // Option 1: Send entire footnote table
+          const footnoteTableHTML = `
+            <table>
+              <tr><td>(1) Nuovo Pignone Holding S.p.a.</td></tr>
+              <tr>
+                <td></td>
+                <td>Baker Hughes Energy Europe B.V.</td>
+                <td>83.7387%</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td>Other subsidiaries of Baker Hughes Holdings LLC</td>
+                <td>16.2458%</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td>Third Party</td>
+                <td>0.0155%</td>
+              </tr>
+            </table>
+          `;
+
+          const footnotes: FootnoteMap = {
+            "1": footnoteTableHTML,
+          };
+
+          const result = await enrichWithLLM(
+            subsidiaries,
+            footnotes,
+            "test-accession"
+          );
+
+          // Should extract ownership breakdown
+          const nuovoPignone = result.find(s => s.name === "Nuovo Pignone Holding S.p.a.");
+          expect(nuovoPignone?.ownership).toBeDefined();
+          // Could be 100% (total) or 83.7387% (primary owner's share)
+          expect(nuovoPignone?.ownership).toBeGreaterThan(0);
+        });
+
+        it("should extract ownership from table footnote (specific rows format)", async () => {
+          const subsidiaries = [
+            createSubsidiary("Nuovo Pignone Holding S.p.a.", ["1"], undefined),
+            createSubsidiary("Baker Hughes Energy Europe B.V.", [], 100),
+          ];
+
+          // Option 2: Send just the relevant rows
+          const footnoteRowsHTML = `
+            <tr><td>(1) Nuovo Pignone Holding S.p.a.</td></tr>
+            <tr>
+              <td></td>
+              <td>Baker Hughes Energy Europe B.V.</td>
+              <td>83.7387%</td>
+            </tr>
+            <tr>
+              <td></td>
+              <td>Other subsidiaries of Baker Hughes Holdings LLC</td>
+              <td>16.2458%</td>
+            </tr>
+            <tr>
+              <td></td>
+              <td>Third Party</td>
+              <td>0.0155%</td>
+            </tr>
+          `;
+
+          const footnotes: FootnoteMap = {
+            "1": footnoteRowsHTML,
+          };
+
+          const result = await enrichWithLLM(
+            subsidiaries,
+            footnotes,
+            "test-accession"
+          );
+
+          const nuovoPignone = result.find(s => s.name === "Nuovo Pignone Holding S.p.a.");
+          expect(nuovoPignone?.ownership).toBeDefined();
+          expect(nuovoPignone?.ownership).toBeGreaterThan(0);
+        });
+      });
     });
   });
 });

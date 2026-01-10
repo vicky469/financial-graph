@@ -1,33 +1,19 @@
 /**
- * Footnote extraction and mapping utilities
+ * Footnote extraction utilities
  *
  * Handles:
- * - Extracting footnotes from document (text and tables)
+ * - Extracting footnote section HTML from document
  * - Extracting footnote references from subsidiary names and ownership
- * - Mapping footnote references to ownership values
  */
-
-import type { FootnoteMap } from "./types";
 
 // ============================================================================
 // Footnote Patterns
 // ============================================================================
 
-/** Matches just a footnote marker in a table cell: (1), 1., 1), *1 */
-const FOOTNOTE_MARKER_PATTERN = /^[\(\*]?(\d+)[\)\.]?$/;
-
-/** Matches footnote marker + content in paragraphs */
-const FOOTNOTE_WITH_CONTENT_PATTERNS = [
-  /^\s*\((\d+)\)\s*(.+)$/, // (1) text
-  /^\s*(\d+)\.\s+(.+)$/, // 1. text
-  /^\s*(\d+)\)\s+(.+)$/, // 1) text
-  /^\s*\*(\d+)\s*(.+)$/, // *1 text
-];
-
 /** Matches footnote refs inline in text */
 const FOOTNOTE_REF_PATTERNS = [
-  /\((\d+)\)/g, // (1), (2)
-  /\*(\d+)/g, // *1, *2
+  /\((\d+[A-Za-z]?)\)/g, // (1), (2), (1A), (1a), (2B)
+  /\*(\d+[A-Za-z]?)/g, // *1, *2, *1A, *1a
 ];
 
 // ============================================================================
@@ -35,57 +21,54 @@ const FOOTNOTE_REF_PATTERNS = [
 // ============================================================================
 
 /**
- * Extract footnote definitions from the document
- * Looks for footnote patterns in text and tables
+ * Extract footnote section HTML from the document
+ *
+ * Looks for tables or sections that contain footnote markers like (1), (2), etc.
+ * Returns the raw HTML of the footnote section(s) for LLM processing.
+ *
+ * @param $ - Cheerio instance
+ * @returns Raw HTML string of footnote sections, or empty string if none found
  */
-export function extractDocumentFootnotes($: any): FootnoteMap {
-  const footnotes: FootnoteMap = {};
+export function extractDocumentFootnotes($: any): string {
+  const footnoteSections: string[] = [];
 
-  // Search in paragraphs, divs, and small text elements
-  $("p, div, span, font, td").each((_: any, el: any) => {
-    const text = $(el).text().trim();
-
-    // Skip if too long (likely not a footnote)
-    if (text.length > 500) return;
-
-    for (const pattern of FOOTNOTE_WITH_CONTENT_PATTERNS) {
-      const match = text.match(pattern);
-      if (match) {
-        const num = match[1];
-        const content = match[2].trim();
-        if (content && !footnotes[num]) {
-          footnotes[num] = content;
-        }
-      }
-    }
-  });
-
-  // Look for footnote tables (small tables at the bottom)
+  // Look for small tables (1-20 rows) that contain footnote markers
   $("table").each((_: any, tbl: any) => {
     const $tbl = $(tbl);
     const rows = $tbl.find("tr");
 
-    // Small tables (1-10 rows) might be footnote tables
-    if (rows.length > 0 && rows.length <= 10) {
+    // Small tables might be footnote tables
+    if (rows.length > 0 && rows.length <= 20) {
+      // Check if this table contains footnote markers
+      let hasFootnoteMarkers = false;
       rows.each((_: any, tr: any) => {
         const cells = $(tr).find("td");
-        if (cells.length >= 2) {
+        if (cells.length >= 1) {
           const firstCell = $(cells[0]).text().trim();
-          const secondCell = $(cells[1]).text().trim();
-
-          const numMatch = firstCell.match(FOOTNOTE_MARKER_PATTERN);
-          if (numMatch && secondCell) {
-            const num = numMatch[1];
-            if (!footnotes[num]) {
-              footnotes[num] = secondCell;
-            }
+          // Look for patterns like (1), (2), (1A), (1a), etc.
+          if (/^\(\d+[A-Za-z]?\)/.test(firstCell)) {
+            hasFootnoteMarkers = true;
+            return false; // break
           }
         }
       });
+
+      if (hasFootnoteMarkers) {
+        footnoteSections.push($.html(tbl));
+      }
     }
   });
 
-  return footnotes;
+  // Also look for footnote paragraphs/divs
+  $("p, div").each((_: any, el: any) => {
+    const text = $(el).text().trim();
+    // Look for footnote patterns: (1) text, (1A) text, etc.
+    if (/^\s*\(\d+[A-Za-z]?\)\s+/.test(text) && text.length < 500) {
+      footnoteSections.push($.html(el));
+    }
+  });
+
+  return footnoteSections.join("\n\n");
 }
 
 // ============================================================================
@@ -120,8 +103,8 @@ export function parseOwnershipWithFootnoteRef(text: string): {
 } {
   const trimmed = text.trim();
 
-  // Pattern: "100%1" or "51%2" - percentage followed by footnote number
-  const match = trimmed.match(/^([\d.]+)%(\d+)$/);
+  // Pattern: "100%1" or "51%2" or "100%1A" - percentage followed by footnote ref
+  const match = trimmed.match(/^([\d.]+)%(\d+[A-Za-z]?)$/);
   if (match) {
     const ownership = parseFloat(match[1]);
     const ref = match[2];

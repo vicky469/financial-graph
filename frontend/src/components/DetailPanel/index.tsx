@@ -1,7 +1,8 @@
-import { useRef, useEffect } from "react";
-import { X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { X, Clock, User, GitBranch, Sparkles } from "lucide-react";
 import type { Node } from "../../types";
-import { useCompanyDetails } from "../../db/queries";
+import { useCompanyDetails, useCompanyAudits } from "../../db/queries";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 interface DetailPanelProps {
   node: Node | null;
@@ -11,8 +12,12 @@ interface DetailPanelProps {
 }
 
 export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPanelProps) {
+  const [activeTab, setActiveTab] = useState<"info" | "audit">("info");
   const panelRef = useRef<HTMLDivElement>(null);
   const { node: fullNode, isLoading } = useCompanyDetails(
+    node?.type === "Company" ? node.id : null
+  );
+  const { audits, isLoading: loadingAudits } = useCompanyAudits(
     node?.type === "Company" ? node.id : null
   );
   const displayNode = fullNode || node;
@@ -46,106 +51,169 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
       <div className="p-5 border-b border-border/30">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-lg font-semibold text-foreground leading-tight">
-                {node.name}
-              </h2>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-base font-semibold text-foreground leading-tight">{node.name}</h2>
               {isLoading && (
                 <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin shrink-0" />
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {isEntity && (
-                <>
-                  <Badge variant={isPublic ? "success" : "default"}>
-                    {isPublic ? "PUB" : "PVT"}
-                  </Badge>
-                </>
-              )}
-              {isBrand && <Badge variant="purple">BRD</Badge>}
-            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 -mr-1.5 -mt-1.5 rounded-md hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            {isEntity && (
+              <Badge variant={isPublic ? "success" : "default"}>
+                {isPublic ? "PUB" : "PVT"}
+              </Badge>
+            )}
+            {isBrand && <Badge variant="purple">BRD</Badge>}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-md hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {isEntity && displayNode && (
-          <>
-            <Section title="Identity">
-              <FieldRow label="CIK" value={displayNode.cik} mono />
-              <TickerField tickers={displayNode.properties?.tickers as string | undefined} />
-              <FieldRow label="Exchange" value={displayNode.properties?.exchange} />
-              <FieldRow label="Jurisdiction" value={displayNode.jurisdiction} />
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "info" | "audit")}
+        className="flex-1 flex flex-col overflow-hidden"
+      >
+        <TabsList className="grid w-full grid-cols-2 mx-5 mt-2">
+          <TabsTrigger value="info">Company Info</TabsTrigger>
+          <TabsTrigger value="audit">Audit</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="info" className="flex-1 overflow-y-auto mt-0">
+          {isEntity && displayNode && (
+            <>
+              <Section title="Identity">
+                <FieldRow label="CIK" value={displayNode.cik} mono />
+                <TickerField tickers={displayNode.properties?.tickers as string | undefined} />
+                <FieldRow label="Exchange" value={displayNode.properties?.exchange} />
+                <FieldRow label="Jurisdiction" value={displayNode.jurisdiction} />
+              </Section>
+            </>
+          )}
+
+          {isBrand && displayNode && (
+            <Section title="Brand Info">
+              <FieldRow label="Type" value={displayNode.properties?.brand_type} />
+              <FieldRow label="Sector" value={displayNode.properties?.sector} />
+              <FieldRow label="Industry" value={displayNode.properties?.industry} />
+              <FieldRow label="Owner" value={displayNode.properties?.entity_id} mono />
             </Section>
-          </>
-        )}
+          )}
 
-        {isBrand && displayNode && (
-          <Section title="Brand Info">
-            <FieldRow label="Type" value={displayNode.properties?.brand_type} />
-            <FieldRow label="Sector" value={displayNode.properties?.sector} />
-            <FieldRow label="Industry" value={displayNode.properties?.industry} />
-            <FieldRow label="Owner" value={displayNode.properties?.entity_id} mono />
-          </Section>
-        )}
-
-
-        {/* Metadata - compact two column layout, no bottom border */}
-        {displayNode && (
-          <div style={{ padding: "20px" }}>
-            <h3 style={{ 
-              fontSize: "11px", 
-              fontWeight: 500, 
-              color: "rgba(255,255,255,0.4)", 
-              textTransform: "uppercase", 
-              letterSpacing: "0.05em",
-              marginBottom: "12px" 
-            }}>
-              Metadata
-            </h3>
-            <div style={{ display: "flex", gap: "24px" }}>
-              <div>
-                <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginBottom: "2px" }}>
-                  Created At
+          {/* Metadata - compact two column layout, no bottom border */}
+          {displayNode && (
+            <div style={{ padding: "20px" }}>
+              <h3
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 500,
+                  color: "rgba(255,255,255,0.4)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: "12px",
+                }}
+              >
+                Metadata
+              </h3>
+              <div style={{ display: "flex", gap: "24px" }}>
+                <div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "rgba(255,255,255,0.4)",
+                      marginBottom: "2px",
+                    }}
+                  >
+                    Created At
+                  </div>
+                  <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
+                    {new Date(displayNode.createdAt).toLocaleDateString()}
+                  </div>
                 </div>
-                <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
-                  {new Date(displayNode.createdAt).toLocaleDateString()}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginBottom: "2px" }}>
-                  Created By
-                </div>
-                <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
-                  {displayNode.createdBy || "—"}
+                <div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "rgba(255,255,255,0.4)",
+                      marginBottom: "2px",
+                    }}
+                  >
+                    Created By
+                  </div>
+                  <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
+                    {displayNode.createdBy || "—"}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Data Quality */}
-        {displayNode?.metadata && (
-          <Section title="Data Quality">
-            <FieldRow label="Method" value={displayNode.metadata.parsingMethod} />
-            <FieldRow
-              label="Confidence"
-              value={
-                displayNode.metadata.confidenceScore
-                  ? `${(displayNode.metadata.confidenceScore * 100).toFixed(0)}%`
-                  : undefined
-              }
-            />
-          </Section>
-        )}
-      </div>
+          {/* Data Quality */}
+          {displayNode?.metadata && (
+            <Section title="Data Quality">
+              <FieldRow label="Method" value={displayNode.metadata.parsingMethod} />
+              <FieldRow
+                label="Confidence"
+                value={
+                  displayNode.metadata.confidenceScore
+                    ? `${(displayNode.metadata.confidenceScore * 100).toFixed(0)}%`
+                    : undefined
+                }
+              />
+            </Section>
+          )}
+        </TabsContent>
+
+        <TabsContent value="audit" className="flex-1 overflow-y-auto mt-0">
+          <div style={{ padding: "20px" }}>
+            <h3
+              style={{
+                fontSize: "11px",
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.4)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: "16px",
+              }}
+            >
+              Change History
+            </h3>
+            {loadingAudits ? (
+              <div style={{ display: "flex", justifyContent: "center", padding: "32px" }}>
+                <div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+              </div>
+            ) : audits.length === 0 ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  padding: "48px 24px",
+                  gap: "8px",
+                }}
+              >
+                <GitBranch size={32} style={{ color: "rgba(255,255,255,0.2)" }} />
+                <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)" }}>
+                  No audit records
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {audits.map((audit) => (
+                  <AuditEntry key={audit.id} audit={audit} />
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </aside>
   );
 }
@@ -153,14 +221,16 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ padding: "20px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-      <h3 style={{ 
-        fontSize: "11px", 
-        fontWeight: 500, 
-        color: "rgba(255,255,255,0.4)", 
-        textTransform: "uppercase", 
-        letterSpacing: "0.05em",
-        marginBottom: "16px" 
-      }}>
+      <h3
+        style={{
+          fontSize: "11px",
+          fontWeight: 500,
+          color: "rgba(255,255,255,0.4)",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          marginBottom: "16px",
+        }}
+      >
         {title}
       </h3>
       <div>{children}</div>
@@ -185,11 +255,13 @@ function FieldRow({
       <div style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)", marginBottom: "4px" }}>
         {label}
       </div>
-      <div style={{ 
-        fontSize: "14px", 
-        color: "rgba(255,255,255,0.9)",
-        fontFamily: mono ? "monospace" : "inherit"
-      }}>
+      <div
+        style={{
+          fontSize: "14px",
+          color: "rgba(255,255,255,0.9)",
+          fontFamily: mono ? "monospace" : "inherit",
+        }}
+      >
         {display}
       </div>
     </div>
@@ -292,5 +364,131 @@ function Badge({
     >
       {children}
     </span>
+  );
+}
+
+// Audit Entry Component
+function AuditEntry({ audit }: { audit: any }) {
+  const getOperationColor = (op: string) => {
+    switch (op) {
+      case "CREATE":
+        return "#34d399";
+      case "UPDATE":
+        return "#60a5fa";
+      case "DELETE":
+        return "#f87171";
+      default:
+        return "rgba(255,255,255,0.3)";
+    }
+  };
+
+  const getAgentIcon = (agent: string) => {
+    switch (agent) {
+      case "heuristic":
+        return <GitBranch size={12} />;
+      case "llm":
+        return <Sparkles size={12} />;
+      case "human":
+        return <User size={12} />;
+      default:
+        return null;
+    }
+  };
+
+  const formatTimestamp = (isoString: string) => {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  const formatValue = (value: unknown): string => {
+    if (value === null || value === undefined) return "—";
+    if (typeof value === "object") return JSON.stringify(value);
+    return String(value);
+  };
+
+  return (
+    <div
+      style={{
+        padding: "12px",
+        borderRadius: "8px",
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.02)",
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+        <span
+          style={{
+            fontSize: "10px",
+            fontWeight: 600,
+            color: "#1a1a1a",
+            background: getOperationColor(audit.operation),
+            padding: "3px 8px",
+            borderRadius: "4px",
+          }}
+        >
+          {audit.operation}
+        </span>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            color: "rgba(255,255,255,0.5)",
+          }}
+        >
+          {getAgentIcon(audit.changed_by)}
+          <span style={{ fontSize: "11px" }}>{audit.changed_by}</span>
+        </div>
+        <span style={{ flex: 1 }} />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            color: "rgba(255,255,255,0.4)",
+          }}
+        >
+          <Clock size={11} />
+          <span style={{ fontSize: "11px" }}>{formatTimestamp(audit.changed_at)}</span>
+        </div>
+      </div>
+
+      {/* Fields Changed */}
+      {audit.fields_changed && audit.fields_changed.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          {audit.fields_changed.map((change: any, idx: number) => (
+            <div
+              key={idx}
+              style={{
+                fontSize: "11px",
+                padding: "6px 8px",
+                borderRadius: "4px",
+                background: "rgba(255,255,255,0.03)",
+                fontFamily: "monospace",
+              }}
+            >
+              <div style={{ color: "rgba(255,255,255,0.5)", marginBottom: "2px" }}>
+                {change.field}
+              </div>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <span style={{ color: "#f87171" }}>{formatValue(change.old_value)}</span>
+                <span style={{ color: "rgba(255,255,255,0.3)" }}>→</span>
+                <span style={{ color: "#34d399" }}>{formatValue(change.new_value)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

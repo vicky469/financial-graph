@@ -3,7 +3,6 @@ import * as IDs from "../ids";
 import type * as Types from "../../types";
 import {
   BusinessSegmentSchema,
-  HasSegmentsEdgeSchema,
   validate,
 } from "../validation";
 
@@ -32,22 +31,8 @@ export async function upsertBusinessSegment(
   // Validate the node before inserting
   const validatedNode = validate(BusinessSegmentSchema, node);
 
-  const edgeId = IDs.generateHasSegmentsEdgeId(company_id, id);
-  const edge: Types.HasSegmentsEdge = {
-    id: edgeId,
-    from_company_id: company_id,
-    to_segment_id: id,
-    created_at: new Date().toISOString(),
-  };
-
-  // Validate the edge before inserting
-  const validatedEdge = validate(HasSegmentsEdgeSchema, edge);
-
   await db.transact([
     db.tx.business_segments[id].update(validatedNode),
-    db.tx.has_segments[edgeId].update(validatedEdge),
-    db.tx.companies[company_id].link({ segments: id }),
-    db.tx.business_segments[id].link({ company: company_id }),
   ]);
 
   return id;

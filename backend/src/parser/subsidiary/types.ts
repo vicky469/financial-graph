@@ -2,6 +2,16 @@
  * Type definitions for subsidiary parsing
  */
 
+import { LLMModification } from "./llm-enrichment";
+
+export type { LLMModification } from "./llm-enrichment";
+
+/**
+ * Map of footnote number to footnote text
+ * @deprecated Use footnotesHtml (raw HTML string) for LLM processing instead
+ */
+export type FootnoteMap = Record<string, string>;
+
 export interface SubsidiaryRecord {
   id: string; // Generated UUID for this subsidiary
   name: string;
@@ -15,17 +25,14 @@ export interface SubsidiaryRecord {
   isNested: boolean;
 }
 
-export interface FootnoteMap {
-  [key: string]: string; // e.g., { "1": "Owned through subsidiary X", "4": "100% owned" }
-}
-
 export interface ParseResult {
   subsidiaries: SubsidiaryRecord[];
   method: string;
   status: "success" | "empty" | "failed"; // success=found data, empty=no subsidiaries found, failed=error occurred
   tableCount: number;
   maxNestingLevel: number;
-  footnotes: FootnoteMap; // Extracted footnotes from document
+  footnotesHtml: string; // Raw HTML of footnote sections
+  llmModifications?: LLMModification[]; // Modifications made by LLM (if enrichment was used)
   errorMessage?: string;
 }
 

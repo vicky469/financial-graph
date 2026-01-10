@@ -1,9 +1,9 @@
 /**
  * LLM-based enrichment for subsidiary parsing
- * 
+ *
  * Post-processes heuristic parse results to fill missing ownership data
  * by analyzing footnote text using LLM.
- * 
+ *
  * Strategy:
  * - Extracts ownership structure (parent-child relationships)
  * - Extracts ownership percentages
@@ -14,7 +14,7 @@
 
 import { Ollama } from "ollama";
 import { createLogger } from "../../utils/logger";
-import type { SubsidiaryRecord, FootnoteMap } from "./types";
+import type { SubsidiaryRecord } from "./types";
 
 const logger = createLogger("parsers/subsidiary/llm-enrichment");
 
@@ -33,36 +33,67 @@ interface OwnershipInfo {
 }
 
 /**
+ * Field-level change tracking
+ */
+export interface LLMModification {
+  subsidiaryId: string;
+  fieldChanges: {
+    field: string;
+    oldValue: unknown;
+    newValue: unknown;
+  }[];
+}
+
+/**
+ * Result of LLM enrichment with modification tracking
+ */
+export interface LLMEnrichmentResult {
+  subsidiaries: SubsidiaryRecord[];
+  modifications: LLMModification[];
+}
+
+/**
  * Enrich subsidiary records with LLM-extracted ownership from footnotes
- * 
- * For each subsidiary with missing ownership or unclear parent:
+ *
+ * For each subsidiary with footnote references:
  * 1. Extract ownership structure (who owns who)
  * 2. Extract ownership percentage
  * 3. Match parent names to existing subsidiary IDs
- * 4. Update subsidiary records
+ * 4. Update subsidiary records and track modifications
  * 5. Default to 100% for subsidiaries with no footnotes (standard for Exhibit 21)
+ *
+ * @param subsidiaries - ALL subsidiaries (needed for parent name matching)
+ * @param footnotesHtml - Raw HTML of all footnote sections
+ * @param filing - Filing metadata (accession_number, filingCompanyId)
+ * @returns Result with enriched subsidiaries and list of modifications
  */
 export async function enrichWithLLM(
   subsidiaries: SubsidiaryRecord[],
-  footnotes: FootnoteMap,
-  accessionNumber: string
-): Promise<SubsidiaryRecord[]> {
+  footnotesHtml: string,
+  filing: {
+    accession_number: string;
+    filingCompanyId: string;
+  }
+): Promise<LLMEnrichmentResult> {
+  const modifications: LLMModification[] = [];
+
+  // Filter to only subsidiaries with footnote refs
   const needsEnrichment = subsidiaries.filter(
-    (sub) => 
-      (sub.ownership === undefined || !sub.parentId) && 
-      sub.footnoteRefs.length > 0
+    (sub) => sub.footnoteRefs.length > 0
   );
 
-  if (needsEnrichment.length === 0) {
-    logger.info(`[${accessionNumber}] No subsidiaries need LLM enrichment`);
-    
+  if (needsEnrichment.length === 0 || !footnotesHtml) {
+    logger.info(
+      `[${filing.accession_number}] No subsidiaries need LLM enrichment`
+    );
+
     // Still apply default ownership for subsidiaries with no footnotes
-    applyDefaultOwnership(subsidiaries, accessionNumber);
-    return subsidiaries;
+    applyDefaultOwnership(subsidiaries, filing.accession_number);
+    return { subsidiaries, modifications };
   }
 
   logger.info(
-    `[${accessionNumber}] Enriching ${needsEnrichment.length} subsidiaries with LLM`
+    `[${filing.accession_number}] Enriching ${needsEnrichment.length} subsidiaries with LLM`
   );
 
   // Build name-to-id map for parent matching
@@ -76,52 +107,78 @@ export async function enrichWithLLM(
 
   for (const sub of needsEnrichment) {
     try {
+      const changes: {
+        field: string;
+        oldValue: unknown;
+        newValue: unknown;
+      }[] = [];
+
+      // Build LLM prompt with filing context, current subsidiary, all subsidiaries, and ALL footnotes HTML
       const ownershipInfo = await extractOwnershipFromFootnotes(
-        sub.name,
-        sub.footnoteRefs,
-        footnotes
+        sub,
+        subsidiaries,
+        footnotesHtml,
+        filing
       );
 
-      let updated = false;
+      // Track ownership changes
+      const oldOwnership = sub.ownership;
+      const newOwnership = ownershipInfo.ownership;
 
-      // Update ownership percentage if found
-      if (ownershipInfo.ownership !== undefined && sub.ownership === undefined) {
-        sub.ownership = ownershipInfo.ownership;
-        updated = true;
+      if (newOwnership !== undefined && newOwnership !== oldOwnership) {
+        sub.ownership = newOwnership;
+        changes.push({
+          field: "ownership",
+          oldValue: oldOwnership,
+          newValue: newOwnership,
+        });
       }
 
-      // Update parent if found and different from heuristic
+      // Track parent changes
+      const oldParentId = sub.parentId;
+      let newParentId: string | undefined;
+
       if (ownershipInfo.parentName) {
-        const parentId = findParentId(ownershipInfo.parentName, nameToIdMap);
-        if (parentId && parentId !== sub.parentId) {
-          sub.parentId = parentId;
+        newParentId = findParentId(ownershipInfo.parentName, nameToIdMap);
+        if (newParentId && newParentId !== oldParentId) {
+          sub.parentId = newParentId;
           sub.parentName = ownershipInfo.parentName;
-          updated = true;
+          changes.push({
+            field: "parentId",
+            oldValue: oldParentId,
+            newValue: newParentId,
+          });
         }
       }
 
-      if (updated) {
+      if (changes.length > 0) {
         enrichedCount++;
+        modifications.push({
+          subsidiaryId: sub.id,
+          fieldChanges: changes,
+        });
         logger.info(
-          `[${accessionNumber}] Enriched "${sub.name}": parent=${ownershipInfo.parentName || 'unchanged'}, ownership=${ownershipInfo.ownership || 'unchanged'}%`
+          `[${filing.accession_number}] Enriched "${sub.name}": parent=${
+            ownershipInfo.parentName || "unchanged"
+          }, ownership=${ownershipInfo.ownership || "unchanged"}%`
         );
       }
     } catch (error: any) {
       failedCount++;
       logger.warn(
-        `[${accessionNumber}] Failed to enrich "${sub.name}": ${error.message}`
+        `[${filing.accession_number}] Failed to enrich "${sub.name}": ${error.message}`
       );
     }
   }
 
   logger.info(
-    `[${accessionNumber}] LLM enrichment complete: ${enrichedCount} enriched, ${failedCount} failed`
+    `[${filing.accession_number}] LLM enrichment complete: ${enrichedCount} enriched, ${failedCount} failed`
   );
 
   // Apply default ownership for subsidiaries with no footnotes
-  applyDefaultOwnership(subsidiaries, accessionNumber);
+  applyDefaultOwnership(subsidiaries, filing.accession_number);
 
-  return subsidiaries;
+  return { subsidiaries, modifications };
 }
 
 /**
@@ -133,14 +190,14 @@ function applyDefaultOwnership(
   accessionNumber: string
 ): void {
   let defaultCount = 0;
-  
+
   for (const sub of subsidiaries) {
     if (sub.ownership === undefined && sub.footnoteRefs.length === 0) {
       sub.ownership = 100;
       defaultCount++;
     }
   }
-  
+
   if (defaultCount > 0) {
     logger.info(
       `[${accessionNumber}] Applied default 100% ownership to ${defaultCount} subsidiaries with no footnotes`
@@ -156,46 +213,40 @@ function findParentId(
   nameToIdMap: Map<string, string>
 ): string | undefined {
   const normalized = parentName.toLowerCase().trim();
-  
+
   // Exact match
   if (nameToIdMap.has(normalized)) {
     return nameToIdMap.get(normalized);
   }
-  
-  // Fuzzy match (contains)
-  for (const [name, id] of nameToIdMap.entries()) {
-    if (name.includes(normalized) || normalized.includes(name)) {
-      return id;
-    }
-  }
-  
+
   return undefined;
 }
 
 /**
  * Extract ownership information from footnotes using LLM
  * Returns both parent structure and ownership percentage
+ *
+ * @param subsidiary - Current subsidiary being analyzed
+ * @param allSubsidiaries - All subsidiaries (for parent name -> ID matching)
+ * @param footnotesHtml - Raw HTML of all footnote sections
+ * @param filing - Filing metadata
  */
 async function extractOwnershipFromFootnotes(
-  subsidiaryName: string,
-  footnoteRefs: string[],
-  footnotes: FootnoteMap
-): Promise<OwnershipInfo> {
-  // Build footnote context
-  const footnoteTexts = footnoteRefs
-    .map((ref) => {
-      const text = footnotes[ref];
-      return text ? `(${ref}) ${text}` : null;
-    })
-    .filter(Boolean)
-    .join("\n");
-
-  if (!footnoteTexts) {
-    return {};
+  subsidiary: SubsidiaryRecord,
+  allSubsidiaries: SubsidiaryRecord[],
+  footnotesHtml: string,
+  filing: {
+    accession_number: string;
+    filingCompanyId: string;
   }
-
-  // Build prompt
-  const prompt = buildOwnershipPrompt(subsidiaryName, footnoteTexts);
+): Promise<OwnershipInfo> {
+  // Build prompt with full context
+  const prompt = buildOwnershipPrompt(
+    subsidiary,
+    allSubsidiaries,
+    footnotesHtml,
+    filing
+  );
 
   // Query LLM
   const response = await ollama.generate({
@@ -211,30 +262,70 @@ async function extractOwnershipFromFootnotes(
 }
 
 /**
- * Build prompt for ownership extraction
+ * Build prompt for ownership extraction with full context
  */
 function buildOwnershipPrompt(
-  subsidiaryName: string,
-  footnoteTexts: string
+  subsidiary: SubsidiaryRecord,
+  allSubsidiaries: SubsidiaryRecord[],
+  footnotesHtml: string,
+  filing: {
+    accession_number: string;
+    filingCompanyId: string;
+  }
 ): string {
+  // Build list of available subsidiaries for parent matching
+  const subsidiaryList = allSubsidiaries
+    .map((s) => `- ${s.name} (ID: ${s.id})`)
+    .join("\n");
+
+  // Format footnote refs for the prompt
+  const footnoteRefs =
+    subsidiary.footnoteRefs.length > 0
+      ? `Footnote References: ${subsidiary.footnoteRefs
+          .map((ref) => `(${ref})`)
+          .join(", ")}`
+      : "No footnote references";
+
+  // Determine current parent display
+  const currentParent = subsidiary.parentName 
+    ? subsidiary.parentName 
+    : `Filing Company (ID: ${filing.filingCompanyId})`;
+
   return `You are analyzing SEC filing footnotes to extract ownership information.
 
-Subsidiary: ${subsidiaryName}
+Filing Accession: ${filing.accession_number}
+Filing Company ID: ${filing.filingCompanyId}
 
-Footnotes:
-${footnoteTexts}
+Subsidiary being analyzed:
+- Name: ${subsidiary.name}
+- Jurisdiction: ${subsidiary.jurisdiction}
+- ${footnoteRefs}
+- Current Ownership: ${
+    subsidiary.ownership !== undefined ? subsidiary.ownership + "%" : "unknown"
+  }
+- Current Parent: ${currentParent}
 
-Questions:
-1. Who owns this subsidiary? (parent company name)
-2. What is the ownership percentage?
+Available subsidiaries for parent matching:
+${subsidiaryList}
+
+All footnotes (HTML - may contain tables, paragraphs, or mixed formats):
+${footnotesHtml}
+
+Task: Find the footnotes referenced by this subsidiary ${
+    footnoteRefs !== "No footnote references"
+      ? `(${subsidiary.footnoteRefs.map((r) => `(${r})`).join(", ")})`
+      : ""
+  } and extract ownership percentage and parent company.
 
 Rules:
 - Return your answer in this exact format: "PARENT: [name or unknown] | OWNERSHIP: [number or unknown]"
 - For ownership percentage, return ONLY a number between 0 and 100 (e.g., "100", "75.5", "51")
 - If the footnote says "wholly owned" or "100% owned", return "100"
 - If the footnote says "majority owned", return "51"
-- If no parent is mentioned, return "unknown" for PARENT
-- If no ownership information is found, return "100" (default for Exhibit 21 & Exhibit 8 subsidiaries)
+- If a parent company is mentioned in the footnote, return the EXACT name from the "Available subsidiaries" list
+- If no parent is mentioned (meaning owned directly by the filing company), return "unknown" for PARENT
+- If no ownership information is found, return "100" (default for Exhibit 21 and Exhibit 8 subsidiaries)
+- The footnote HTML may be in table format (with <tr>, <td>) or paragraph format (with <p>)
 - Do NOT include the % symbol
 - Do NOT include any explanation or additional text
 
@@ -254,7 +345,11 @@ function parseOwnershipResponse(response: string): OwnershipInfo {
   // Parse parent name
   if (parentMatch) {
     const parentName = parentMatch[1].trim().toLowerCase();
-    if (parentName !== "unknown" && parentName !== "n/a" && parentName !== "none") {
+    if (
+      parentName !== "unknown" &&
+      parentName !== "n/a" &&
+      parentName !== "none"
+    ) {
       result.parentName = parentMatch[1].trim(); // Keep original case
     }
   }
@@ -262,9 +357,13 @@ function parseOwnershipResponse(response: string): OwnershipInfo {
   // Parse ownership percentage
   if (ownershipMatch) {
     const ownershipStr = ownershipMatch[1].trim().toLowerCase();
-    
+
     // If "unknown", default to 100% (standard for Exhibit 21)
-    if (ownershipStr === "unknown" || ownershipStr === "n/a" || ownershipStr === "none") {
+    if (
+      ownershipStr === "unknown" ||
+      ownershipStr === "n/a" ||
+      ownershipStr === "none"
+    ) {
       result.ownership = 100;
     } else {
       const num = parseFloat(ownershipStr);

@@ -1,7 +1,7 @@
 import type * as Types from "../../types";
 import {
   upsertCompany,
-  upsertPublicCompanyDetails,
+  upsertPublicInfo,
   linkParentChild,
   getCompanyIdByCik,
 } from "./companies";
@@ -20,10 +20,10 @@ export class FinancialGraphRepository {
     return upsertCompany(companyData);
   }
 
-  async upsertPublicCompanyDetails(
-    detailsData: Partial<Types.PublicCompanyDetails>
+  async upsertPublicInfo(
+    detailsData: Partial<Types.PublicInfo>
   ): Promise<string> {
-    return upsertPublicCompanyDetails(detailsData);
+    return upsertPublicInfo(detailsData);
   }
 
   async upsertBusinessSegment(

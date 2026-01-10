@@ -2,7 +2,7 @@
  * Tests for table-detection utilities
  */
 
-import { isHeaderRow } from "../../src/parsers/subsidiary/table-detection";
+import { isHeaderRow } from "../../src/parser/subsidiary/table-detection";
 
 describe("isHeaderRow", () => {
   describe("should return false for actual company names", () => {
