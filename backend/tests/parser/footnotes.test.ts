@@ -198,3 +198,312 @@ describe("extractDocumentFootnotes", () => {
     expect(footnotesHtml).not.toContain("x".repeat(100));
   });
 });
+
+import { preprocessFootnotesHtml } from "../../src/parser/subsidiary/footnotes-preprocessor";
+
+describe("preprocessFootnotesHtml", () => {
+  it("removes script tags", () => {
+    const html = `
+      <div>
+        <p>(1) Footnote text here.</p>
+        <script>alert('malicious');</script>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("Footnote text here");
+    expect(result).not.toContain("script");
+    expect(result).not.toContain("alert");
+  });
+
+  it("removes style tags", () => {
+    const html = `
+      <div>
+        <style>.class { color: red; }</style>
+        <p>(1) Footnote text here.</p>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("Footnote text here");
+    expect(result).not.toContain("style");
+    expect(result).not.toContain("color: red");
+  });
+
+  it("removes navigation elements", () => {
+    const html = `
+      <div>
+        <nav><a href="#">Home</a></nav>
+        <header><h1>Header</h1></header>
+        <footer><p>Footer</p></footer>
+        <p>(1) Footnote text here.</p>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("Footnote text here");
+    expect(result).not.toContain("nav");
+    expect(result).not.toContain("header");
+    expect(result).not.toContain("footer");
+    expect(result).not.toContain("Home");
+    expect(result).not.toContain("Header");
+    expect(result).not.toContain("Footer");
+  });
+
+  it("preserves table elements", () => {
+    const html = `
+      <table>
+        <tr>
+          <td>(1)</td>
+          <td>Company has 75% controlling interest.</td>
+        </tr>
+        <tr>
+          <td>(2)</td>
+          <td>Second tier subsidiary.</td>
+        </tr>
+      </table>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("table");
+    expect(result).toContain("75% controlling interest");
+    expect(result).toContain("Second tier subsidiary");
+  });
+
+  it("preserves paragraph elements", () => {
+    const html = `
+      <div>
+        <p>(1) First footnote text.</p>
+        <p>(2) Second footnote text.</p>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("First footnote text");
+    expect(result).toContain("Second footnote text");
+  });
+
+  it("preserves list elements", () => {
+    const html = `
+      <div>
+        <ul>
+          <li>(1) First item</li>
+          <li>(2) Second item</li>
+        </ul>
+        <ol>
+          <li>(3) Third item</li>
+        </ol>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("First item");
+    expect(result).toContain("Second item");
+    expect(result).toContain("Third item");
+  });
+
+  it("preserves footnote markers", () => {
+    const html = `
+      <div>
+        <p>(1) Footnote with marker.</p>
+        <p>(2A) Alphanumeric marker.</p>
+        <p>(3b) Lowercase alphanumeric.</p>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("(1)");
+    expect(result).toContain("(2A)");
+    expect(result).toContain("(3b)");
+  });
+
+  it("preserves ownership percentages", () => {
+    const html = `
+      <div>
+        <p>(1) Company has 75% controlling interest.</p>
+        <p>(2) Subsidiary owns 51% of shares.</p>
+        <p>(3) 100% owned by parent.</p>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("75%");
+    expect(result).toContain("51%");
+    expect(result).toContain("100%");
+  });
+
+  it("preserves company names", () => {
+    const html = `
+      <div>
+        <p>(1) Owned by Acme Corporation.</p>
+        <p>(2) Parent company is XYZ Holdings Ltd.</p>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("Acme Corporation");
+    expect(result).toContain("XYZ Holdings Ltd");
+  });
+
+  it("handles empty input", () => {
+    expect(preprocessFootnotesHtml("")).toBe("");
+    expect(preprocessFootnotesHtml("   ")).toBe("");
+  });
+
+  it("handles malformed HTML gracefully", () => {
+    const html = "<div><p>Unclosed paragraph";
+    const result = preprocessFootnotesHtml(html);
+
+    // Should not throw and should return something
+    expect(result).toBeDefined();
+    expect(result).toContain("Unclosed paragraph");
+  });
+
+  it("removes images and SVGs", () => {
+    const html = `
+      <div>
+        <img src="logo.png" alt="Logo" />
+        <svg><circle r="10" /></svg>
+        <p>(1) Footnote text.</p>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("Footnote text");
+    expect(result).not.toContain("img");
+    expect(result).not.toContain("svg");
+    expect(result).not.toContain("logo.png");
+  });
+
+  it("cleans up excessive whitespace", () => {
+    const html = `
+      <div>
+        <p>(1)    Multiple    spaces    here.</p>
+        
+        
+        
+        <p>(2) Another footnote.</p>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    // Should reduce multiple spaces to single space
+    expect(result).not.toContain("    ");
+    // Should reduce multiple newlines
+    expect(result).not.toMatch(/\n\n\n+/);
+  });
+
+  it("preserves complex table structures", () => {
+    const html = `
+      <table>
+        <tr>
+          <th>Footnote</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td>(1)</td>
+          <td>Company has 75% controlling interest.</td>
+        </tr>
+        <tr>
+          <td>(2)</td>
+          <td>Second tier subsidiary owned by Parent Corp.</td>
+        </tr>
+      </table>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("Footnote");
+    expect(result).toContain("Description");
+    expect(result).toContain("75% controlling interest");
+    expect(result).toContain("Parent Corp");
+  });
+
+  it("preserves &nbsp; entities for indentation", () => {
+    const html = `
+      <div>
+        <p>(1) Parent Company</p>
+        <p>&nbsp;&nbsp;(1a) Indented subsidiary</p>
+        <p>&nbsp;&nbsp;&nbsp;&nbsp;(1b) Deeper nested subsidiary</p>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("Parent Company");
+    expect(result).toContain("Indented subsidiary");
+    expect(result).toContain("Deeper nested subsidiary");
+    // Check that nbsp entities are preserved as HTML entities
+    expect(result).toContain("&nbsp;");
+  });
+
+  it("preserves &#160; numeric entities for indentation", () => {
+    const html = `
+      <div>
+        <p>(1) Parent Company</p>
+        <p>&#160;&#160;(1a) Indented subsidiary</p>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("Parent Company");
+    expect(result).toContain("Indented subsidiary");
+    // Cheerio normalizes &#160; to &nbsp;
+    expect(result).toContain("&nbsp;");
+  });
+
+  it("preserves CSS padding-left styles", () => {
+    const html = `
+      <table>
+        <tr>
+          <td>(1)</td>
+          <td>Parent Company</td>
+        </tr>
+        <tr>
+          <td>(1a)</td>
+          <td style="padding-left: 12pt">Indented subsidiary</td>
+        </tr>
+        <tr>
+          <td>(1b)</td>
+          <td style="padding-left: 24pt">Deeper nested subsidiary</td>
+        </tr>
+      </table>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("Parent Company");
+    expect(result).toContain("Indented subsidiary");
+    expect(result).toContain("Deeper nested subsidiary");
+    expect(result).toContain("padding-left");
+    expect(result).toContain("12pt");
+    expect(result).toContain("24pt");
+  });
+
+  it("preserves CSS margin-left styles", () => {
+    const html = `
+      <div>
+        <p style="margin-left: 0pt">(1) Parent Company</p>
+        <p style="margin-left: 12pt">(1a) Indented subsidiary</p>
+      </div>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("Parent Company");
+    expect(result).toContain("Indented subsidiary");
+    expect(result).toContain("margin-left");
+    expect(result).toContain("12pt");
+  });
+
+  it("preserves shorthand padding with indentation", () => {
+    const html = `
+      <table>
+        <tr>
+          <td style="padding: 2px 1pt 2px 13pt">(1a) Indented subsidiary</td>
+        </tr>
+      </table>
+    `;
+    const result = preprocessFootnotesHtml(html);
+
+    expect(result).toContain("Indented subsidiary");
+    expect(result).toContain("padding");
+    expect(result).toContain("13pt");
+  });
+});

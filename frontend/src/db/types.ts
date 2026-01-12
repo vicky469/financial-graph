@@ -1,58 +1,48 @@
 /**
- * Types matching InstantDB query results
- * These match the schema defined in backend/src/instant.schema.ts
+ * Frontend types - imported from shared package
+ * 
+ * This file re-exports types from @financial-graph/shared.
+ * Both frontend and backend share the same schema and types.
  */
 
-export interface Company {
-  id: string;
-  name: string;
-  aliases?: string[];
-  type: string; // "public" | "private" | "issuer"
-  parent_company_id?: string | null;
-  founded_date?: string | null;
-  jurisdiction_iso?: string | null;
-  jurisdiction_raw?: string | null;
-  identity?: {
-    tickers?: string[];
-    cik?: string;
-    exchange?: string;
-    lei?: string;
-    duns?: string;
-  };
-  created_at: string;
-  updated_at: string;
-}
+// Import schema-derived types from shared
+export type {
+  Company,
+  CompanyIdentity,
+  CompanyTypeValue,
+  Filing,
+  FilingAttachments,
+  ParentOfEdge,
+  ParentOfSourceValue,
+  SubsidiaryEnrichment,
+  CompanyInfo,
+  BusinessSegment,
+  Brand,
+  OwnsEdge,
+  Audit,
+  FieldChange,
+  AuditWithChanges,
+} from "@financial-graph/shared";
 
-export interface Brand {
-  id: string;
-  name: string;
-  owning_company_id: string;
-  category?: string | null;
-  status: string; // "active" | "discontinued"
-  launch_date?: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// Import enums and constants
+export { CompanyType, ParentOfSource } from "@financial-graph/shared";
 
-export interface ParentOf {
-  id: string;
-  from_company_id: string; // Parent company (owner)
-  to_company_id: string; // Child company (subsidiary)
-  ownership_percent?: number | null;
-  established_date: string;
-  ended_date?: string | null;
-  source: string; // "ma_event" | "spinoff" | "ipo" | "manual" | "sec_filing"
-  source_id?: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// Import type guards
+export {
+  isPublicCompany,
+  isPrivateCompany,
+  isFromSecFiling,
+} from "@financial-graph/shared";
 
-export interface Owns {
-  id: string;
-  from_company_id: string;
-  to_brand_id: string;
-  acquired_date?: string | null;
-  divested_date?: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// Frontend-specific type aliases for compatibility with existing code
+import type { ParentOfEdge as BackendParentOf, OwnsEdge as BackendOwns } from "@financial-graph/shared";
+
+export type ParentOf = BackendParentOf & {
+  from_company_id: string; // Alias for parentCompany link
+  to_company_id: string;   // Alias for subsidiaryCompany link
+};
+
+export type Owns = BackendOwns & {
+  from_company_id: string; // Alias for company link
+  to_brand_id: string;     // Alias for brand link
+};

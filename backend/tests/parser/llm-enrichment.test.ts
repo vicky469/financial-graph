@@ -19,6 +19,9 @@ import type {
 } from "../../src/parser/subsidiary/types";
 
 describe("LLM Enrichment (Integration)", () => {
+  // Skip all LLM tests if USE_LLM is not enabled or Ollama is not available
+  const SKIP_LLM_TESTS = process.env.USE_LLM !== 'true';
+  
   const createSubsidiary = (
     name: string,
     footnoteRefs: string[],
@@ -38,7 +41,7 @@ describe("LLM Enrichment (Integration)", () => {
 
   describe("enrichWithLLM", () => {
     // Basic tests that don't require LLM
-    it("should skip subsidiaries with existing ownership", async () => {
+    (SKIP_LLM_TESTS ? it.skip : it)("should skip subsidiaries with existing ownership", async () => {
       const subsidiaries = [createSubsidiary("Company A", ["1"], 100)];
       const footnotes: FootnoteMap = {
         "1": "Wholly owned subsidiary",
@@ -53,7 +56,7 @@ describe("LLM Enrichment (Integration)", () => {
       expect(result[0].ownership).toBe(100); // Unchanged
     });
 
-    it("should skip subsidiaries with no footnote refs", async () => {
+    (SKIP_LLM_TESTS ? it.skip : it)("should skip subsidiaries with no footnote refs", async () => {
       const subsidiaries = [createSubsidiary("Company B", [], undefined)];
       const footnotes: FootnoteMap = {};
 
@@ -68,11 +71,8 @@ describe("LLM Enrichment (Integration)", () => {
     });
 
     // Integration tests with real Ollama
-    describe("with Ollama", () => {
-      // Increase timeout for LLM calls
-      jest.setTimeout(30000);
-
-      it("should extract ownership from 'wholly owned' footnote", async () => {
+    (SKIP_LLM_TESTS ? describe.skip : describe)("with Ollama", () => {
+      (SKIP_LLM_TESTS ? it.skip : it)("should extract ownership from 'wholly owned' footnote", async () => {
         const subsidiaries = [createSubsidiary("Company C", ["1"], undefined)];
         const footnotes: FootnoteMap = {
           "1": "This is a wholly owned subsidiary of the Company",

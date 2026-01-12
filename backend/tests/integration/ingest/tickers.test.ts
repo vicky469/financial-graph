@@ -89,7 +89,7 @@ describe("SEC Ticker Ingestion & Verification", () => {
     let matchedCount = 0;
 
     for (const company of dbCompanies) {
-      const dbCik = company.identity?.cik;
+      const dbCik = company.identity?.ciks;
       const dbTickers: string[] = company.identity?.tickers || [];
 
       if (dbCik && sourceMap.has(dbCik)) {

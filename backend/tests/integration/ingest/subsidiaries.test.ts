@@ -1,6 +1,6 @@
 import { db } from "../../../src/db/client";
-import { describe, it, expect, jest } from "@jest/globals";
-import { generateParentOfEdgeId } from "../../../src/db/ids";
+import { describe, it, expect } from "vitest";
+import { generateParentOfId } from "@financial-graph/shared/ids";
 
 // Target filing with known large list of subsidiaries (536 items)
 const TARGET_ACCESSION_NUMBER = "0000824142-25-000039";
@@ -86,11 +86,7 @@ describe("Subsidiary Ingestion Verification", () => {
 
     for (const sub of sampleSubs) {
       // Generate deterministic ID using the same logic as ingestion
-      const edgeId = generateParentOfEdgeId({
-        from_company_id: filing.company_id,
-        to_company_id: sub.id,
-        source_id: filing.id,
-      });
+      const edgeId = generateParentOfId(filing.company_id, sub.id);
 
       const edgeRes = await db.query({
         parent_of: {

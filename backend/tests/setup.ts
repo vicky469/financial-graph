@@ -1,18 +1,14 @@
 /**
  * Global test setup - runs before all tests
  */
+import { vi } from 'vitest';
 
 // Mock logger to prevent file I/O during tests
-jest.mock("../src/utils/logger", () => ({
+vi.mock("../src/utils/logger", () => ({
   createLogger: () => ({
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
   }),
-}));
-
-// Mock uuid to avoid checking for ESM issues in every test
-jest.mock("uuid", () => ({
-  v5: () => "mock-uuid-v5",
 }));

@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "dev": "bun --bun vite",
     "build": "bun run tsc -b && bun --bun vite build",
@@ -10,6 +13,7 @@
     "preview": "bun --bun vite preview"
   },
   "dependencies": {
+    "@financial-graph/shared": "workspace:*",
     "@instantdb/admin": "^0.22.96",
     "@instantdb/react": "^0.22.96",
     "@radix-ui/react-scroll-area": "^1.2.10",
