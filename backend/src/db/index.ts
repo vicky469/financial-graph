@@ -2,9 +2,6 @@
 export { db } from "./client";
 export type { DB } from "./client";
 
-// Export schema types and ID generators
-export type { Schema } from "./schema";
-
 // Export validation utilities
 export * from "./validation";
 

@@ -26,7 +26,7 @@ export const CompanyIdentitySchema = z.object({
 
 export const CompanySchema = z.object({
   id: UUIDString,
-  name: z.string().min(1),
+  name: z.string().min(1, "Company name cannot be empty"),
   aliases: z.array(z.string()),
   type: CompanyTypeSchema,
   parent_company_id: UUIDString.nullable(),
@@ -97,7 +97,8 @@ export const FilingSchema = z.object({
   file_name: z.string().min(1),
   file_url: z.string().url(),
   attachments: z.record(z.string(), z.string()).optional(),
-  source_quarter: z.string().regex(/^\d{4}q[1-4]$/), // e.g., "2025q1"
+  source_quarter: z.number().int().min(1).max(4), // When filed: 1-4
+  source_year: z.number().int().min(1900).max(2100), // When filed: e.g., 2025
   period_end_date: ISODateString.nullable(),
   fiscal_year: z.number().int().min(1900).max(2100).nullable(),
   fiscal_quarter: z.number().int().min(1).max(4).nullable(),
@@ -167,8 +168,8 @@ export const ParentOfEdgeSourceSchema = z.enum([
 
 export const ParentOfEdgeSchema = z.object({
   id: UUIDString,
-  from_company_id: UUIDString,
-  to_company_id: UUIDString,
+  from_company_id: UUIDString, // Parent company (owner)
+  to_company_id: UUIDString, // Child company (subsidiary)
   ownership_percent: z.number().min(0).max(100).nullable(),
   established_date: ISODateString,
   ended_date: ISODateString.nullable(),
@@ -204,11 +205,17 @@ export const WasAcquiredByEdgeSchema = z.object({
   created_at: ISODateString,
 });
 
-export const FiledEdgeSchema = z.object({
+// Subsidiary Enrichment
+export const SubsidiaryEnrichmentSchema = z.object({
   id: UUIDString,
-  from_company_id: UUIDString,
-  to_filing_id: UUIDString,
+  company_id: UUIDString,
+  filing_id: UUIDString,
+  footnoteRefs: z.array(z.string()),
+  footnotesHtml: z.string().nullable(),
+  llmEnriched: z.boolean(),
+  llmEnrichedAt: ISODateString.nullable(),
   created_at: ISODateString,
+  updated_at: ISODateString,
 });
 
 import { logValidationError } from "../utils/db/validation_logger";
@@ -251,3 +258,4 @@ export const PartialFilingSchema = FilingSchema.partial();
 export const PartialBrandSchema = BrandSchema.partial();
 export const PartialBusinessSegmentSchema = BusinessSegmentSchema.partial();
 export const PartialPublicInfoSchema = PublicInfoSchema.partial();
+export const PartialSubsidiaryEnrichmentSchema = SubsidiaryEnrichmentSchema.partial();

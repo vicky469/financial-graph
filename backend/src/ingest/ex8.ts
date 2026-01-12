@@ -24,12 +24,13 @@ async function main() {
   const allFilings: Filing[] = [];
 
   for (const year of TARGET_YEARS) {
+    const yearNum = parseInt(year);
     const res = await db.query({
       filings: {
         $: {
           where: {
             form_type: { $in: ["20-F"] },
-            // source_quarter: { $like: `${year}%` }, // Index limitation
+            source_year: yearNum,
           },
         },
       },
@@ -37,10 +38,7 @@ async function main() {
 
     if (res.filings) {
       const candidates = res.filings as unknown as Filing[];
-      const filtered = candidates.filter(
-        (f) => f.source_quarter && f.source_quarter.startsWith(year)
-      );
-      allFilings.push(...filtered);
+      allFilings.push(...candidates);
     }
   }
 

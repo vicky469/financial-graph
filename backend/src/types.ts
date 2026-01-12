@@ -13,7 +13,7 @@ export type Company = {
   identity: {
     // Public companies only
     tickers?: string[]; // e.g., ["META", "FB"]
-    cik?: string; // e.g., "0001326801" (with leading zeros)
+    cik?: string[]; // e.g., ["0001326801"] - array to store all CIKs (companies can have multiple)
     exchange?: string; // e.g., "NASDAQ", "NYSE"
 
     // All companies (recommended)
@@ -107,8 +107,11 @@ export type Filing = {
   file_url: string; // Full URL to filing document
   attachments?: Record<string, string>; // e.g. { "EX-21": "https://..." }
 
-  // Fiscal period info
-  source_quarter: string; // e.g., "2025q1", "2024q4"
+  // Filing timing (when filed)
+  source_quarter: number; // When filed: 1-4
+  source_year: number; // When filed: e.g., 2025
+  
+  // Reported period (from document content, not filing date)
   period_end_date: string | null; // ISO-8601 UTC: "2024-12-31T00:00:00Z"
   fiscal_year: number | null; // e.g., 2024
   fiscal_quarter: number | null; // 1, 2, 3, or 4
@@ -148,6 +151,19 @@ export type CompanySnapshot = {
   ma_event_id: string | null; // UUID if change_reason = "ma_event"
 
   created_at: string; // When snapshot was recorded
+};
+
+// Enrichment Metadata
+export type SubsidiaryEnrichment = {
+  id: string; // UUID v5 (deterministic)
+  company_id: string; // References companies.id
+  filing_id: string; // References filings.id
+  footnoteRefs: string[]; // e.g., ["1", "a", "2B"]
+  footnotesHtml: string | null; // Preprocessed HTML content
+  llmEnriched: boolean; // Whether LLM enrichment has been completed
+  llmEnrichedAt: string | null; // ISO-8601 UTC timestamp of enrichment
+  created_at: string;
+  updated_at: string;
 };
 
 // Edges

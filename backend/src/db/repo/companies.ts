@@ -18,10 +18,9 @@ export async function upsertCompany(
     (companyData.type === "public" || companyData.type === "issuer") &&
     companyData.identity?.cik
   ) {
-    // Rule: CIK must be 10 digits
-    companyData.identity.cik = String(companyData.identity.cik).padStart(
-      10,
-      "0"
+    // Rule: CIK must be 10 digits - normalize all CIKs in the array
+    companyData.identity.cik = companyData.identity.cik.map((cik) =>
+      String(cik).padStart(10, "0")
     );
   }
 
@@ -125,6 +124,6 @@ export async function linkParentChild(
 export function getCompanyIdByCik(cik: string): string {
   return IDs.generateCompanyId({
     type: "public",
-    identity: { cik },
+    identity: { cik: [cik] }, // CIK is now an array
   });
 }

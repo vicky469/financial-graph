@@ -42,7 +42,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode }: CompanyLi
           />
           <input
             type="text"
-            placeholder="Search companies..."
+            placeholder="Search public companies..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{

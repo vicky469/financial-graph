@@ -4,13 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev": "bun --bun vite",
+    "build": "bun run tsc -b && bun --bun vite build",
+    "lint": "bun run eslint .",
+    "preview": "bun --bun vite preview"
   },
   "dependencies": {
-    "@financial-graph/shared": "file:../shared",
     "@instantdb/admin": "^0.22.96",
     "@instantdb/react": "^0.22.96",
     "@radix-ui/react-scroll-area": "^1.2.10",

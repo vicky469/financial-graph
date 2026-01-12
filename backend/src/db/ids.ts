@@ -21,9 +21,13 @@ const NAMESPACE_UUID = "9a969fbc-5094-53d9-aa8a-3a4d34598705";
 export function generateCompanyId(company: Partial<Company>): string {
   if (
     (company.type === "public" || company.type === "issuer") &&
-    company.identity?.cik
+    company.identity?.cik &&
+    company.identity.cik.length > 0
   ) {
-    return uuidv5(`company:cik:${company.identity.cik}`, NAMESPACE_UUID);
+    // Use first CIK in array for ID generation
+    // NOTE: This is NOT deterministic if CIKs are added in different orders
+    const primaryCik = company.identity.cik[0];
+    return uuidv5(`company:cik:${primaryCik}`, NAMESPACE_UUID);
   }
 
   if (company.type === "private") {
@@ -123,5 +127,14 @@ export function generateAuditId(
   changedAt: string
 ): string {
   const key = `audit:${entityType}:${entityId}:${changedAt}`;
+  return uuidv5(key, NAMESPACE_UUID);
+}
+
+// Subsidiary Enrichments
+export function generateEnrichmentId(
+  companyId: string,
+  filingId: string
+): string {
+  const key = `enrichment:${companyId}:${filingId}`;
   return uuidv5(key, NAMESPACE_UUID);
 }

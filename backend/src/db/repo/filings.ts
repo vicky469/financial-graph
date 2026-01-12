@@ -1,7 +1,7 @@
 import { db } from "../client";
 import * as IDs from "../ids";
 import type * as Types from "../../types";
-import { FilingSchema, FiledEdgeSchema, validate } from "../validation";
+import { FilingSchema, validate } from "../validation";
 
 export async function upsertFiling(
   filingData: Partial<Types.Filing>
@@ -21,6 +21,7 @@ export async function upsertFiling(
     file_name: filingData.file_name!,
     file_url: filingData.file_url!,
     source_quarter: filingData.source_quarter!,
+    source_year: filingData.source_year!,
     fiscal_year: filingData.fiscal_year || null,
     fiscal_quarter: filingData.fiscal_quarter || null,
     period_end_date: filingData.period_end_date || null,
@@ -33,28 +34,25 @@ export async function upsertFiling(
   // Validate the node before inserting
   const validatedNode = validate(FilingSchema, node, "FilingSchema");
 
-  const edgeId = IDs.generateFiledEdgeId({
-    from_company_id: company_id,
-    to_filing_id: id,
+  // Check if filing already exists
+  const existing = await db.query({
+    filings: {
+      $: { where: { id } },
+    },
   });
 
-  const edge: Types.FiledEdge = {
-    id: edgeId,
-    from_company_id: company_id,
-    to_filing_id: id,
-    created_at: new Date().toISOString(),
-  };
+  const isNew = !existing.filings || existing.filings.length === 0;
 
-  // Validate the edge before inserting
-  const validatedEdge = validate(FiledEdgeSchema, edge, "FiledEdgeSchema");
-
-  await db.transact([
-    db.tx.filings[id].update(validatedNode),
-    db.tx.filed[edgeId].update(validatedEdge),
-    // Link companies -> filings (One-to-Many).
-    // This defines the relationship. InstantDB may auto-infer the reverse as 'companies' if not specified.
-    db.tx.companies[company_id].link({ filings: id }),
-  ]);
+  // Only link if it's a new filing to avoid "record-not-unique" error
+  if (isNew) {
+    await db.transact([
+      db.tx.filings[id].update(validatedNode),
+      db.tx.companies[company_id].link({ filings: id }),
+    ]);
+  } else {
+    // Just update the filing without re-linking
+    await db.transact([db.tx.filings[id].update(validatedNode)]);
+  }
 
   return id;
 }

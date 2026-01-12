@@ -4,6 +4,7 @@ import { createReadStream } from "fs";
 import readline from "readline";
 import { FinancialGraphRepository } from "../db/repo";
 import { createLogger } from "../utils/logger";
+import { loadCikLookupCache, getCompanyIdByCik } from "../db/repo/cik-lookup";
 
 const logger = createLogger("ingest/filings");
 
@@ -28,7 +29,7 @@ async function loadKnownCiks(): Promise<Set<string>> {
   const res = await db.query({
     companies: {
       $: {
-        where: { type: { $in: ["public", "issuer"] } }, // Filter for public and issuers
+        where: { type: "public" }, // Only public companies (with tickers)
         fields: ["identity"], // Only need identity
       },
     },
@@ -38,8 +39,14 @@ async function loadKnownCiks(): Promise<Set<string>> {
 
   if (res.companies) {
     for (const comp of res.companies) {
-      if (comp.identity && comp.identity.cik) {
-        ciks.add(comp.identity.cik);
+      if (comp.identity && (comp.identity as any).cik) {
+        const cikValue = (comp.identity as any).cik;
+        // Handle both string (old format) and array (new format)
+        if (Array.isArray(cikValue)) {
+          cikValue.forEach((cik: string) => ciks.add(cik));
+        } else {
+          ciks.add(cikValue);
+        }
       }
     }
   }
@@ -50,6 +57,9 @@ async function loadKnownCiks(): Promise<Set<string>> {
 
 async function main() {
   logger.info("Starting Filing Ingestion...", { input: INPUT_CSV });
+
+  // Load CIK lookup cache from file
+  await loadCikLookupCache();
 
   const knownCiks = await loadKnownCiks();
   const unknownCiks: any[] = [];
@@ -112,17 +122,38 @@ async function main() {
     // 3. Upsert
 
     try {
+      const sourceQuarterStr = row.source_quarter; // e.g., "2025-Q1" or "2025q1"
+      // Handle both formats: "2025-Q1", "2025-Q4", "2025q1", etc.
+      // Match: year, then either "-Q" or "q", then quarter number
+      const match = sourceQuarterStr.match(/(\d{4})(?:-Q|q)(\d+)/i);
+      if (!match) {
+        logger.error(`Invalid source_quarter format: ${sourceQuarterStr} for ${row.accession_number}`);
+        skippedType++;
+        continue;
+      }
+      const sourceYear = parseInt(match[1]); // 2025
+      const sourceQuarter = parseInt(match[2]); // 1-4
+      
+      // Use CIK lookup cache to find company ID
+      const companyId = getCompanyIdByCik(cik);
+      if (!companyId) {
+        logger.error(`Company ID not found for CIK ${cik} (should have been in knownCiks)`);
+        skippedCik++;
+        continue;
+      }
+      
       await REPO.upsertFiling({
-        company_id: await REPO.getCompanyIdByCik(cik),
+        company_id: companyId,
         accession_number: row.accession_number,
         accession_number_nodashes: row.accession_number_nodashes,
         form_type: row.form_type,
         filing_date: new Date(row.filing_date).toISOString(),
         file_name: row.file_name,
         file_url: `https://www.sec.gov/Archives/${row.file_path}`,
-        source_quarter: row.source_quarter,
-        fiscal_year: null, // Don't infer; wait for XBRL parsing
-        fiscal_quarter: null, // Don't infer; wait for XBRL parsing
+        source_quarter: sourceQuarter,
+        source_year: sourceYear,
+        fiscal_year: null, // Don't infer from filing date - actual period may differ
+        fiscal_quarter: null, // Don't infer from filing date - actual period may differ
       });
 
       ingested++;
@@ -189,4 +220,10 @@ function parseCsvLine(line: string): string[] {
 //   return 0;
 // }
 
-main().catch(console.error);
+main().catch((error) => {
+  logger.error("Fatal error during filing ingestion", { 
+    error: error.message,
+    stack: error.stack 
+  });
+  process.exit(1);
+});

@@ -52,12 +52,10 @@ async function main() {
     try {
       await upsertCompany({
         name: name,
-        type: "public", // Filing 10-K/20-F implies SEC reporting status, effectively "public".
+        type: "issuer", // These are SEC issuers (file 10-K/20-F) but not in ticker data
         identity: {
           cik: cik,
         },
-        // We could mark them as "auto-created" via source metadata if we had a field,
-        // but standard upsert is fine.
       });
     } catch (e) {
       errors.push({ cik, error: e });

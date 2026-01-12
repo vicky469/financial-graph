@@ -6,7 +6,9 @@ import {
   SEC_RAW_DIR,
   SEC_YEARS,
 } from "../config";
-import { logger } from "../../utils/logger";
+import { createLogger } from "../../../utils/logger";
+
+const logger = createLogger("ingest/sec-metadata");
 
 interface RegistrantEntry {
   registrantName: string;

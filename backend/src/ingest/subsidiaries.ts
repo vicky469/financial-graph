@@ -3,15 +3,17 @@
  *
  * Orchestrates the ingestion of subsidiary data from SEC filings:
  * 1. Loads cached EX-21 and EX-8 exhibit files
- * 2. Parses HTML to extract subsidiary relationships
+ * 2. Parses HTML to extract subsidiary relationships (heuristic only)
  * 3. Outputs to sink (excel, db, or both)
+ * 4. Reports count of subsidiaries needing LLM enrichment
  *
  * Usage:
- *   npm run ingest:subsidiaries                    # Default: excel output
- *   npm run ingest:subsidiaries -- --sink=excel    # Excel only
- *   npm run ingest:subsidiaries -- --sink=db       # InstantDB only
- *   npm run ingest:subsidiaries -- --sink=excel,db # Both
- *   npm run ingest:subsidiaries -- --sink=none     # Dry run (parse only)
+ *   npm run ingest:subsidiaries                              # Default: all exhibits, excel output
+ *   npm run ingest:subsidiaries -- --sink=excel              # Excel only
+ *   npm run ingest:subsidiaries -- --sink=db                 # InstantDB only
+ *   npm run ingest:subsidiaries -- --sink=excel,db           # Both
+ *   npm run ingest:subsidiaries -- --sink=none               # Dry run (parse only)
+ *   npm run ingest:subsidiaries -- --limit=10                # Process only first 10 files
  */
 
 import { createLogger } from "../utils/logger";
@@ -32,29 +34,42 @@ const logger = createLogger("ingest/subsidiaries");
 
 type SinkType = "excel" | "db" | "none";
 
-function parseArgs(): { sinks: SinkType[] } {
+function parseArgs(): { sinks: SinkType[]; limit?: number } {
   const args = process.argv.slice(2);
+  
+  // Parse sink argument
   const sinkArg = args.find((a) => a.startsWith("--sink="));
+  let sinks: SinkType[] = ["excel"]; // Default
 
-  if (!sinkArg) {
-    return { sinks: ["excel"] }; // Default
+  if (sinkArg) {
+    const sinkValue = sinkArg.replace("--sink=", "");
+    sinks = sinkValue.split(",").map((s) => s.trim()) as SinkType[];
+
+    // Validate
+    const validSinks: SinkType[] = ["excel", "db", "none"];
+    for (const sink of sinks) {
+      if (!validSinks.includes(sink)) {
+        logger.error(
+          `Invalid sink: ${sink}. Valid options: ${validSinks.join(", ")}`
+        );
+        process.exit(1);
+      }
+    }
   }
 
-  const sinkValue = sinkArg.replace("--sink=", "");
-  const sinks = sinkValue.split(",").map((s) => s.trim()) as SinkType[];
+  // Parse limit argument
+  const limitArg = args.find((a) => a.startsWith("--limit="));
+  let limit: number | undefined;
 
-  // Validate
-  const validSinks: SinkType[] = ["excel", "db", "none"];
-  for (const sink of sinks) {
-    if (!validSinks.includes(sink)) {
-      logger.error(
-        `Invalid sink: ${sink}. Valid options: ${validSinks.join(", ")}`
-      );
+  if (limitArg) {
+    limit = parseInt(limitArg.replace("--limit=", ""));
+    if (isNaN(limit) || limit <= 0) {
+      logger.error(`Invalid limit: ${limitArg}. Must be a positive number.`);
       process.exit(1);
     }
   }
 
-  return { sinks };
+  return { sinks, limit };
 }
 
 // ============================================================================
@@ -63,7 +78,6 @@ function parseArgs(): { sinks: SinkType[] } {
 
 const CONCURRENCY = parseInt(process.env.CONCURRENCY_LOCAL_ANALYSIS!);
 const TARGET_YEAR = parseInt(process.env.SEC_YEARS!);
-const USE_LLM = process.env.USE_LLM === "true";
 const CACHE_BASE_DIR = path.resolve(__dirname, "../data_source/sec/output");
 
 // Exhibit types to process
@@ -74,15 +88,20 @@ type ExhibitType = (typeof EXHIBIT_TYPES)[number];
 // Type Definitions
 // ============================================================================
 
-interface CachedFile {
+interface CachedFilePreFilter {
   filing: { accession_number: string; cik?: string };
   url: string;
   cachePath: string;
   exhibitType: ExhibitType;
 }
 
+interface CachedFile extends CachedFilePreFilter {
+  filingCompanyId: string; // Company ID from database (required - must be set during filtering)
+}
+
 interface ParseOutput {
   accession: string;
+  cik?: string;
   exhibitType: ExhibitType;
   url: string;
   method: string;
@@ -92,7 +111,61 @@ interface ParseOutput {
   hasNestedStructure: boolean;
   errorMessage?: string;
   subsidiaries: SubsidiaryRecord[];
-  llmModifications?: any[]; // LLM modifications from parser
+  footnotesHtml?: string; // Preprocessed footnotes HTML for LLM enrichment
+}
+
+// ============================================================================
+// Preprocess Functions
+// ============================================================================
+
+/**
+ * Preprocess cached files: validate they exist in DB and enrich with company_id
+ * Uses CIK lookup cache for efficient company_id resolution
+ * Note: Assumes CIK lookup cache is already loaded
+ */
+async function preprocessCachedFiles(targets: CachedFilePreFilter[]): Promise<CachedFile[]> {
+  const { db } = await import("../db/client");
+  const { getCompanyIdByCik } = await import("../db/repo/cik-lookup");
+  
+  logger.info(`Preprocessing ${targets.length} cached files...`);
+  
+  // Get all unique company IDs from CIK lookup
+  const companyIds = new Set<string>();
+  const targetWithCompanyId: Array<{ target: CachedFilePreFilter; companyId: string }> = [];
+  
+  for (const target of targets) {
+    if (!target.filing.cik) {
+      logger.debug(`[${target.filing.accession_number}] No CIK available - skipping`);
+      continue;
+    }
+    
+    // Normalize CIK to 10 digits
+    const normalizedCik = target.filing.cik.padStart(10, '0');
+    const companyId = getCompanyIdByCik(normalizedCik);
+    
+    if (!companyId) {
+      logger.debug(`[${target.filing.accession_number}] Company not found for CIK ${normalizedCik} - skipping`);
+      continue;
+    }
+    
+    companyIds.add(companyId);
+    targetWithCompanyId.push({ target, companyId });
+  }
+  
+  logger.info(`Found ${companyIds.size} unique companies from ${targetWithCompanyId.length} files`);
+  
+  // Add the company ID to create complete CachedFile records
+  // Note: CIK lookup is only for public companies, so no need to verify company type
+  const validTargets: CachedFile[] = targetWithCompanyId.map(({ target, companyId }) => ({
+    ...target,
+    filingCompanyId: companyId,
+  }));
+  
+  const noCik = targets.length - targetWithCompanyId.length;
+  
+  logger.info(`Preprocessing results: ${validTargets.length} valid, ${noCik} no CIK`);
+  
+  return validTargets;
 }
 
 // ============================================================================
@@ -100,29 +173,51 @@ interface ParseOutput {
 // ============================================================================
 
 async function main() {
-  const { sinks } = parseArgs();
+  const { sinks, limit } = parseArgs();
   const startTime = performance.now();
 
   logger.info(`Starting Subsidiary Ingestion for Year ${TARGET_YEAR}...`);
   logger.info(
-    `Configuration: Concurrency=${CONCURRENCY}, LLM Fallback=${USE_LLM}, Sinks=${sinks.join(
+    `Configuration: Concurrency=${CONCURRENCY}, Sinks=${sinks.join(
       ","
-    )}`
+    )}${limit ? `, Limit=${limit}` : ""}`
   );
 
-  // Load cached files for all exhibit types
-  const allTargets: CachedFile[] = [];
+  // Load CIK lookup cache once at startup
+  const { loadCikLookupCache } = await import("../db/repo/cik-lookup");
+  await loadCikLookupCache();
+  logger.info("CIK lookup cache loaded");
+
+  // Load cached files from all exhibit type directories
+  let preFilterTargets: CachedFilePreFilter[] = [];
+
   for (const exhibitType of EXHIBIT_TYPES) {
     const cacheDir = path.join(
       CACHE_BASE_DIR,
       `${exhibitType.toLowerCase()}_${TARGET_YEAR}`
     );
     const targets = await loadCachedFiles(cacheDir, exhibitType);
-    allTargets.push(...targets);
+    preFilterTargets.push(...targets);
     logger.info(`Loaded ${targets.length} ${exhibitType} files`);
   }
 
-  logger.info(`Total files to process: ${allTargets.length}`);
+  // Apply limit if specified
+  if (limit && limit < preFilterTargets.length) {
+    preFilterTargets = preFilterTargets.slice(0, limit);
+    logger.info(`Limited to first ${limit} files`);
+  }
+
+  logger.info(`Total files to process: ${preFilterTargets.length}`);
+
+  // Preprocess: validate filings exist in DB and enrich with company_id
+  const allTargets = await preprocessCachedFiles(preFilterTargets);
+  const skippedCount = preFilterTargets.length - allTargets.length;
+  
+  if (skippedCount > 0) {
+    logger.info(`Filtered out ${skippedCount} filings (not in DB or not public companies)`);
+  }
+  
+  logger.info(`Files to process after preprocessing: ${allTargets.length}`);
 
   // Process in batches and collect results
   let processed = 0;
@@ -148,12 +243,16 @@ async function main() {
       }
     });
 
+    // Calculate cumulative subsidiary count
+    const totalSubsidiaries = results.reduce((sum, r) => sum + r.subsidiaryCount, 0);
+    const successfulFilings = stats.heuristic + stats.llm;
+
     // Log progress every batch
     logger.info(
-      `Progress: ${processed}/${allTargets.length} (${(
+      `Progress: ${processed}/${allTargets.length} filings (${(
         (processed / allTargets.length) *
         100
-      ).toFixed(1)}%)`
+      ).toFixed(1)}%) | ${successfulFilings} successful | ${totalSubsidiaries} subsidiaries extracted`
     );
   }
 
@@ -164,10 +263,14 @@ async function main() {
     await writeOutputFiles(results);
   }
 
+  let enrichmentRecords = 0;
   if (sinks.includes("db")) {
     const { writeSubsidiariesToDB } = await import("./subsidiaries-db");
-    const { created, errors } = await writeSubsidiariesToDB(results);
-    logger.info(`InstantDB: wrote ${created} subsidiaries (${errors} errors)`);
+    const { created, errors, enrichmentRecords: enrichmentCount } = await writeSubsidiariesToDB(results);
+    enrichmentRecords = enrichmentCount;
+    logger.info(
+      `InstantDB: wrote ${created} subsidiaries, ${enrichmentRecords} enrichment records (${errors} errors)`
+    );
   }
 
   if (sinks.includes("none")) {
@@ -180,6 +283,7 @@ async function main() {
   ).length;
   const failed = results.filter((r) => !r.success).length;
   const withSubsidiaries = successful - empty;
+  const totalSubsidiaries = results.reduce((sum, r) => sum + r.subsidiaryCount, 0);
   const totalSeconds = (totalTime / 1000).toFixed(2);
 
   const successFailureRate = ((successful / processed) * 100).toFixed(1);
@@ -187,8 +291,15 @@ async function main() {
     successful > 0 ? ((withSubsidiaries / successful) * 100).toFixed(1) : "0.0";
 
   logger.info(
-    `Ingestion Complete in ${totalSeconds}s - Total: ${processed}, Success: ${withSubsidiaries}, Empty: ${empty}, Failed: ${failed}, Success/Failure Rate: ${successFailureRate}%, Success/Empty Rate: ${successEmptyRate}%`
+    `Ingestion Complete in ${totalSeconds}s - Filings: ${processed} total, ${withSubsidiaries} with subsidiaries, ${empty} empty, ${failed} failed | Subsidiaries: ${totalSubsidiaries} extracted | Success Rate: ${successFailureRate}%`
   );
+
+  // Report count of subsidiaries needing enrichment
+  if (enrichmentRecords > 0) {
+    logger.info(
+      `Enrichment needed: ${enrichmentRecords} subsidiaries with footnotes require LLM enrichment`
+    );
+  }
 }
 
 // ============================================================================
@@ -198,7 +309,7 @@ async function main() {
 async function loadCachedFiles(
   cacheDir: string,
   exhibitType: ExhibitType
-): Promise<CachedFile[]> {
+): Promise<CachedFilePreFilter[]> {
   try {
     await fs.access(cacheDir);
   } catch (e) {
@@ -207,7 +318,7 @@ async function loadCachedFiles(
   }
 
   const files = await fs.readdir(cacheDir);
-  const targets: CachedFile[] = [];
+  const targets: CachedFilePreFilter[] = [];
 
   for (const filename of files) {
     if (!filename.endsWith(".htm.gz")) continue;
@@ -251,29 +362,36 @@ async function decompressFile(filePath: string): Promise<string> {
 // ============================================================================
 
 async function processCachedFiling(target: CachedFile): Promise<ParseOutput> {
-  const { filing, url, cachePath, exhibitType } = target;
+  const { filing, url, cachePath, exhibitType, filingCompanyId } = target;
 
-  // Validate CIK is present
+  // Validate required fields
   if (!filing.cik) {
     throw new Error(`CIK is required for filing ${filing.accession_number}`);
   }
+  
+  if (!filingCompanyId) {
+    throw new Error(`filingCompanyId is required for filing ${filing.accession_number} - must be set during filtering`);
+  }
+
+  // Normalize CIK to 10 digits with leading zeros (SEC standard format)
+  const normalizedCik = filing.cik.padStart(10, '0');
 
   try {
     // 1. Decompress and load HTML
     const html = await decompressFile(cachePath);
 
-    // 2. Parse with multi-strategy approach
+    // 2. Parse with heuristic approach only, passing the actual filingCompanyId from DB
     const parseResult = await parseExhibit(
       html,
-      filing as { accession_number: string; cik: string },
-      USE_LLM
+      { accession_number: filing.accession_number, cik: normalizedCik, filingCompanyId },
     );
 
-    const success = parseResult.method !== "Failed";
+    const success = parseResult.method !== "failed";
     const hasNestedStructure = parseResult.maxNestingLevel > 0;
 
     return {
       accession: filing.accession_number,
+      cik: normalizedCik,
       exhibitType,
       url,
       method: parseResult.method,
@@ -283,7 +401,7 @@ async function processCachedFiling(target: CachedFile): Promise<ParseOutput> {
       hasNestedStructure,
       errorMessage: parseResult.errorMessage,
       subsidiaries: parseResult.subsidiaries,
-      llmModifications: parseResult.llmModifications,
+      footnotesHtml: parseResult.footnotesHtml,
     };
   } catch (error) {
     // Add Accession # context to MissingDBValueError while preserving stack trace
@@ -293,6 +411,7 @@ async function processCachedFiling(target: CachedFile): Promise<ParseOutput> {
       );
       return {
         accession: filing.accession_number,
+        cik: filing.cik,
         exhibitType,
         url,
         method: "Failed",

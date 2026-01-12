@@ -1,4 +1,4 @@
-import { BrowserLogger } from "@financial-graph/shared/logger";
+import { BrowserLogger } from "./BrowserLogger";
 
 /**
  * Configured logger instance for the frontend application

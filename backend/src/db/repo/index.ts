@@ -8,12 +8,19 @@ import {
 import { upsertBusinessSegment } from "./segments";
 import { upsertBrand } from "./brands";
 import { upsertFiling } from "./filings";
+import {
+  createEnrichment,
+  queryUnenriched,
+  markEnriched,
+  clearEnrichment,
+} from "./enrichments";
 
 // Re-export for standalone usage
 export * from "./companies";
 export * from "./segments";
 export * from "./brands";
 export * from "./filings";
+export * from "./enrichments";
 
 export class FinancialGraphRepository {
   async upsertCompany(companyData: Partial<Types.Company>): Promise<string> {
@@ -50,5 +57,29 @@ export class FinancialGraphRepository {
 
   async getCompanyIdByCik(cik: string): Promise<string> {
     return getCompanyIdByCik(cik);
+  }
+
+  async createEnrichment(data: {
+    company_id: string;
+    filing_id: string;
+    footnoteRefs: string[];
+    footnotesHtml: string | null;
+  }): Promise<string> {
+    return createEnrichment(data);
+  }
+
+  async queryUnenriched(options?: {
+    limit?: number;
+    filing_id?: string;
+  }): Promise<Types.SubsidiaryEnrichment[]> {
+    return queryUnenriched(options);
+  }
+
+  async markEnriched(enrichment_id: string): Promise<void> {
+    return markEnriched(enrichment_id);
+  }
+
+  async clearEnrichment(enrichment_id: string): Promise<void> {
+    return clearEnrichment(enrichment_id);
   }
 }
