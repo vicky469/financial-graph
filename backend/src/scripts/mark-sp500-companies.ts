@@ -10,7 +10,8 @@
 import fs from "fs/promises";
 import path from "path";
 import { db } from "../db/client";
-import type { Company } from "../types";
+import type { Company } from "@financial-graph/shared";
+import { CompanyType } from "@financial-graph/shared";
 
 const SP500_FILE = path.join(
   __dirname,
@@ -32,7 +33,7 @@ async function main() {
   console.log("📊 Marking S&P 500 companies...\n");
 
   // Load S&P 500 list
-  console.log("Loading S&P 500 list...");
+  console.log("Loading S&P 500 list from file...");
   const sp500Data = await fs.readFile(SP500_FILE, "utf-8");
   const sp500Companies: SP500Company[] = JSON.parse(sp500Data);
 
@@ -50,14 +51,14 @@ async function main() {
   // Fetch all public companies
   console.log("Fetching companies from database...");
   const result = await db.query({
-    companies: {
+    company: {
       $: {
-        where: { type: "public" },
+        where: { type: CompanyType.PUBLIC },
       },
     },
   });
 
-  const companies = (result.companies || []) as Company[];
+  const companies = (result.company || []) as Company[];
   console.log(`Found ${companies.length.toLocaleString()} public companies\n`);
 
   // Match companies
@@ -67,22 +68,34 @@ async function main() {
   for (const sp500Company of sp500Companies) {
     let found = false;
 
-    // Try to match by CIK
+    // Try to match by CIK (check primaryCIK first, then fall back to ciks)
     for (const company of companies) {
-      const ciks = company.identity?.cik || [];
-      if (ciks.includes(sp500Company.cik)) {
+      const primaryCIK = company.identity?.primaryCIK;
+      const ciks = company.identity?.ciks;
+      
+      // First check primaryCIK
+      if (primaryCIK && primaryCIK === sp500Company.cik) {
         matched.push({ company, sp500: sp500Company });
         found = true;
         break;
+      }
+      
+      // Fall back to checking ciks string (comma-separated)
+      if (!found && ciks) {
+        const cikList = ciks.split(',').map((c: string) => c.trim());
+        if (cikList.includes(sp500Company.cik)) {
+          matched.push({ company, sp500: sp500Company });
+          found = true;
+          break;
+        }
       }
     }
 
     // Try to match by ticker if CIK didn't work
     if (!found) {
       for (const company of companies) {
-        const tickers = company.identity?.tickers || [];
-        const upperTickers = tickers.map((t) => t.toUpperCase());
-        if (upperTickers.includes(sp500Company.symbol.toUpperCase())) {
+        const tickers = company.identity?.tickers?.split(',').map((t: string) => t.trim().toUpperCase()) || [];
+        if (tickers.includes(sp500Company.symbol.toUpperCase())) {
           matched.push({ company, sp500: sp500Company });
           found = true;
           break;
@@ -118,7 +131,7 @@ async function main() {
   for (let i = 0; i < matched.length; i += BATCH_SIZE) {
     const batch = matched.slice(i, i + BATCH_SIZE);
     const transactions = batch.map(({ company, sp500 }) =>
-      db.tx.companies[company.id].update({
+      db.tx.company[company.id].update({
         identity: {
           ...company.identity,
           sp500: true, // Simple boolean flag
@@ -138,19 +151,28 @@ async function main() {
   // Clear S&P 500 flag from companies no longer in the index
   console.log("\nClearing S&P 500 flag from companies no longer in index...");
   
-  const sp500Ciks = new Set(sp500Companies.map(c => c.cik));
-  const sp500Tickers = new Set(sp500Companies.map(c => c.symbol.toUpperCase()));
+  const sp500Ciks = new Set(sp500Companies.map((c: SP500Company) => c.cik));
+  const sp500Tickers = new Set(sp500Companies.map((c: SP500Company) => c.symbol.toUpperCase()));
   
   const toUnmark = companies.filter((company) => {
     // Skip if not currently marked as S&P 500
     if (!company.identity?.sp500) return false;
     
-    // Check if still in S&P 500
-    const ciks = company.identity?.cik || [];
-    const tickers = (company.identity?.tickers || []).map(t => t.toUpperCase());
+    // Check if still in S&P 500 (check primaryCIK first, then ciks)
+    const primaryCIK = company.identity?.primaryCIK;
+    const ciks = company.identity?.ciks;
+    const tickers = company.identity?.tickers?.split(',').map((t: string) => t.trim().toUpperCase()) || [];
     
-    const hasSP500Cik = ciks.some(cik => sp500Ciks.has(cik));
-    const hasSP500Ticker = tickers.some(ticker => sp500Tickers.has(ticker));
+    // Check primaryCIK first
+    let hasSP500Cik = primaryCIK ? sp500Ciks.has(primaryCIK) : false;
+    
+    // If not found in primaryCIK, check ciks string
+    if (!hasSP500Cik && ciks) {
+      const cikList = ciks.split(',').map((c: string) => c.trim());
+      hasSP500Cik = cikList.some((cik: string) => sp500Ciks.has(cik));
+    }
+    
+    const hasSP500Ticker = tickers.some((ticker: string) => sp500Tickers.has(ticker));
     
     return !hasSP500Cik && !hasSP500Ticker;
   });
@@ -162,7 +184,7 @@ async function main() {
     for (let i = 0; i < toUnmark.length; i += BATCH_SIZE) {
       const batch = toUnmark.slice(i, i + BATCH_SIZE);
       const transactions = batch.map((company) =>
-        db.tx.companies[company.id].update({
+        db.tx.company[company.id].update({
           identity: {
             ...company.identity,
             sp500: false,

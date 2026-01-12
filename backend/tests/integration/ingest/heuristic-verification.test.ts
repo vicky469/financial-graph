@@ -11,29 +11,30 @@
  */
 
 import { db } from "../../../src/db/client";
+import { describe, test, expect } from "vitest";
 
 describe("Heuristic-Only Ingestion Verification", () => {
   describe("Basic Data Existence", () => {
     test("should have companies in database", async () => {
       const result = await db.query({
-        companies: {
+        company: {
           $: { limit: 10 },
         },
       });
 
-      expect(result.companies).toBeDefined();
-      expect(result.companies!.length).toBeGreaterThan(0);
+      expect(result.company).toBeDefined();
+      expect(result.company!.length).toBeGreaterThan(0);
     });
 
     test("should have enrichment records", async () => {
       const result = await db.query({
-        subsidiary_enrichments: {
+        subsidiary_enrichment: {
           $: { limit: 10 },
         },
       });
 
-      expect(result.subsidiary_enrichments).toBeDefined();
-      expect(result.subsidiary_enrichments!.length).toBeGreaterThan(0);
+      expect(result.subsidiary_enrichment).toBeDefined();
+      expect(result.subsidiary_enrichment!.length).toBeGreaterThan(0);
     });
 
     test("should have parent_of edges", async () => {
@@ -49,25 +50,25 @@ describe("Heuristic-Only Ingestion Verification", () => {
 
     test("should have audit trail", async () => {
       const result = await db.query({
-        audits: {
+        audit: {
           $: { limit: 10 },
         },
       });
 
-      expect(result.audits).toBeDefined();
-      expect(result.audits!.length).toBeGreaterThan(0);
+      expect(result.audit).toBeDefined();
+      expect(result.audit!.length).toBeGreaterThan(0);
     });
   });
 
   describe("Enrichment Records", () => {
     test("should have enrichment records with required fields", async () => {
       const result = await db.query({
-        subsidiary_enrichments: {
+        subsidiary_enrichment: {
           $: { limit: 5 },
         },
       });
 
-      const enrichments = result.subsidiary_enrichments!;
+      const enrichments = result.subsidiary_enrichment!;
       expect(enrichments.length).toBeGreaterThan(0);
 
       const sample = enrichments[0];
@@ -79,7 +80,7 @@ describe("Heuristic-Only Ingestion Verification", () => {
 
     test("should have unenriched subsidiaries ready for LLM", async () => {
       const result = await db.query({
-        subsidiary_enrichments: {
+        subsidiary_enrichment: {
           $: {
             where: {
               llmEnriched: false,
@@ -89,18 +90,18 @@ describe("Heuristic-Only Ingestion Verification", () => {
         },
       });
 
-      expect(result.subsidiary_enrichments).toBeDefined();
-      expect(result.subsidiary_enrichments!.length).toBeGreaterThan(0);
+      expect(result.subsidiary_enrichment).toBeDefined();
+      expect(result.subsidiary_enrichment!.length).toBeGreaterThan(0);
     });
 
     test("should have preprocessed footnotes HTML", async () => {
       const result = await db.query({
-        subsidiary_enrichments: {
+        subsidiary_enrichment: {
           $: { limit: 10 },
         },
       });
 
-      const withFootnotes = result.subsidiary_enrichments!.filter(
+      const withFootnotes = result.subsidiary_enrichment!.filter(
         (e) => e.footnotesHtml && e.footnotesHtml.length > 0
       );
 
@@ -144,7 +145,7 @@ describe("Heuristic-Only Ingestion Verification", () => {
   describe("Audit Trail", () => {
     test("should have heuristic audit records", async () => {
       const result = await db.query({
-        audits: {
+        audit: {
           $: {
             where: {
               changed_by: "heuristic",
@@ -154,13 +155,13 @@ describe("Heuristic-Only Ingestion Verification", () => {
         },
       });
 
-      expect(result.audits).toBeDefined();
-      expect(result.audits!.length).toBeGreaterThan(0);
+      expect(result.audit).toBeDefined();
+      expect(result.audit!.length).toBeGreaterThan(0);
     });
 
     test("should NOT have LLM audit records (heuristic-only)", async () => {
       const result = await db.query({
-        audits: {
+        audit: {
           $: {
             where: {
               changed_by: "llm",
@@ -171,7 +172,7 @@ describe("Heuristic-Only Ingestion Verification", () => {
       });
 
       // Should be empty for heuristic-only ingestion
-      expect(result.audits?.length || 0).toBe(0);
+      expect(result.audit?.length || 0).toBe(0);
     });
   });
 
@@ -179,22 +180,22 @@ describe("Heuristic-Only Ingestion Verification", () => {
     test("should have working subsidiaries links", async () => {
       // Find a public company
       const companiesResult = await db.query({
-        companies: {
+        company: {
           $: {
-            where: { type: "public" },
+            where: { type: 1 }, // Type 1 = PUBLIC
             limit: 5,
           },
         },
       });
 
-      expect(companiesResult.companies).toBeDefined();
-      expect(companiesResult.companies!.length).toBeGreaterThan(0);
+      expect(companiesResult.company).toBeDefined();
+      expect(companiesResult.company!.length).toBeGreaterThan(0);
 
       // Try to find one with subsidiaries
       let foundSubsidiaries = false;
-      for (const company of companiesResult.companies!) {
+      for (const company of companiesResult.company!) {
         const result = await db.query({
-          companies: {
+          company: {
             $: {
               where: { id: company.id },
             },
@@ -204,7 +205,7 @@ describe("Heuristic-Only Ingestion Verification", () => {
           },
         });
 
-        const companyWithSubs = result.companies?.[0];
+        const companyWithSubs = result.company?.[0];
         const subsidiaries = companyWithSubs?.subsidiaries || [];
 
         if (subsidiaries.length > 0) {
@@ -226,22 +227,22 @@ describe("Heuristic-Only Ingestion Verification", () => {
     test("should have working filings links", async () => {
       // Find a public company
       const companiesResult = await db.query({
-        companies: {
+        company: {
           $: {
-            where: { type: "public" },
+            where: { type: 1 }, // Type 1 = PUBLIC
             limit: 1,
           },
         },
       });
 
-      expect(companiesResult.companies).toBeDefined();
-      expect(companiesResult.companies!.length).toBeGreaterThan(0);
+      expect(companiesResult.company).toBeDefined();
+      expect(companiesResult.company!.length).toBeGreaterThan(0);
 
-      const company = companiesResult.companies![0];
+      const company = companiesResult.company![0];
 
       // Query with filings link
       const result = await db.query({
-        companies: {
+        company: {
           $: {
             where: { id: company.id },
           },
@@ -251,7 +252,7 @@ describe("Heuristic-Only Ingestion Verification", () => {
         },
       });
 
-      const companyWithFilings = result.companies?.[0];
+      const companyWithFilings = result.company?.[0];
       const filings = companyWithFilings?.filings || [];
 
       expect(filings.length).toBeGreaterThan(0);
@@ -266,16 +267,16 @@ describe("Heuristic-Only Ingestion Verification", () => {
     test("should have reverse link from filing to company", async () => {
       // Get a filing
       const filingsResult = await db.query({
-        filings: {
+        filing: {
           $: { limit: 1 },
           company: {},
         },
       });
 
-      expect(filingsResult.filings).toBeDefined();
-      expect(filingsResult.filings!.length).toBeGreaterThan(0);
+      expect(filingsResult.filing).toBeDefined();
+      expect(filingsResult.filing!.length).toBeGreaterThan(0);
 
-      const filing = filingsResult.filings![0];
+      const filing = filingsResult.filing![0];
       expect(filing.company).toBeDefined();
       expect(filing.company.id).toBeDefined();
       expect(filing.company.name).toBeDefined();
@@ -287,33 +288,33 @@ describe("Heuristic-Only Ingestion Verification", () => {
 
     test("should have target filing in database", async () => {
       const result = await db.query({
-        filings: {
+        filing: {
           $: {
             where: { accession_number: TARGET_ACCESSION },
           },
         },
       });
 
-      expect(result.filings).toBeDefined();
-      expect(result.filings!.length).toBe(1);
+      expect(result.filing).toBeDefined();
+      expect(result.filing!.length).toBe(1);
 
-      const filing = result.filings![0];
+      const filing = result.filing![0];
       expect(filing.company_id).toBeDefined();
     });
 
     test("should have enrichment records for target filing", async () => {
       const filingResult = await db.query({
-        filings: {
+        filing: {
           $: {
             where: { accession_number: TARGET_ACCESSION },
           },
         },
       });
 
-      const filing = filingResult.filings![0];
+      const filing = filingResult.filing![0];
 
       const enrichmentsResult = await db.query({
-        subsidiary_enrichments: {
+        subsidiary_enrichment: {
           $: {
             where: { filing_id: filing.id },
             limit: 1000,
@@ -321,20 +322,20 @@ describe("Heuristic-Only Ingestion Verification", () => {
         },
       });
 
-      expect(enrichmentsResult.subsidiary_enrichments).toBeDefined();
-      expect(enrichmentsResult.subsidiary_enrichments!.length).toBeGreaterThan(0);
+      expect(enrichmentsResult.subsidiary_enrichment).toBeDefined();
+      expect(enrichmentsResult.subsidiary_enrichment!.length).toBeGreaterThan(0);
     });
 
     test("should have parent_of edges for target filing", async () => {
       const filingResult = await db.query({
-        filings: {
+        filing: {
           $: {
             where: { accession_number: TARGET_ACCESSION },
           },
         },
       });
 
-      const filing = filingResult.filings![0];
+      const filing = filingResult.filing![0];
 
       const edgesResult = await db.query({
         parent_of: {

@@ -6,8 +6,8 @@
  */
 
 // Export schema
-export { default as schema } from "./types/schema";
-export type { AppSchema } from "./types/schema";
+export { default as schema } from "./instant.schema";
+export type { AppSchema } from "./instant.schema";
 
 // Export all types
 export * from "./types/types";
@@ -17,3 +17,6 @@ export * from "./types/validation";
 
 // Export ID generation utilities (namespaces)
 export * from "./types/ids";
+
+// Export shared utilities
+export * from "./utils";

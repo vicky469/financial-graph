@@ -4,7 +4,7 @@ import { createReadStream } from "fs";
 import readline from "readline";
 import { FinancialGraphRepository } from "../db/repo";
 import { createLogger } from "../utils/logger";
-import { loadCikLookupCache, getCompanyIdByCik } from "../db/repo/cik-lookup";
+import { loadCikLookupCache } from "../db/repo/cik-lookup";
 
 const logger = createLogger("ingest/filings");
 
@@ -20,48 +20,15 @@ const UNKNOWN_CIKS_FILE = path.resolve(
 );
 
 const TARGET_FORMS = new Set(["10-K", "20-F"]);
+const BATCH_SIZE = 500; // Batch database operations
 
 import { db } from "../db/client";
-
-async function loadKnownCiks(): Promise<Set<string>> {
-  logger.info("Loading known CIKs from Database...");
-
-  const res = await db.query({
-    companies: {
-      $: {
-        where: { type: "public" }, // Only public companies (with tickers)
-        fields: ["identity"], // Only need identity
-      },
-    },
-  });
-
-  const ciks = new Set<string>();
-
-  if (res.companies) {
-    for (const comp of res.companies) {
-      if (comp.identity && (comp.identity as any).cik) {
-        const cikValue = (comp.identity as any).cik;
-        // Handle both string (old format) and array (new format)
-        if (Array.isArray(cikValue)) {
-          cikValue.forEach((cik: string) => ciks.add(cik));
-        } else {
-          ciks.add(cikValue);
-        }
-      }
-    }
-  }
-
-  logger.info(`Loaded ${ciks.size} known CIKs from DB.`);
-  return ciks;
-}
 
 async function main() {
   logger.info("Starting Filing Ingestion...", { input: INPUT_CSV });
 
-  // Load CIK lookup cache from file
-  await loadCikLookupCache();
-
-  const knownCiks = await loadKnownCiks();
+  // Load CIK to Company ID mapping (builds from DB if not cached)
+  const cikToCompanyId = await loadCikLookupCache();
   const unknownCiks: any[] = [];
   let processed = 0;
   let skippedType = 0;
@@ -75,6 +42,7 @@ async function main() {
   });
 
   const headers: string[] = [];
+  const batch: any[] = [];
 
   for await (const line of rl) {
     if (headers.length === 0) {
@@ -82,15 +50,7 @@ async function main() {
       continue;
     }
 
-    // Simple CSV split (assuming no commas in values for relevant columns or simplistic parsing)
-    // Note: The previous script does csvEscape, so we might have quotes.
-    // For robust parsing, we should implement a proper CSV parser or use library.
-    // Given the simplicity and controlled input, strict regex split might work.
-    // The previous script wrapped values in quotes if they had commas.
-    // Let's use a regex to split properly.
     const rowValues = parseCsvLine(line);
-
-    // Map to object
     const row: any = {};
     headers.forEach((h, i) => {
       row[h] = rowValues[i];
@@ -105,10 +65,9 @@ async function main() {
     }
 
     // 2. Filter CIK
-    // Input CIK might not be padded.
     const cik = String(row.cik).padStart(10, "0");
-
-    if (!knownCiks.has(cik)) {
+    const companyId = cikToCompanyId.get(cik);
+    if (!companyId) {
       skippedCik++;
       unknownCiks.push({
         cik,
@@ -119,55 +78,45 @@ async function main() {
       continue;
     }
 
-    // 3. Upsert
-
-    try {
-      const sourceQuarterStr = row.source_quarter; // e.g., "2025-Q1" or "2025q1"
-      // Handle both formats: "2025-Q1", "2025-Q4", "2025q1", etc.
-      // Match: year, then either "-Q" or "q", then quarter number
-      const match = sourceQuarterStr.match(/(\d{4})(?:-Q|q)(\d+)/i);
-      if (!match) {
-        logger.error(`Invalid source_quarter format: ${sourceQuarterStr} for ${row.accession_number}`);
-        skippedType++;
-        continue;
-      }
-      const sourceYear = parseInt(match[1]); // 2025
-      const sourceQuarter = parseInt(match[2]); // 1-4
-      
-      // Use CIK lookup cache to find company ID
-      const companyId = getCompanyIdByCik(cik);
-      if (!companyId) {
-        logger.error(`Company ID not found for CIK ${cik} (should have been in knownCiks)`);
-        skippedCik++;
-        continue;
-      }
-      
-      await REPO.upsertFiling({
-        company_id: companyId,
-        accession_number: row.accession_number,
-        accession_number_nodashes: row.accession_number_nodashes,
-        form_type: row.form_type,
-        filing_date: new Date(row.filing_date).toISOString(),
-        file_name: row.file_name,
-        file_url: `https://www.sec.gov/Archives/${row.file_path}`,
-        source_quarter: sourceQuarter,
-        source_year: sourceYear,
-        fiscal_year: null, // Don't infer from filing date - actual period may differ
-        fiscal_quarter: null, // Don't infer from filing date - actual period may differ
-      });
-
-      ingested++;
-    } catch (e) {
-      // Log errors but continue. If "record-not-unique" happens, it might mean InstantDB
-      // is rejecting an overwrite. We log it to diagnose.
-      logger.error(`Failed to ingest filing ${row.accession_number}`, {
-        error: e,
-      });
+    // 3. Parse source quarter
+    const sourceQuarterStr = row.source_quarter;
+    const match = sourceQuarterStr.match(/(\d{4})(?:-Q|q)(\d+)/i);
+    if (!match) {
+      logger.error(`Invalid source_quarter format: ${sourceQuarterStr} for ${row.accession_number}`);
+      skippedType++;
+      continue;
     }
+    const sourceYear = parseInt(match[1]);
+    const sourceQuarter = parseInt(match[2]);
 
-    if (processed % 1000 === 0) {
-      logger.info(`Processed ${processed} rows...`);
+    // Add to batch
+    batch.push({
+      company_id: companyId,
+      accession_number: row.accession_number,
+      accession_number_nodashes: row.accession_number_nodashes,
+      form_type: row.form_type,
+      filing_date: new Date(row.filing_date).toISOString(),
+      file_name: row.file_name,
+      file_url: `https://www.sec.gov/Archives/${row.file_path}`,
+      source_quarter: sourceQuarter,
+      source_year: sourceYear,
+      fiscal_year: null,
+      fiscal_quarter: null,
+    });
+
+    // Process batch when full
+    if (batch.length >= BATCH_SIZE) {
+      await processBatch(batch);
+      ingested += batch.length;
+      batch.length = 0; // Clear batch
+      logger.info(`Processed ${processed} rows, ingested ${ingested}...`);
     }
+  }
+
+  // Process remaining batch
+  if (batch.length > 0) {
+    await processBatch(batch);
+    ingested += batch.length;
   }
 
   // Write unknowns
@@ -185,6 +134,23 @@ async function main() {
     skippedCik,
     unknownCiks: unknownCiks.length,
   });
+}
+
+async function processBatch(batch: any[]) {
+  try {
+    const transactions = batch.map((filing) => REPO.upsertFiling(filing));
+    await Promise.all(transactions);
+  } catch (e) {
+    logger.error(`Failed to process batch`, { error: e });
+    // Fallback: try one by one
+    for (const filing of batch) {
+      try {
+        await REPO.upsertFiling(filing);
+      } catch (err) {
+        logger.error(`Failed to ingest filing ${filing.accession_number}`, { error: err });
+      }
+    }
+  }
 }
 
 // Helper for CSV parsing with quotes
@@ -214,11 +180,6 @@ function parseCsvLine(line: string): string[] {
 
   return result;
 }
-
-// function inferFiscalYear(filingDate: string, quarter: string): number {
-//   // Crude approximation removed to prevent bad data.
-//   return 0;
-// }
 
 main().catch((error) => {
   logger.error("Fatal error during filing ingestion", { 

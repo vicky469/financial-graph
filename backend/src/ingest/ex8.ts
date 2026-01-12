@@ -1,5 +1,5 @@
 import { db } from "../db/client";
-import { Filing } from "../types";
+import { generateFilingId } from "@financial-graph/shared";
 import { createLogger } from "../utils/logger";
 import "dotenv/config";
 
@@ -12,8 +12,9 @@ const SEC_USER_AGENT =
   process.env.SEC_USER_AGENT || "FinancialGraphBot/1.0 (bot@example.com)";
 
 // Rate Limiting & Concurrency
-const CONCURRENCY = 5;
-const WORKER_DELAY_MS = 200;
+const CONCURRENCY = 10; // 10 workers
+const WORKER_DELAY_MS = 100; // 100ms delay = max 10 req/sec per worker
+const BATCH_SIZE = 100; // Batch DB updates
 
 async function main() {
   logger.info(
@@ -21,12 +22,12 @@ async function main() {
   );
 
   // 1. Query candidates
-  const allFilings: Filing[] = [];
+  const allFilings: any[] = [];
 
   for (const year of TARGET_YEARS) {
     const yearNum = parseInt(year);
     const res = await db.query({
-      filings: {
+      filing: {
         $: {
           where: {
             form_type: { $in: ["20-F"] },
@@ -36,9 +37,8 @@ async function main() {
       },
     });
 
-    if (res.filings) {
-      const candidates = res.filings as unknown as Filing[];
-      allFilings.push(...candidates);
+    if (res.filing) {
+      allFilings.push(...res.filing);
     }
   }
 
@@ -54,22 +54,23 @@ async function main() {
 
   let processed = 0;
   let updated = 0;
+  const updateBatch: any[] = [];
 
   // Worker Function
-  const processFiling = async (filing: Filing, index: number) => {
+  const processFiling = async (filing: any, index: number) => {
     // Double check
     if (filing.attachments) {
       const hasEx8 = Object.keys(filing.attachments).some((k) =>
         k.startsWith("EX-8")
       );
-      if (hasEx8) return;
+      if (hasEx8) return null;
     }
 
     try {
-      if (!filing.file_url) return;
+      if (!filing.file_url) return null;
 
       logger.info(
-        `[${index + 1}/${allFilings.length}] Fetching ${filing.file_url}...`,
+        `[${index + 1}/${pendingFilings.length}] Fetching ${filing.file_url}...`,
         {
           filingId: filing.id,
           accession: filing.accession_number,
@@ -83,7 +84,7 @@ async function main() {
       const match = text.match(regex);
 
       if (match) {
-        const typeSuffix = match[1] || ""; // e.g. ".1" or ""
+        const typeSuffix = match[1] || "";
         const filename = match[2].trim();
         const typeKey = `EX-8${typeSuffix}`;
 
@@ -98,18 +99,34 @@ async function main() {
 
         const attachmentUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${accessionNoDashes}/${filename}`;
 
-        // Update DB
         const attachments = filing.attachments || {};
         attachments[typeKey] = attachmentUrl;
 
-        await db.transact([db.tx.filings[filing.id].update({ attachments })]);
-        updated++;
+        return { id: filing.id, attachments };
       }
     } catch (e: any) {
       logger.error(`❌ Error processing ${filing.id}: ${e.message}`, {
         filingId: filing.id,
       });
     }
+    return null;
+  };
+
+  // Flush batch to DB
+  const flushBatch = async () => {
+    if (updateBatch.length === 0) return;
+    
+    try {
+      const transactions = updateBatch.map((update) =>
+        db.tx.filing[update.id].update({ attachments: update.attachments })
+      );
+      await db.transact(transactions);
+      updated += updateBatch.length;
+      logger.info(`💾 Batch updated: ${updated} total`);
+    } catch (e: any) {
+      logger.error(`Failed to update batch: ${e.message}`);
+    }
+    updateBatch.length = 0;
   };
 
   // Parallel Execution
@@ -122,7 +139,16 @@ async function main() {
       if (!filing) break;
 
       const currentIdx = total - queue.length - 1;
-      await processFiling(filing, currentIdx);
+      const result = await processFiling(filing, currentIdx);
+
+      if (result) {
+        updateBatch.push(result);
+        
+        // Flush when batch is full
+        if (updateBatch.length >= BATCH_SIZE) {
+          await flushBatch();
+        }
+      }
 
       processed++;
       await new Promise((r) => setTimeout(r, WORKER_DELAY_MS));
@@ -133,6 +159,9 @@ async function main() {
     .fill(null)
     .map((_, i) => worker(i));
   await Promise.all(workers);
+
+  // Flush remaining
+  await flushBatch();
 
   logger.info(`\n🎉 Done! Processed: ${processed}, Updated: ${updated}`);
 }

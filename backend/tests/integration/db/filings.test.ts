@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "@jest/globals";
+import { describe, it, expect, beforeEach } from "vitest";
 import { upsertFiling } from "../../../src/db/repo/filings";
 import { db } from "../../../src/db/client";
 import type * as Types from "../../../src/types";
@@ -33,15 +33,15 @@ describe("Filing Repository", () => {
 
       // Verify the filing was created
       const result = await db.query({
-        filings: {
+        filing: {
           $: { where: { id: filingId } },
         },
       });
 
-      expect(result.filings).toBeDefined();
-      expect(result.filings.length).toBe(1);
-      expect(result.filings[0].accession_number).toBe(TEST_ACCESSION);
-      expect(result.filings[0].form_type).toBe("10-K");
+      expect(result.filing).toBeDefined();
+      expect(result.filing.length).toBe(1);
+      expect(result.filing[0].accession_number).toBe(TEST_ACCESSION);
+      expect(result.filing[0].form_type).toBe("10-K");
     });
 
     it("should update existing filing without error when called twice", async () => {
@@ -62,14 +62,14 @@ describe("Filing Repository", () => {
 
       // Verify the filing was updated
       const result = await db.query({
-        filings: {
+        filing: {
           $: { where: { id: filingId2 } },
         },
       });
 
-      expect(result.filings).toBeDefined();
-      expect(result.filings.length).toBe(1);
-      expect(result.filings[0].fiscal_year).toBe(2025);
+      expect(result.filing).toBeDefined();
+      expect(result.filing.length).toBe(1);
+      expect(result.filing[0].fiscal_year).toBe(2025);
     });
 
     it("should not create duplicate links when upserting existing filing", async () => {
@@ -80,26 +80,26 @@ describe("Filing Repository", () => {
 
       // Get initial link count
       const result1 = await db.query({
-        companies: {
+        company: {
           $: { where: { id: TEST_COMPANY_ID } },
           filings: {},
         },
       });
 
-      const initialFilingCount = result1.companies?.[0]?.filings?.length || 0;
+      const initialFilingCount = result1.company?.[0]?.filings?.length || 0;
 
       // Second insert (should not create duplicate link)
       await upsertFiling(filingData);
 
       // Verify link count hasn't increased
       const result2 = await db.query({
-        companies: {
+        company: {
           $: { where: { id: TEST_COMPANY_ID } },
           filings: {},
         },
       });
 
-      const finalFilingCount = result2.companies?.[0]?.filings?.length || 0;
+      const finalFilingCount = result2.company?.[0]?.filings?.length || 0;
 
       // Should be the same count (no duplicate link created)
       expect(finalFilingCount).toBe(initialFilingCount);
@@ -121,13 +121,13 @@ describe("Filing Repository", () => {
 
       // Verify both filings exist
       const result = await db.query({
-        companies: {
+        company: {
           $: { where: { id: TEST_COMPANY_ID } },
           filings: {},
         },
       });
 
-      const filings = result.companies?.[0]?.filings || [];
+      const filings = result.company?.[0]?.filings || [];
       const filingIds = filings.map((f: any) => f.id);
 
       expect(filingIds).toContain(id1);
@@ -154,14 +154,14 @@ describe("Filing Repository", () => {
       const filingId = await upsertFiling(filingWithAttachments);
 
       const result = await db.query({
-        filings: {
+        filing: {
           $: { where: { id: filingId } },
         },
       });
 
-      expect(result.filings[0].attachments).toBeDefined();
-      expect(result.filings[0].attachments["EX-21"]).toBeDefined();
-      expect(result.filings[0].attachments["EX-21.A"]).toBeDefined();
+      expect(result.filing[0].attachments).toBeDefined();
+      expect(result.filing[0].attachments["EX-21"]).toBeDefined();
+      expect(result.filing[0].attachments["EX-21.A"]).toBeDefined();
     });
   });
 });

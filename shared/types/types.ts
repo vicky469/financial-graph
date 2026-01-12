@@ -12,7 +12,7 @@
 
 import { z } from "zod";
 import type { InstaQLEntity } from "@instantdb/core";
-import type schema from "./schema";
+import type schema from "../instant.schema";
 
 // ============================================================================
 // ENUMS
@@ -23,6 +23,7 @@ export const CompanyType = {
   PRIVATE: 2,
   ISSUER: 3,
   UNKNOWN: 4,
+  TRUST: 5,
 } as const;
 
 export type CompanyTypeValue = typeof CompanyType[keyof typeof CompanyType];
@@ -180,12 +181,21 @@ export const UnknownCompanySchema = z.object({
   identity: PrivateUnknownIdentitySchema,
 });
 
+/** TRUST company: requires name, optional CIK */
+export const TrustCompanySchema = z.object({
+  type: z.literal(CompanyType.TRUST),
+  name: NonEmptyString,
+  jurisdiction_raw: z.string().optional(),
+  identity: PrivateUnknownIdentitySchema,
+});
+
 /** Company validation by type */
 export const CompanySchema = z.discriminatedUnion("type", [
   PublicCompanySchema,
   PrivateCompanySchema,
   IssuerCompanySchema,
   UnknownCompanySchema,
+  TrustCompanySchema,
 ]);
 
 // ============================================================================

@@ -1,36 +1,32 @@
 // Shared Query Hooks
 
 import { db } from "./client";
-import {
-  companyToNode,
-  parentOfToEdge,
-  ownsToEdge,
-  type Company,
-  type ParentOf,
-  type Owns,
-} from "./adapters";
+import { companyToNode } from "./adapters";
 import type { Node } from "../types";
+import { CompanyType, type Company } from "@financial-graph/shared";
 
-// Load ALL public companies: id, name, ticker, cik)
-// Client-side search is faster than database search
+// Load ALL public companies (lightweight - just id, name, type)
+// Excludes ISSUER and TRUST companies
 export const useAllCompanies = () => {
   const { data, isLoading } = db.useQuery({
-    companies: {
+    company: {
       $: {
         where: {
-          type: "public",
-        },
+          type: CompanyType.PUBLIC, // Only PUBLIC companies
+        }
       },
     },
   });
 
-  const companies = (data?.companies ?? []).map((c) => ({
-    id: c.id,
-    name: c.name,
-    type: "Company" as const,
-    ticker: c.identity?.tickers?.[0] ?? null,
-    cik: c.identity?.cik ?? null,
-  }));
+  const companies = (data?.company ?? [])
+    .filter((c: any) => c.name && c.name.trim() !== "") // Filter out empty names
+    .map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      type: "Company" as const,
+      ticker: c.identity?.tickers?.split(',')[0]?.trim() ?? null,
+      cik: c.identity?.primaryCIK ?? null,
+    }));
 
   return { companies, isLoading };
 };
@@ -40,87 +36,121 @@ export const useCompanyGraph = (companyId: string | null) => {
   const { data, isLoading } = db.useQuery(
     companyId
       ? {
-          companies: {
+          company: {
             $: {
               where: {
                 id: companyId,
               },
             },
-          },
-          parent_of: {
-            $: {
-              where: {
-                or: [{ from_company_id: companyId }, { to_company_id: companyId }],
-              },
-            },
-          },
-          owns: {
-            $: {
-              where: {
-                from_company_id: companyId,
-              },
-            },
+            subsidiaries: {}, // Use the link to get parent_of edges where this company is the parent
           },
         }
-      : (null as any)
+      : null
   );
 
   const nodes: Node[] = [];
-  const edges = [];
+  const edges: any[] = [];
 
-  if (data?.companies?.[0]) {
+  if (data?.company?.[0]) {
+    const company = data.company[0];
     nodes.push({
-      id: data.companies[0].id,
-      name: data.companies[0].name,
+      id: company.id,
+      name: company.name,
       type: "Company",
       properties: {
-        ...(data.companies[0].identity?.tickers && {
-          tickers: data.companies[0].identity.tickers.join(", "),
+        ...(company.identity?.tickers && {
+          tickers: company.identity.tickers,
         }),
       },
-      cik: data.companies[0].identity?.cik,
-      createdAt: Date.now(),
-      createdBy: "system",
+      cik: company.identity?.primaryCIK,
+      updatedAt: Date.now(),
+      updatedBy: "system",
     });
-  }
 
-  // Add edges
-  const parentOfEdges = (data?.parent_of ?? []).map((p) =>
-    parentOfToEdge(p as unknown as ParentOf)
-  );
-  const ownsEdges = (data?.owns ?? []).map((o) => ownsToEdge(o as unknown as Owns));
-  edges.push(...parentOfEdges, ...ownsEdges);
+    // Add subsidiary edges
+    if (company.subsidiaries) {
+      edges.push(...company.subsidiaries.map((edge: any) => ({
+        id: edge.id,
+        sourceId: companyId,
+        targetId: edge.subsidiaryCompany?.id,
+        label: "parent_of",
+        ownership: edge.ownership_percent,
+        updatedAt: Date.now(),
+        updatedBy: "system",
+      })));
+    }
+  }
 
   return { nodes, edges, isLoading };
 };
 
-// Fetch subsidiaries for a company
+// Fetch subsidiaries for a company with hierarchical structure
 export const useCompanySubsidiaries = (companyId: string | null) => {
   const { data, isLoading } = db.useQuery(
     companyId
       ? {
-          parent_of: {
+          company: {
             $: {
               where: {
-                from_company_id: companyId,
+                id: companyId,
               },
             },
+            subsidiaries: {
+              subsidiaryCompany: {}, // Get the actual subsidiary company data
+            },
           },
-          companies: {},
         }
-      : (null as any)
+      : null
   );
 
-  const subsidiaryIds = new Set((data?.parent_of ?? []).map((p) => p.to_company_id));
-  const subsidiaries = (data?.companies ?? [])
-    .filter((c) => subsidiaryIds.has(c.id))
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      cik: c.identity?.cik,
-    }));
+  const company = data?.company?.[0];
+  const edges = company?.subsidiaries || [];
+  
+  // Build company map from subsidiary edges
+  const companyMap = new Map();
+  if (company) {
+    companyMap.set(company.id, company);
+  }
+  edges.forEach((edge: any) => {
+    if (edge.subsidiaryCompany) {
+      companyMap.set(edge.subsidiaryCompany.id, edge.subsidiaryCompany);
+    }
+  });
 
-  return { subsidiaries, isLoading };
+  // Build tree structure recursively
+  const buildTree = (parentId: string): any[] => {
+    const childEdges = edges.filter((e: any) => e.subsidiaryCompany?.id);
+    
+    return childEdges.map((edge: any) => {
+      const child = edge.subsidiaryCompany;
+      if (!child) return null;
+
+      return {
+        id: child.id,
+        name: child.name,
+        ownership_percent: edge.ownership_percent,
+        children: [], // TODO: Implement recursive loading
+      };
+    }).filter(Boolean);
+  };
+
+  const subsidiaryTree = companyId ? buildTree(companyId) : [];
+
+  // Flat list for backward compatibility
+  const subsidiariesList = edges.map((edge: any) => {
+    const child = edge.subsidiaryCompany;
+    return child ? {
+      id: child.id,
+      name: child.name,
+      cik: child.identity?.primaryCIK,
+    } : null;
+  }).filter(Boolean);
+
+  return { 
+    subsidiaries: subsidiariesList, 
+    subsidiaryTree, 
+    isLoading 
+  };
 };
 
 // Fetch brands for a company
@@ -135,15 +165,15 @@ export const useCompanyBrands = (companyId: string | null) => {
               },
             },
           },
-          brands: {},
+          brand: {},
         }
-      : (null as any)
+      : null
   );
 
-  const brandIds = new Set((data?.owns ?? []).map((o) => o.to_brand_id));
-  const brands = (data?.brands ?? [])
-    .filter((b) => brandIds.has(b.id))
-    .map((b) => ({
+  const brandIds = new Set((data?.owns ?? []).map((o: any) => o.to_brand_id));
+  const brands = (data?.brand ?? [])
+    .filter((b: any) => brandIds.has(b.id))
+    .map((b: any) => ({
       id: b.id,
       name: b.name,
       category: b.category,
@@ -153,24 +183,26 @@ export const useCompanyBrands = (companyId: string | null) => {
   return { brands, isLoading };
 };
 
-// Fetch SEC filings for a company (query directly from filings table)
+// Fetch SEC filings for a company (query through link)
 export const useCompanyFilings = (companyId: string | null) => {
   const { data, isLoading } = db.useQuery(
     companyId
       ? {
-          filings: {
+          company: {
             $: {
               where: {
-                company_id: companyId,
+                id: companyId,
               },
             },
+            filings: {}, // Use the link to get filings
           },
         }
-      : (null as any)
+      : null
   );
 
-  const filings = (data?.filings ?? [])
-    .map((f) => {
+  const company = data?.company?.[0];
+  const filings = (company?.filings ?? [])
+    .map((f: any) => {
       const attachments = f.attachments as Record<string, string> | null;
 
       return {
@@ -182,7 +214,7 @@ export const useCompanyFilings = (companyId: string | null) => {
         attachments: attachments || {},
       };
     })
-    .sort((a, b) => {
+    .sort((a: any, b: any) => {
       // Sort by fiscal year desc, then by filing date desc
       if (b.fiscalYear !== a.fiscalYear) {
         return (b.fiscalYear || 0) - (a.fiscalYear || 0);
@@ -198,7 +230,7 @@ export const useCompanyDetails = (companyId: string | null) => {
   const { data, isLoading } = db.useQuery(
     companyId
       ? {
-          companies: {
+          company: {
             $: {
               where: {
                 id: companyId,
@@ -206,10 +238,10 @@ export const useCompanyDetails = (companyId: string | null) => {
             },
           },
         }
-      : (null as any)
+      : null
   );
 
-  const company = data?.companies?.[0];
+  const company = data?.company?.[0];
   if (!company) return { node: null, isLoading };
 
   const node = companyToNode(company as unknown as Company);
@@ -221,22 +253,22 @@ export const useCompanyAudits = (entityId: string | null) => {
   const { data, isLoading } = db.useQuery(
     entityId
       ? {
-          audits: {
+          audit: {
             $: {
               where: {
-                entity_type: "companies",
+                entity_type: "company",
                 entity_id: entityId,
               },
               order: {
-                serverCreatedAt: "desc",
+                changed_at: "desc",
               },
             },
           },
         }
-      : (null as any)
+      : null
   );
 
-  const audits = (data?.audits ?? []).map((a) => ({
+  const audits = (data?.audit ?? []).map((a: any) => ({
     id: a.id,
     entity_type: a.entity_type,
     entity_id: a.entity_id,

@@ -1,7 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { upsertCompany } from "../db/repo";
-import type { Company } from "../types";
+import type { Company } from "@financial-graph/shared";
+import { CompanyType } from "@financial-graph/shared";
+import { createLogger } from "../utils/logger";
+import { saveFailedRecordsBatch } from "../utils/failed-records";
+
+const logger = createLogger("ticker-ingestion");
 
 const TICKERS_PATH = path.resolve(
   __dirname,
@@ -14,16 +19,14 @@ interface TickerData {
 }
 
 async function main() {
-  console.log(
-    "🚀 Starting Company Tickers Ingestion (Multi-Ticker Support)..."
-  );
+  logger.info("Starting Company Tickers Ingestion (Multi-Ticker Support)...");
 
   try {
     const rawData = await fs.readFile(TICKERS_PATH, "utf-8");
     const json: TickerData = JSON.parse(rawData);
 
     const { fields, data } = json;
-    console.log(`Found ${data.length} raw records to process.`);
+    logger.info(`Found ${data.length} raw records to process.`);
 
     // Map fields to indices
     const cikIdx = fields.indexOf("cik");
@@ -38,7 +41,7 @@ async function main() {
     }
 
     // 1. Aggregate by CIK
-    console.log("Aggregating tickers by CIK...");
+    logger.info("Aggregating tickers by CIK...");
     const companiesMap = new Map<
       string,
       {
@@ -70,11 +73,11 @@ async function main() {
       // We'll trust the first one or just overwrite.
     }
 
-    console.log(`Aggregated into ${companiesMap.size} unique companies.`);
+    logger.info(`Aggregated into ${companiesMap.size} unique companies.`);
 
     // 2. Ingest
     let processedCount = 0;
-    const errors: any[] = [];
+    const errors: Array<{ identifier: string; data: any; error: Error | string }> = [];
     const companies = Array.from(companiesMap.entries());
     const BATCH_SIZE = 50;
 
@@ -86,40 +89,43 @@ async function main() {
           try {
             const company: Partial<Company> = {
               name: data.name,
-              type: "public",
-              // Default to Unknown since source JSON doesn't provide jurisdiction; will be nullable
-              jurisdiction_raw: null,
+              type: CompanyType.PUBLIC,
               identity: {
-                cik: cik,
-                tickers: Array.from(data.tickers), // Convert Set to Array
-                exchange: data.exchange,
+                primaryCIK: cik,
+                tickers: Array.from(data.tickers).join(","),
+                exchanges: data.exchange,
               },
             };
 
             await upsertCompany(company);
           } catch (err) {
-            errors.push({ cik, err });
+            errors.push({ 
+              identifier: cik, 
+              data: { cik, ...data }, 
+              error: err as Error 
+            });
           }
         })
       );
 
       processedCount += batch.length;
       if (processedCount % 1000 === 0) {
-        console.log(`Processed ${processedCount}/${companies.length}...`);
+        logger.info(`Processed ${processedCount}/${companies.length}...`);
       }
     }
 
-    console.log("✅ Ingestion complete!");
+    logger.info("Ingestion complete!", { 
+      total: companies.length, 
+      succeeded: companies.length - errors.length,
+      failed: errors.length 
+    });
+    
     if (errors.length > 0) {
-      console.warn(
-        `⚠️ Encountered ${errors.length} errors. Saving to failed_tickers.json...`
-      );
-      const errorLogPath = path.join(__dirname, "failed_tickers.json");
-      await fs.writeFile(errorLogPath, JSON.stringify(errors, null, 2));
-      console.log(`❌ Failed records saved to: ${errorLogPath}`);
+      const failedPath = await saveFailedRecordsBatch("ticker-ingestion", errors);
+      logger.warn(`Encountered ${errors.length} errors. Failed records saved to: ${failedPath}`);
     }
   } catch (error) {
-    console.error("❌ Fatal error during ingestion:", error);
+    logger.error("Fatal error during ingestion", { error });
     process.exit(1);
   }
 }

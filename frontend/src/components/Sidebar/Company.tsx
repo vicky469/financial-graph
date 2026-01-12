@@ -2,6 +2,7 @@ import { ArrowLeft, ExternalLink, Building2, Sparkles, FileText } from "lucide-r
 import type { Node } from "../../types";
 import { useCompanySubsidiaries, useCompanyBrands, useCompanyFilings } from "../../db/queries";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { SubsidiaryTree } from "./SubsidiaryTree";
 
 interface CompanyProps {
   node: Node;
@@ -9,7 +10,7 @@ interface CompanyProps {
 }
 
 export function Company({ node, onBack }: CompanyProps) {
-  const { subsidiaries, isLoading: loadingSubsidiaries } = useCompanySubsidiaries(node.id);
+  const { subsidiaries, subsidiaryTree, isLoading: loadingSubsidiaries } = useCompanySubsidiaries(node.id);
   const { brands, isLoading: loadingBrands } = useCompanyBrands(node.id);
   const { filings, isLoading: loadingFilings } = useCompanyFilings(node.id);
 
@@ -75,45 +76,8 @@ export function Company({ node, onBack }: CompanyProps) {
         >
           {loadingSubsidiaries ? (
             <LoadingState />
-          ) : subsidiaries.length === 0 ? (
-            <EmptyState icon={<Building2 size={20} />} text="No subsidiaries" />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              {subsidiaries.map((sub) => (
-                <div
-                  key={sub.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    padding: "10px 12px",
-                    borderRadius: "6px",
-                    transition: "background 0.15s ease",
-                    cursor: "default",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                >
-                  <div
-                    style={{
-                      width: "6px",
-                      height: "6px",
-                      borderRadius: "50%",
-                      backgroundColor: sub.cik ? "#34d399" : "rgba(255,255,255,0.2)",
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: "13px",
-                      color: "rgba(255,255,255,0.75)",
-                      textTransform: "capitalize",
-                    }}
-                  >
-                    {sub.name.toLowerCase()}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <SubsidiaryTree subsidiaries={subsidiaryTree} />
           )}
         </Section>
 

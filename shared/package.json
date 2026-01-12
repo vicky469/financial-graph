@@ -2,10 +2,14 @@
   "name": "@financial-graph/shared",
   "version": "1.0.0",
   "description": "Shared types, schema, and utilities for financial-graph",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
     "./types": "./dist/types/types.js",
     "./schema": "./dist/types/schema.js",
     "./validation": "./dist/types/validation.js",
@@ -18,7 +22,8 @@
     "clean": "rm -rf dist",
     "test": "bun run build && bun test tests/",
     "test:watch": "bun test --watch tests/",
-    "test:only": "bun test tests/"
+    "test:only": "bun test tests/",
+    "schema:push": "bunx instant-cli@latest push schema"
   },
   "keywords": ["types", "schema", "instantdb"],
   "author": "",

@@ -1,12 +1,13 @@
-// Export database instance
+/**
+ * Database module exports
+ * Centralized exports for database-related functionality
+ */
+
+// Re-export types from shared package
+export * from "@financial-graph/shared";
+
+// Client
 export { db } from "./client";
-export type { DB } from "./client";
 
-// Export validation utilities
-export * from "./validation";
-
-// Export CRUD operations (repo)
+// Repository functions
 export * from "./repo";
-
-// Export ID generators
-export * as IDs from "./ids";

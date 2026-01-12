@@ -8,7 +8,8 @@
  * 4. Generate deterministic IDs
  */
 
-import { generateCompanyId } from "../../db/ids";
+import { generateCompanyId } from "@financial-graph/shared/ids";
+import { CompanyType } from "@financial-graph/shared/types";
 import {
   SUBSIDIARY_KEYWORDS,
   containsAny,
@@ -18,9 +19,13 @@ import { parseColumns } from "./columns";
 import { isHeaderRow, filterContentCells } from "./table-detection";
 import { determineNestingLevel, ParentStack } from "./nesting";
 import { MissingColumnError } from "./errors";
+import { createLogger } from "../../utils/logger";
+
+const logger = createLogger("parsers/subsidiary/extraction");
 
 /**
  * Extract subsidiaries from table rows
+ * @param filing - Filing information including filingCompanyId from database
  * @throws MissingColumnError if jurColIdx is invalid
  */
 export function extractSubsidiaries(
@@ -28,17 +33,13 @@ export function extractSubsidiaries(
   rows: any,
   headerRowIndex: number,
   headers: string[],
-  filing: { accession_number: string; cik: string },
-  documentFootnotes: FootnoteMap = {}
+  filing: { accession_number: string; cik: string; filingCompanyId: string }
 ): SubsidiaryRecord[] {
   const subsidiaries: SubsidiaryRecord[] = [];
   const parentStack = new ParentStack();
 
-  // Generate filing company ID from CIK
-  const filingCompanyId = generateCompanyId({
-    type: "public",
-    identity: { cik: filing.cik },
-  });
+  // Use the filingCompanyId from database (passed in filing object)
+  const parentCompanyId = filing.filingCompanyId;
 
   // Detect column indices from headers
   const nameColIdx = detectColumnIndex(
@@ -58,9 +59,8 @@ export function extractSubsidiaries(
     /ownership|percent|%|owned/i.test(h)
   );
 
-  // Note: documentFootnotes passed for potential future use
-  // Currently ownership resolution happens in LLM enrichment step
-  void documentFootnotes;
+  // Note: Footnote processing happens separately in LLM enrichment step
+  // Footnotes HTML is extracted at document level and stored for later processing
 
   // State for jurisdiction inference
   const footnoteJurisdictions = new Map<string, string>();
@@ -72,7 +72,7 @@ export function extractSubsidiaries(
     const cells = filterContentCells($, allCells);
     const cellCount = cells.length;
 
-    if (cellCount < 1) return; // Allow 1-cell rows for Note Headers
+    if (cellCount < 1) return;
 
     const parsed = parseColumns(
       $,
@@ -88,7 +88,7 @@ export function extractSubsidiaries(
     const noteHeaderMatch = parsed.rawName.match(/^\s*\((\d+)\)/);
     if (noteHeaderMatch && !parsed.jurisdiction) {
       currentNoteContext = noteHeaderMatch[1];
-      return; // Skip this row as a subsidiary, it's just a header
+      return;
     }
 
     if (
@@ -131,15 +131,45 @@ export function extractSubsidiaries(
     };
     const level = determineNestingLevel(indentInfo, subsidiaries);
 
-    // Reset context if indentation decreases significantly?
-    // For now, let's keep it simple. The context usually holds until next header.
+    let parentName: string | undefined;
+    let parentId: string;
 
-    const parent = parentStack.getParent(level);
-    const parentName = parent?.name;
-    const parentId = parent?.id ?? filingCompanyId;
+    if (level > 0) {
+      // First time we see nesting - initialize stack with previous subsidiary
+      if (parentStack.isEmpty() && subsidiaries.length > 0) {
+        const previousSub = subsidiaries[subsidiaries.length - 1];
+        parentStack.push({
+          level: previousSub.nestingLevel,
+          name: previousSub.name,
+          id: previousSub.id,
+        });
+      }
+
+      // This is a nested subsidiary - get parent from stack
+      const parent = parentStack.getParent(level);
+      parentName = parent?.name;
+      parentId = parent?.id ?? parentCompanyId;
+    } else {
+      // Level 0 - parent is always the filing company
+      parentName = undefined;
+      parentId = parentCompanyId;
+    }
+
+    // Debug logging for level 0 subsidiaries
+    if (level === 0) {
+      logger.info(
+        `[${filing.accession_number}] Level 0 subsidiary "${parsed.cleanName}": parentId=${parentId}, filingCompanyId=${parentCompanyId}`
+      );
+    }
+
+    // Determine company type based on jurisdiction presence
+    // If jurisdiction is missing or empty, it's UNKNOWN, otherwise PRIVATE
+    const companyType = !parsed.jurisdiction || parsed.jurisdiction.trim() === '' 
+      ? CompanyType.UNKNOWN 
+      : CompanyType.PRIVATE;
 
     const subsidiaryId = generateCompanyId({
-      type: "private",
+      type: companyType,
       name: parsed.cleanName,
       jurisdiction_raw: parsed.jurisdiction,
     });
@@ -157,7 +187,10 @@ export function extractSubsidiaries(
       isNested: level > 0 || !!parentName,
     });
 
-    parentStack.push({ level, name: parsed.cleanName, id: subsidiaryId });
+    // If we're tracking nesting, push to parent stack
+    if (!parentStack.isEmpty() || level > 0) {
+      parentStack.push({ level, name: parsed.cleanName, id: subsidiaryId });
+    }
   });
 
   return subsidiaries;

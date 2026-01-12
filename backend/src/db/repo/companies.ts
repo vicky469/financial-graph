@@ -1,129 +1,101 @@
 import { db } from "../client";
-import * as IDs from "../ids";
-import type * as Types from "../../types";
-import {
-  CompanySchema,
-  PublicInfoSchema,
-  ParentOfEdgeSchema,
+import { 
+  CompanyType, 
+  CompanySchema, 
   validate,
-} from "../validation";
+  ParentOfSource,
+  generateCompanyId,
+  generateParentOfId,
+  type Company,
+  type ParentOfEdge,
+} from "@financial-graph/shared";
 
+/**
+ * Upsert a company
+ * 
+ * For PUBLIC/ISSUER companies:
+ * - Uses identity.primaryCIK for ID generation
+ * - Assumes one legal entity per CIK
+ */
 export async function upsertCompany(
-  companyData: Partial<Types.Company>
+  companyData: Partial<Company>
 ): Promise<string> {
-  // 1. Validate & Normalize
-  let id: string;
+  // Ensure type is set for ID generation
+  const companyType = companyData.type ?? CompanyType.PRIVATE;
 
-  if (
-    (companyData.type === "public" || companyData.type === "issuer") &&
-    companyData.identity?.cik
-  ) {
-    // Rule: CIK must be 10 digits - normalize all CIKs in the array
-    companyData.identity.cik = companyData.identity.cik.map((cik) =>
-      String(cik).padStart(10, "0")
-    );
-  }
+  // Generate ID (uses primaryCIK for PUBLIC/ISSUER)
+  const id = generateCompanyId({
+    ...companyData,
+    type: companyType,
+  });
 
-  // 2. Generate ID
-  id = IDs.generateCompanyId(companyData);
-
-  // 3. Prepare full node data
-  const node: Types.Company = {
+  // Prepare full node data
+  const node: Company = {
     id,
     name: companyData.name!,
     aliases: companyData.aliases || [],
-    type: companyData.type || "private",
-    parent_company_id: companyData.parent_company_id || null,
-    founded_date: companyData.founded_date || null,
-    jurisdiction_iso: companyData.jurisdiction_iso || null,
-    jurisdiction_raw: companyData.jurisdiction_raw ?? null,
-    identity: {
-      tickers: companyData.identity?.tickers,
-      cik: companyData.identity?.cik,
-      exchange: companyData.identity?.exchange,
-      lei: companyData.identity?.lei,
-      duns: companyData.identity?.duns,
-    },
-    created_at: companyData.created_at || new Date().toISOString(),
+    type: companyType,
+    jurisdiction_iso: companyData.jurisdiction_iso ?? undefined,
+    jurisdiction_raw: companyData.jurisdiction_raw ?? undefined,
+    identity: companyData.identity ? {
+      primaryCIK: companyData.identity.primaryCIK,
+      tickers: companyData.identity.tickers,
+      exchanges: companyData.identity.exchanges,
+      sp500: companyData.identity.sp500,
+      lei: companyData.identity.lei,
+      duns: companyData.identity.duns,
+    } : undefined,
     updated_at: new Date().toISOString(),
   };
 
-  // Validate before inserting
-  const validatedNode = validate(CompanySchema, node);
+  // Validate business logic (type-specific rules)
+  validate(CompanySchema, node);
 
-  // 4. Upsert to InstantDB
-  await db.transact([db.tx.companies[id].update(validatedNode)]);
+  // Upsert to InstantDB
+  await db.transact([db.tx.company[id].update(node)]);
 
   return id;
 }
 
-export async function upsertPublicInfo(
-  detailsData: Partial<Types.PublicInfo>
-): Promise<string> {
-  const company_id = detailsData.company_id!;
-  const id = IDs.generatePublicInfoId(company_id);
-
-  const node: Types.PublicInfo = {
-    id,
-    company_id,
-    sic_code: detailsData.sic_code || null,
-    industry_sector: detailsData.industry_sector || null,
-    fiscal_year_end: detailsData.fiscal_year_end || null,
-    created_at: detailsData.created_at || new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-
-  // Validate before inserting
-  const validatedNode = validate(PublicInfoSchema, node);
-
-  await db.transact([
-    db.tx.public_info[id].update(validatedNode),
-  ]);
-
-  return id;
-}
 
 export async function linkParentChild(
   parentId: string,
   childId: string,
-  customProps: Partial<Types.ParentOfEdge> = {}
+  customProps: Partial<ParentOfEdge> = {}
 ): Promise<string> {
   const established_date =
     customProps.established_date || new Date().toISOString();
-  const edgeId = IDs.generateParentOfEdgeId({
-    from_company_id: parentId,
-    to_company_id: childId,
-    established_date,
-  });
+  const edgeId = generateParentOfId(parentId, childId);
 
-  const edge: Types.ParentOfEdge = {
+  const edge = {
     id: edgeId,
-    from_company_id: parentId,
-    to_company_id: childId,
-    ownership_percent: customProps.ownership_percent || null,
+    ownership_percent: customProps.ownership_percent ?? undefined,
     established_date,
-    ended_date: customProps.ended_date || null,
-    source: customProps.source || "manual",
-    source_id: customProps.source_id || null,
-    created_at: new Date().toISOString(),
+    ended_date: customProps.ended_date ?? undefined,
+    source: customProps.source || ParentOfSource.MANUAL,
     updated_at: new Date().toISOString(),
   };
 
-  // Validate edge before inserting
-  const validatedEdge = validate(ParentOfEdgeSchema, edge);
-
   await db.transact([
-    db.tx.parent_of[edgeId].update(validatedEdge),
-    db.tx.companies[parentId].link({ subsidiaries: childId }),
-    db.tx.companies[childId].link({ parent: parentId }),
+    db.tx.parent_of[edgeId].update(edge),
+    db.tx.company[parentId].link({ subsidiaries: edgeId }),
+    db.tx.company[childId].link({ parents: edgeId }),
   ]);
 
   return edgeId;
 }
 
+/**
+ * Get company ID by CIK using deterministic ID generation
+ * 
+ * @param cik - CIK string (will be normalized to 10 digits)
+ * @returns UUID v5 company ID
+ */
 export function getCompanyIdByCik(cik: string): string {
-  return IDs.generateCompanyId({
-    type: "public",
-    identity: { cik: [cik] }, // CIK is now an array
+  const normalizedCik = cik.padStart(10, "0");
+  return generateCompanyId({
+    type: CompanyType.PUBLIC,
+    name: "placeholder", // Required by schema but not used for PUBLIC companies
+    identity: { primaryCIK: normalizedCik },
   });
 }

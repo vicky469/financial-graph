@@ -131,10 +131,10 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
                       marginBottom: "2px",
                     }}
                   >
-                    Created At
+                    Updated At
                   </div>
                   <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
-                    {new Date(displayNode.createdAt).toLocaleDateString()}
+                    {new Date(displayNode.updatedAt).toLocaleDateString()}
                   </div>
                 </div>
                 <div>
@@ -145,10 +145,10 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
                       marginBottom: "2px",
                     }}
                   >
-                    Created By
+                    Updated By
                   </div>
                   <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
-                    {displayNode.createdBy || "—"}
+                    {displayNode.updatedBy || "—"}
                   </div>
                 </div>
               </div>

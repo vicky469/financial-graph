@@ -54,7 +54,7 @@ async function main() {
         name: name,
         type: "issuer", // These are SEC issuers (file 10-K/20-F) but not in ticker data
         identity: {
-          cik: cik,
+          cik: [cik], // CIK is now an array
         },
       });
     } catch (e) {
@@ -74,4 +74,10 @@ async function main() {
   }
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  logger.error("Fatal error during company creation", { 
+    error: error.message,
+    stack: error.stack 
+  });
+  process.exit(1);
+});

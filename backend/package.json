@@ -1,38 +1,33 @@
 {
-  "name": "financial-graph-benchmark",
+  "name": "@financial-graph/backend",
   "version": "1.0.0",
   "description": "Benchmarking and Playground for Financial Knowledge Graph with InstantDB",
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc",
-    "test": "jest --watch --testPathIgnorePatterns=integration --testPathIgnorePatterns=llm",
-    "test:all": "jest --testPathIgnorePatterns=integration --testPathIgnorePatterns=llm",
-    "test:integration": "jest --testPathPatterns=integration",
-    "schema:push": "bunx instant-cli@latest push schema",
+    "test": "NODE_ENV=test vitest --run --exclude='**/integration/**'",
+    "test:watch": "NODE_ENV=test vitest --exclude='**/integration/**'",
+    "test:all": "NODE_ENV=test vitest --run --exclude='**/integration/**'",
+    "test:integration": "NODE_ENV=test vitest --run tests/integration",
     "ingest:metadata": "bun src/data_source/sec/scripts/ingestSecMetadata.ts",
     "ingest:tickers": "bun src/ingest/tickers.ts",
-    "ingest:filings": "bun src/ingest/filings.ts",
-    "ingest:create-missing-companies": "bun src/ingest/create_missing_companies.ts",
-    "ingest:ex21": "bun src/ingest/ex21.ts",
-    "ingest:ex8": "bun src/ingest/ex8.ts",
-    "ingest:attachments": "bun src/ingest/ex21.ts && bun src/ingest/ex8.ts",
+    "ingest:filings": "bun src/ingest/filings.ts && bun src/ingest/ex21.ts && bun src/ingest/ex8.ts",
     "ingest:subsidiaries": "bun src/ingest/subsidiaries.ts",
     "download:ex21": "bun src/data_source/sec/scripts/download_exhibit_files.ts EX-21",
     "download:ex8": "bun src/data_source/sec/scripts/download_exhibit_files.ts EX-8",
-    "update:company-names": "bun src/data_source/sec/scripts/update-company-names-and-ciks-fast.ts",
-    "build:cik-lookup": "bun src/scripts/build-cik-lookup-cache.ts",
-    "cleanup:company-types": "bun src/scripts/cleanup-company-types.ts",
-    "delete:public-without-tickers": "bun src/scripts/delete-public-without-tickers.ts",
     "fetch:sp500": "bun src/data_source/sp500/fetch-sp500-list.ts",
     "mark:sp500": "bun src/scripts/mark-sp500-companies.ts",
-    "delete:filings": "bun src/scripts/delete-all-filings.ts",
-    "delete:private-companies": "bun src/scripts/delete-private-companies.ts"
+    "mark:trust": "bun src/scripts/mark-trust-companies.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "dependencies": {
     "@faker-js/faker": "^10.2.0",
+    "@financial-graph/shared": "workspace:*",
     "@instantdb/admin": "^0.22.96",
     "@instantdb/core": "^0.22.96",
     "cheerio": "^1.1.2",
@@ -46,12 +41,12 @@
   },
   "devDependencies": {
     "@types/cheerio": "^0.22.35",
-    "@types/jest": "^30.0.0",
     "@types/node": "^25.0.3",
     "@types/uuid": "^10.0.0",
-    "jest": "^30.2.0",
-    "ts-jest": "^29.4.6",
+    "@vitest/ui": "^4.0.16",
+    "fast-check": "^4.5.3",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
   }
 }

@@ -16,8 +16,6 @@ export interface BaseNode {
   validFrom?: number;
   validTo?: number;
   url?: string;
-  createdAt: number;
-  createdBy: string;
   updatedAt: number;
   updatedBy: string;
 }
@@ -73,8 +71,6 @@ export interface Edge {
   ownership?: number; // Ownership percentage (0-100) for parent-child company relationships
   validFrom?: number; // Timestamp
   validTo?: number; // Timestamp
-  createdAt: number;
-  createdBy: string;
   updatedAt: number;
   updatedBy: string;
 }

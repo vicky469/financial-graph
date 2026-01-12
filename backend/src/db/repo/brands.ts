@@ -1,54 +1,42 @@
 import { db } from "../client";
-import * as IDs from "../ids";
-import type * as Types from "../../types";
-import { BrandSchema, OwnsEdgeSchema, validate } from "../validation";
+import { 
+  generateBrandId,
+  generateOwnsId,
+  type Brand,
+} from "@financial-graph/shared";
 
 export async function upsertBrand(
-  brandData: Partial<Types.Brand> & { acquired_date?: string | null }
+  brandData: Partial<Brand> & { company_id: string; acquired_date?: string | null }
 ): Promise<string> {
-  const id = IDs.generateBrandId(brandData);
-  const company_id = brandData.owning_company_id!;
+  const company_id = brandData.company_id;
+  const id = generateBrandId(company_id, brandData.name!);
 
-  // If undefined, we assume it's NOT an acquisition (so null).
-  const acquired_date = brandData.acquired_date ?? null;
+  // If undefined, we assume it's NOT an acquisition (so undefined).
+  const acquired_date = brandData.acquired_date ?? undefined;
 
-  const node: Types.Brand = {
+  const node = {
     id,
     name: brandData.name!,
-    owning_company_id: company_id,
-    category: brandData.category || null,
+    category: brandData.category ?? undefined,
     status: brandData.status || "active",
-    launch_date: brandData.launch_date || null,
-    created_at: brandData.created_at || new Date().toISOString(),
+    launch_date: brandData.launch_date ?? undefined,
     updated_at: new Date().toISOString(),
   };
 
-  // Validate the node before inserting
-  const validatedNode = validate(BrandSchema, node);
+  const edgeId = generateOwnsId(company_id, id);
 
-  const edgeId = IDs.generateOwnsEdgeId({
-    from_company_id: company_id,
-    to_brand_id: id,
-  });
-
-  const edge: Types.OwnsEdge = {
+  const edge = {
     id: edgeId,
-    from_company_id: company_id,
-    to_brand_id: id,
-    acquired_date: acquired_date,
-    divested_date: null,
-    created_at: new Date().toISOString(),
+    acquired_date,
+    divested_date: undefined,
     updated_at: new Date().toISOString(),
   };
-
-  // Validate the edge before inserting
-  const validatedEdge = validate(OwnsEdgeSchema, edge);
 
   await db.transact([
-    db.tx.brands[id].update(validatedNode),
-    db.tx.owns[edgeId].update(validatedEdge),
-    db.tx.companies[company_id].link({ brands: id }),
-    db.tx.brands[id].link({ owner: company_id }),
+    db.tx.brand[id].update(node),
+    db.tx.owns[edgeId].update(edge),
+    db.tx.company[company_id].link({ brands: id }),
+    db.tx.owns[edgeId].link({ company: company_id, brand: id }),
   ]);
 
   return id;

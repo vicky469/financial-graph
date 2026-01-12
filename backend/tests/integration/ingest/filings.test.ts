@@ -1,5 +1,5 @@
 import { db } from "../../../src/db/client";
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect, beforeAll } from "vitest";
 import path from "path";
 import fs from "fs/promises";
 import readline from "readline";
@@ -15,9 +15,6 @@ const TICKERS_PATH = path.resolve(
 );
 
 describe("SEC Filing Ingestion & Verification", () => {
-  // Increase timeout for heavy CSV processing and DB verification
-  jest.setTimeout(60000);
-
   let knownCiks: Set<string>;
   let relevantFilingsCount = 0;
   let relevantFilingsSample: any[] = [];
@@ -99,11 +96,11 @@ describe("SEC Filing Ingestion & Verification", () => {
 
   it("2. Sanity Check: DB should have filing data", async () => {
     const res = await db.query({
-      filings: {
+      filing: {
         $: { limit: 1 },
       },
     });
-    expect(res.filings.length).toBeGreaterThan(0);
+    expect(res.filing.length).toBeGreaterThan(0);
   });
 
   it("3. Reconciliation: DB Count should roughly match Source Count", async () => {
@@ -115,40 +112,40 @@ describe("SEC Filing Ingestion & Verification", () => {
     // Check 5 samples
     for (const sample of relevantFilingsSample) {
       const res = await db.query({
-        filings: {
+        filing: {
           $: {
             where: { accession_number: sample.accession_number },
           },
         },
       });
-      expect(res.filings.length).toBe(1);
-      const filing = res.filings[0];
+      expect(res.filing.length).toBe(1);
+      const filing = res.filing[0];
       expect(filing.form_type).toBe(sample.form_type);
 
       // Verify unified link
       const resWithCompany = await db.query({
-        filings: {
+        filing: {
           $: { where: { id: filing.id } },
-          companies: { $: { fields: ["id", "name"] } },
+          company: { $: { fields: ["id", "name"] } },
         },
       });
       console.log("DEBUG RES:", JSON.stringify(resWithCompany, null, 2));
 
-      // Should have 1 linked company using the 'companies' link (plural)
-      expect(resWithCompany.filings[0].companies.length).toBe(1);
+      // Should have linked company using the 'company' link (singular)
+      expect(resWithCompany.filing[0].company).toBeDefined();
 
       // If the object is empty {}, verify if the company actually exists?
-      if (!resWithCompany.filings[0].companies[0].id) {
-        const linkedId = resWithCompany.filings[0].company_id; // we have this stored scalar
+      if (!resWithCompany.filing[0].company.id) {
+        const linkedId = resWithCompany.filing[0].company_id; // we have this stored scalar
         console.log(`Checking existence of company ${linkedId}...`);
         const directRes = await db.query({
-          companies: { $: { where: { id: linkedId } } },
+          company: { $: { where: { id: linkedId } } },
         });
         console.log("DIRECT COMPANY RES:", JSON.stringify(directRes, null, 2));
       }
 
       // Still expect it to be defined if everything is working
-      expect(resWithCompany.filings[0].companies[0].id).toBeDefined();
+      expect(resWithCompany.filing[0].company.id).toBeDefined();
     }
 
     // Also fetch total count via empty query metadata if supported or just lengthy query?
@@ -166,7 +163,7 @@ describe("SEC Filing Ingestion & Verification", () => {
     // But since the user found them in prod, let's verify we can query them.
 
     const res = await db.query({
-      filings: {
+      filing: {
         $: {
           // We can't filter by attachment key in 'where' easily yet
           where: { form_type: "10-K" },
@@ -177,8 +174,8 @@ describe("SEC Filing Ingestion & Verification", () => {
     let foundEx21A = false;
     let foundAnyEx21 = false;
 
-    if (res.filings) {
-      for (const f of res.filings as any[]) {
+    if (res.filing) {
+      for (const f of res.filing as any[]) {
         if (f.attachments) {
           const keys = Object.keys(f.attachments);
           if (keys.some((k) => k.startsWith("EX-21"))) foundAnyEx21 = true;

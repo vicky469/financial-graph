@@ -141,9 +141,23 @@ export class ParentStack {
   private stack: ParentInfo[] = [];
 
   /**
+   * Check if stack is empty
+   */
+  isEmpty(): boolean {
+    return this.stack.length === 0;
+  }
+
+  /**
    * Update stack and return current parent for given nesting level
    */
   getParent(level: number): ParentInfo | undefined {
+    // Level 0 subsidiaries always have the filing company as parent
+    if (level === 0) {
+      // Clear the stack since we're back at root level
+      this.stack = [];
+      return undefined;
+    }
+    
     // Pop parents that are at same or deeper level
     while (this.stack.length > 0 && this.stack[this.stack.length - 1].level >= level) {
       this.stack.pop();

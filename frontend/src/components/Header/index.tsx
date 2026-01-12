@@ -21,17 +21,42 @@ export function Header({ onSearchFiling }: HeaderProps) {
     try {
       const { db } = await import("../../db/client");
       
-      const result = await db.queryOnce({
+      const searchValue = accessionSearch.trim();
+      
+      // Try searching by accession_number_nodashes first
+      let result = await db.queryOnce({
         filings: {
           $: {
             where: {
-              accession_number_nodashes: accessionSearch.trim(),
+              accession_number_nodashes: searchValue,
             },
           },
         },
       });
 
-      const filing = result.data?.filings?.[0];
+      let filing = result.data?.filings?.[0];
+      
+      // If not found, try with accession_number (with dashes)
+      if (!filing) {
+        // Try to format it with dashes: XXXXXXXXXX-XX-XXXXXX
+        let formattedSearch = searchValue;
+        if (searchValue.length === 18 && !searchValue.includes('-')) {
+          formattedSearch = `${searchValue.slice(0, 10)}-${searchValue.slice(10, 12)}-${searchValue.slice(12)}`;
+        }
+        
+        result = await db.queryOnce({
+          filings: {
+            $: {
+              where: {
+                accession_number: formattedSearch,
+              },
+            },
+          },
+        });
+        
+        filing = result.data?.filings?.[0];
+      }
+
       if (filing) {
         if (onSearchFiling) {
           onSearchFiling(filing.company_id);
@@ -42,7 +67,8 @@ export function Header({ onSearchFiling }: HeaderProps) {
       } else {
         setError("Filing not found");
       }
-    } catch {
+    } catch (err) {
+      console.error("Search error:", err);
       setError("Search failed");
     } finally {
       setIsSearching(false);
@@ -81,8 +107,8 @@ export function Header({ onSearchFiling }: HeaderProps) {
       </div>
 
       {/* Accession Number Search */}
-      <div className="ml-auto flex items-center mr-2">
-        <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)", marginRight: "5px"}}>Accession #</span>
+      <div className="ml-auto flex items-center gap-2">
+        <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)"}}>Accession #</span>
         <div style={{
           display: "flex",
           alignItems: "center",
@@ -92,6 +118,7 @@ export function Header({ onSearchFiling }: HeaderProps) {
           borderRadius: "6px",
           padding: "0 10px",
           height: "32px",
+          minWidth: "200px",
         }}>
           <Search size={14} style={{ color: "rgba(255,255,255,0.4)", flexShrink: 0 }} />
           <input
@@ -124,7 +151,12 @@ export function Header({ onSearchFiling }: HeaderProps) {
           )}
         </div>
         {error && (
-          <span style={{ fontSize: "11px", color: "#f87171" }}>{error}</span>
+          <span style={{ 
+            fontSize: "11px", 
+            color: "#f87171", 
+            whiteSpace: "nowrap",
+            minWidth: "120px",
+          }}>{error}</span>
         )}
       </div>
     </header>

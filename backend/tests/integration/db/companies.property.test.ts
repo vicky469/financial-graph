@@ -11,14 +11,11 @@
 import * as fc from "fast-check";
 import { 
   upsertCompany, 
-  findCompanyByAnyCik,
   getCompanyIdByCik,
 } from "../../../src/db/repo/companies";
 import { db } from "../../../src/db/client";
 import { 
-  CompanyType, 
-  generateCompanyId,
-  type Company,
+  CompanyType,
 } from "@financial-graph/shared";
 
 // Skip these tests if not running integration tests
@@ -29,9 +26,13 @@ const SKIP_INTEGRATION = process.env.SKIP_INTEGRATION_TESTS === "true";
 // ============================================================================
 
 /**
- * Generator for valid CIK strings (1-10 digits)
+ * Generator for valid 10-digit CIK strings
+ * Uses timestamp-based prefix to avoid collisions with existing data
  */
-const cikArbitrary = fc.stringMatching(/^[0-9]{1,10}$/);
+const cikArbitrary = fc.integer({ min: 0, max: 999999 }).map(n => {
+  const timestamp = Date.now() % 10000; // Last 4 digits of timestamp
+  return `${timestamp}${n.toString().padStart(6, "0")}`;
+});
 
 /**
  * Generator for non-empty company names
@@ -55,73 +56,6 @@ describe("Company Upsert - Property Tests", () => {
     // Note: In a real test environment, you'd want to clean up test data
     // For now, we rely on deterministic IDs to overwrite test data
   });
-
-  /**
-   * Property 9: Primary CIK Stability
-   * 
-   * *For any* public/issuer company, once `identity.primaryCIK` is set, 
-   * it SHALL never change even when `identity.ciks` is updated.
-   * 
-   * **Validates: Requirements 6.3, 6.4**
-   */
-  (SKIP_INTEGRATION ? test.skip : test)(
-    "Property 9: primaryCIK remains stable when ciks list changes",
-    async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          companyNameArbitrary,
-          cikArbitrary,
-          cikArbitrary,
-          async (name, cik1, cik2) => {
-            // Skip if CIKs are the same
-            if (cik1.padStart(10, "0") === cik2.padStart(10, "0")) return;
-
-            const testName = `TEST_PROP9_${name}_${Date.now()}`;
-            
-            // First upsert - creates company with cik1
-            const id1 = await upsertCompany({
-              type: CompanyType.PUBLIC,
-              name: testName,
-              identity: { ciks: cik1 },
-            });
-
-            // Query to get the primaryCIK that was set
-            const result1 = await db.query({
-              company: {
-                $: { where: { id: id1 } },
-              },
-            });
-            const company1 = result1.company[0];
-            const originalPrimaryCIK = (company1?.identity as any)?.primaryCIK;
-
-            // Second upsert - adds cik2 to the list
-            const id2 = await upsertCompany({
-              type: CompanyType.PUBLIC,
-              name: testName,
-              identity: { ciks: `${cik1},${cik2}` },
-            });
-
-            // Query to get the updated company
-            const result2 = await db.query({
-              company: {
-                $: { where: { id: id2 } },
-              },
-            });
-            const company2 = result2.company[0];
-            const updatedPrimaryCIK = (company2?.identity as any)?.primaryCIK;
-
-            // The primaryCIK should remain the same
-            expect(updatedPrimaryCIK).toBe(originalPrimaryCIK);
-            
-            // The ID should remain the same (since primaryCIK didn't change)
-            expect(id2).toBe(id1);
-          }
-        ),
-        { numRuns: 10 } // Reduced for integration tests
-      );
-    },
-    60000 // 60 second timeout for integration tests
-  );
 
   /**
    * Property 7: Database Upsert Idempotence
@@ -172,54 +106,6 @@ describe("Company Upsert - Property Tests", () => {
             });
 
             expect(result.company.length).toBe(1);
-          }
-        ),
-        { numRuns: 10 }
-      );
-    },
-    60000
-  );
-
-  /**
-   * Property 10: Lookup by Any CIK
-   * 
-   * *For any* public/issuer company with multiple CIKs, querying by any CIK 
-   * in `identity.ciks` or by `identity.primaryCIK` SHALL return the same company.
-   * 
-   * **Validates: Requirements 6.5**
-   */
-  (SKIP_INTEGRATION ? test.skip : test)(
-    "Property 10: findCompanyByAnyCik returns company for any CIK in list",
-    async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          companyNameArbitrary,
-          cikArbitrary,
-          cikArbitrary,
-          async (name, cik1, cik2) => {
-            // Skip if CIKs are the same
-            if (cik1.padStart(10, "0") === cik2.padStart(10, "0")) return;
-
-            const testName = `TEST_PROP10_${name}_${Date.now()}`;
-            
-            // Create company with multiple CIKs
-            const id = await upsertCompany({
-              type: CompanyType.PUBLIC,
-              name: testName,
-              identity: { ciks: `${cik1},${cik2}` },
-            });
-
-            // Lookup by first CIK
-            const found1 = await findCompanyByAnyCik([cik1]);
-            
-            // Lookup by second CIK
-            const found2 = await findCompanyByAnyCik([cik2]);
-
-            // Both lookups should find the same company
-            expect(found1).not.toBeNull();
-            expect(found2).not.toBeNull();
-            expect(found1?.id).toBe(id);
-            expect(found2?.id).toBe(id);
           }
         ),
         { numRuns: 10 }

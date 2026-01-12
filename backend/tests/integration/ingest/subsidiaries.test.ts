@@ -1,5 +1,5 @@
 import { db } from "../../../src/db/client";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { generateParentOfId } from "@financial-graph/shared/ids";
 
 // Target filing with known large list of subsidiaries (536 items)
@@ -7,7 +7,7 @@ const TARGET_ACCESSION_NUMBER = "0000824142-25-000039";
 
 describe("Subsidiary Ingestion Verification", () => {
   // Increase timeout for DB queries
-  jest.setTimeout(30000);
+  beforeAll(() => {}, { timeout: 30000 });
 
   it("should have ingested filings with subsidiaries", async () => {
     // Broad check: Ensure we have at least some parent-child edges in the table
@@ -25,13 +25,13 @@ describe("Subsidiary Ingestion Verification", () => {
 
   it(`should handle large nested hierarchies (e.g. Filing ${TARGET_ACCESSION_NUMBER})`, async () => {
     const res = await db.query({
-      filings: {
+      filing: {
         $: { where: { accession_number: TARGET_ACCESSION_NUMBER } },
       },
     });
 
-    expect(res.filings.length).toBe(1);
-    const filing = res.filings[0];
+    expect(res.filing.length).toBe(1);
+    const filing = res.filing[0];
 
     console.log(
       `Verifying filing ${filing.id} (Company: ${filing.company_id})...`
@@ -40,7 +40,7 @@ describe("Subsidiary Ingestion Verification", () => {
     // 1. Verify Direct Graph Links (Company -> Subsidiaries)
     // This confirms the specific parsing logic correctly linked nodes in the Company graph.
     const companyRes = await db.query({
-      companies: {
+      company: {
         $: { where: { id: filing.company_id } },
         subsidiaries: {
           $: { limit: 1000 },
@@ -48,7 +48,7 @@ describe("Subsidiary Ingestion Verification", () => {
       },
     });
 
-    const company = companyRes.companies[0];
+    const company = companyRes.company[0];
     const subs = company.subsidiaries || [];
 
     console.log(
@@ -62,12 +62,12 @@ describe("Subsidiary Ingestion Verification", () => {
     for (const sub of subs.slice(0, 20)) {
       // Query the sub to see if it links back to parent
       const check = await db.query({
-        companies: {
+        company: {
           $: { where: { id: sub.id } },
           parent: { $: { limit: 1 } },
         },
       });
-      const parentLinks = check.companies[0]?.parent || [];
+      const parentLinks = check.company[0]?.parent || [];
       if (parentLinks.length === 1 && parentLinks[0].id === filing.company_id) {
         reverseLinkCount++;
       }
@@ -120,12 +120,12 @@ describe("Subsidiary Ingestion Verification", () => {
     let nestedCount = 0;
     for (const sub of sampleSubs) {
       const subRes = await db.query({
-        companies: {
+        company: {
           $: { where: { id: sub.id } },
           subsidiaries: { $: { limit: 1 } },
         },
       });
-      const subNode = subRes.companies[0];
+      const subNode = subRes.company[0];
       if (subNode?.subsidiaries && subNode.subsidiaries.length > 0) {
         nestedCount++;
       }

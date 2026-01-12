@@ -11,11 +11,10 @@
  *    - Extracts name, jurisdiction, ownership from cells
  *    - Processes all tables in document
  * 
- * 2. LLM Enrichment (optional post-processing) - Fills missing data from footnotes
- *    - Runs after all tables are processed
- *    - Extracts ownership structure (parent-child relationships)
- *    - Extracts ownership percentages
- *    - Matches parent names to existing subsidiary IDs
+ * 2. Footnotes Preprocessing - Prepares footnotes HTML for later LLM enrichment
+ *    - Strips unnecessary HTML elements (scripts, styles, navigation)
+ *    - Keeps content-bearing elements (tables, paragraphs, lists)
+ *    - Preserves footnote markers and ownership data
  */
 
 import { load } from "cheerio";
@@ -25,7 +24,7 @@ import type { ParseResult, SubsidiaryRecord } from "./types";
 import { extractDocumentFootnotes } from "./footnotes";
 import { findHeaderRow, extractHeaders, isLikelyFooterTable } from "./table-detection";
 import { extractSubsidiaries } from "./extraction";
-import { enrichWithLLM } from "./llm-enrichment";
+import { preprocessFootnotesHtml } from "./footnotes-preprocessor";
 import { SUBSIDIARY_KEYWORDS, containsAny } from "../../config/subsidiary-keywords";
 
 const logger = createLogger("parsers/subsidiary");
@@ -36,8 +35,7 @@ const logger = createLogger("parsers/subsidiary");
 
 export async function parseExhibit(
   html: string,
-  filing: { accession_number: string; cik: string },
-  useLLMEnrichment: boolean = false
+  filing: { accession_number: string; cik: string; filingCompanyId: string }
 ): Promise<ParseResult> {
 
   try {
@@ -49,39 +47,10 @@ export async function parseExhibit(
         `[${filing.accession_number}] Heuristic parser succeeded: ${parseResult.subsidiaries.length} subsidiaries (maxNesting: ${parseResult.maxNestingLevel})`
       );
 
-      let llmModifications: any[] | undefined;
-
-      // Post-process: Enrich with LLM after all tables are processed
-      if (useLLMEnrichment) {
-        logger.info(`[${filing.accession_number}] Starting LLM enrichment...`);
-
-        // Generate filing company ID from CIK
-        const { generateCompanyId } = await import("../../db/ids");
-        const filingCompanyId = generateCompanyId({
-          type: "public",
-          identity: { cik: filing.cik },
-        });
-
-        const enrichResult = await enrichWithLLM(
-          parseResult.subsidiaries,
-          parseResult.footnotesHtml,
-          { 
-            accession_number: filing.accession_number,
-            filingCompanyId,
-          }
-        );
-
-        parseResult.subsidiaries = enrichResult.subsidiaries;
-        llmModifications = enrichResult.modifications;
-      }
-
       return {
         ...parseResult,
-        method: useLLMEnrichment && llmModifications && llmModifications.length > 0
-          ? "heuristic+llm"
-          : "heuristic",
+        method: "heuristic",
         status: "success",
-        llmModifications,
       };
     }
 
@@ -89,7 +58,7 @@ export async function parseExhibit(
     logger.info(`[${filing.accession_number}] No subsidiaries found in document`);
     return {
       subsidiaries: [],
-      method: "Heuristic",
+      method: "heuristic",
       status: "empty",
       tableCount: parseResult?.tableCount ?? 0,
       maxNestingLevel: 0,
@@ -101,7 +70,7 @@ export async function parseExhibit(
       logger.error(`[${filing.accession_number}] HTML parsing failed: ${error.message}`);
       return {
         subsidiaries: [],
-        method: "Failed",
+        method: "failed",
         status: "failed",
         tableCount: 0,
         maxNestingLevel: 0,
@@ -121,7 +90,7 @@ export async function parseExhibit(
 
 function parseTable(
   html: string,
-  filing: { accession_number: string; cik: string }
+  filing: { accession_number: string; cik: string; filingCompanyId: string }
 ): Omit<ParseResult, "method" | "status" | "errorMessage"> | null {
   const $ = load(html, { xmlMode: false, decodeEntities: true });
   const tables = $("table");
@@ -129,7 +98,10 @@ function parseTable(
   if (tables.length === 0) return null;
 
   // Extract footnotes from the entire document first
-  const footnotesHtml = extractDocumentFootnotes($);
+  const rawFootnotesHtml = extractDocumentFootnotes($);
+  
+  // Preprocess footnotes HTML for later LLM enrichment
+  const footnotesHtml = preprocessFootnotesHtml(rawFootnotesHtml);
 
   // Process ALL tables (not just those with keywords)
   // We'll filter out non-subsidiary tables during processing

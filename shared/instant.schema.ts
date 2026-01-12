@@ -20,11 +20,11 @@ const _schema = i.schema({
     // === CURRENTLY USED ENTITIES ===
     company: i.entity({
       name: i.string().indexed(),
-      type: i.number().indexed(), // 1=public, 2=private, 3=issuer, 4=unknown
+      type: i.number().indexed(), // 1=public, 2=private, 3=issuer, 4=unknown, 5=trust
       jurisdiction_raw: i.string().optional(),
       jurisdiction_iso: i.string().optional(),
       aliases: i.json().optional(),
-      identity: i.json().optional(), // { primaryCIK?: string, tickers?: string, ciks?: string, exchanges?: string, sp500?: boolean, lei?: string, duns?: string } - comma-separated strings
+      identity: i.json().optional(),
       updated_at: i.string(),
     }),
     filing: i.entity({

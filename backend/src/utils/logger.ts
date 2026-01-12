@@ -2,8 +2,10 @@ import winston from "winston";
 import "winston-daily-rotate-file";
 import path from "path";
 import fs from "fs";
+import type { Logger, LogMetadata } from "@financial-graph/shared";
 
-const LOG_DIR = "logs";
+// Use absolute path to ensure logs go to backend/logs
+const LOG_DIR = path.resolve(__dirname, "../../logs");
 const LATEST_LOG_PATH = path.join(LOG_DIR, "latest.log");
 
 // Ensure logs directory exists
@@ -62,13 +64,53 @@ const fileFormat = FILE_FORMAT_TYPE === "json" ? jsonFormat : humanReadableForma
 
 // Daily rotating file transport (keeps logs by day)
 const dailyTransport = new winston.transports.DailyRotateFile({
-  filename: "%DATE%/audit.log", // Creates logs/2026-01-05/audit.log
+  filename: "audit.log.%DATE%", // Creates logs/audit.log.2026-01-12
   dirname: LOG_DIR,
   datePattern: "YYYY-MM-DD",
   maxSize: "20m",
-  maxFiles: "3d", // Retention: 3 days
+  maxFiles: "3d", // Retention: 3 days (automatically deletes older files)
   format: fileFormat,
+  auditFile: path.join(LOG_DIR, ".winston-audit.json"), // Track rotation metadata
 });
+
+// Clean up old/orphaned log files on startup
+function cleanupOldLogs() {
+  try {
+    const files = fs.readdirSync(LOG_DIR);
+    const now = new Date();
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    
+    for (const file of files) {
+      // Skip current files and directories
+      if (file === "latest.log" || 
+          file === ".winston-audit.json" || 
+          file === "README.md" ||
+          file === "failed-records") {
+        continue;
+      }
+      
+      const filePath = path.join(LOG_DIR, file);
+      const stats = fs.statSync(filePath);
+      
+      // Delete old log files
+      if (stats.isFile() && stats.mtime < threeDaysAgo) {
+        fs.unlinkSync(filePath);
+        console.log(`   - Cleaned up old log: ${file}`);
+      }
+      
+      // Clean up old audit.json files from previous configurations
+      if (file.endsWith("-audit.json") && file !== ".winston-audit.json") {
+        fs.unlinkSync(filePath);
+        console.log(`   - Cleaned up old audit file: ${file}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error cleaning up old logs:", error);
+  }
+}
+
+// Run cleanup on startup
+cleanupOldLogs();
 
 // Latest.log transport (overwritten each run)
 const latestTransport = new winston.transports.File({
@@ -87,20 +129,20 @@ const baseLogger = winston.createLogger({
 });
 
 // Context-aware Logger Factory
-export const createLogger = (context: string) => {
+export const createLogger = (context: string): Logger => {
   const commonMeta = { module: context };
 
   return {
-    debug: (msg: string, meta: Record<string, any> = {}) => {
+    debug: (msg: string, meta: LogMetadata = {}) => {
       baseLogger.debug(msg, { ...commonMeta, ...meta });
     },
-    info: (msg: string, meta: Record<string, any> = {}) => {
+    info: (msg: string, meta: LogMetadata = {}) => {
       baseLogger.info(msg, { ...commonMeta, ...meta });
     },
-    warn: (msg: string, meta: Record<string, any> = {}) => {
+    warn: (msg: string, meta: LogMetadata = {}) => {
       baseLogger.warn(msg, { ...commonMeta, ...meta });
     },
-    error: (msg: string, meta: Record<string, any> = {}) => {
+    error: (msg: string, meta: LogMetadata = {}) => {
       baseLogger.error(msg, { ...commonMeta, ...meta });
     },
   };
@@ -108,3 +150,14 @@ export const createLogger = (context: string) => {
 
 // Deprecated: Use createLogger instead
 export const logger = createLogger("Global");
+
+// Log retention verification on startup
+dailyTransport.on("rotate", (oldFilename, newFilename) => {
+  console.log(`Log rotated: ${oldFilename} -> ${newFilename}`);
+});
+
+// Verify log directory and retention settings
+console.log(`📝 Logger initialized:`);
+console.log(`   - Log directory: ${LOG_DIR}`);
+console.log(`   - Retention: 3 days`);
+console.log(`   - Latest log: ${LATEST_LOG_PATH}`);

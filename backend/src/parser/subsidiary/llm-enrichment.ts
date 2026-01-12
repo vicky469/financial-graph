@@ -12,17 +12,22 @@
  * - Preserves original data if LLM fails
  */
 
-import { Ollama } from "ollama";
 import { createLogger } from "../../utils/logger";
 import type { SubsidiaryRecord } from "./types";
+import { createLLMProvider, type LLMProvider } from "./llm-provider";
 
 const logger = createLogger("parsers/subsidiary/llm-enrichment");
 
-// Initialize Ollama client
-const ollama = new Ollama({ host: "http://localhost:11434" });
+// Singleton LLM provider instance
+let llmProvider: LLMProvider | null = null;
 
-// Model to use for enrichment (configurable via env)
-const MODEL = process.env.LLM_MODEL || "qwen2:7b";
+function getLLMProvider(): LLMProvider {
+  if (!llmProvider) {
+    llmProvider = createLLMProvider();
+    logger.info(`Initialized LLM provider: ${llmProvider.getName()}`);
+  }
+  return llmProvider;
+}
 
 /**
  * LLM response for ownership enrichment
@@ -84,7 +89,9 @@ export async function enrichWithLLM(
 
   if (needsEnrichment.length === 0 || !footnotesHtml) {
     logger.info(
-      `[${filing.accession_number}] No subsidiaries need LLM enrichment`
+      `[${filing.accession_number}] Skipping LLM enrichment: ` +
+      `${needsEnrichment.length} subsidiaries with footnotes, ` +
+      `footnotesHtml ${footnotesHtml ? 'present' : 'empty'} (${footnotesHtml?.length || 0} chars)`
     );
 
     // Still apply default ownership for subsidiaries with no footnotes
@@ -93,7 +100,8 @@ export async function enrichWithLLM(
   }
 
   logger.info(
-    `[${filing.accession_number}] Enriching ${needsEnrichment.length} subsidiaries with LLM`
+    `[${filing.accession_number}] Enriching ${needsEnrichment.length} subsidiaries with LLM ` +
+    `(footnotesHtml: ${footnotesHtml.length} chars)`
   );
 
   // Build name-to-id map for parent matching
@@ -249,13 +257,8 @@ async function extractOwnershipFromFootnotes(
   );
 
   // Query LLM
-  const response = await ollama.generate({
-    model: MODEL,
-    prompt,
-    stream: false,
-  });
-
-  const answer = response.response.trim();
+  const provider = getLLMProvider();
+  const answer = await provider.generate(prompt);
 
   // Parse response
   return parseOwnershipResponse(answer);

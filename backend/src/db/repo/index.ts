@@ -1,7 +1,11 @@
-import type * as Types from "../../types";
+import type {
+  Company,
+  ParentOfEdge,
+  Filing,
+  SubsidiaryEnrichment,
+} from "@financial-graph/shared";
 import {
   upsertCompany,
-  upsertPublicInfo,
   linkParentChild,
   getCompanyIdByCik,
 } from "./companies";
@@ -23,39 +27,23 @@ export * from "./filings";
 export * from "./enrichments";
 
 export class FinancialGraphRepository {
-  async upsertCompany(companyData: Partial<Types.Company>): Promise<string> {
+  async upsertCompany(companyData: Partial<Company>): Promise<string> {
     return upsertCompany(companyData);
-  }
-
-  async upsertPublicInfo(
-    detailsData: Partial<Types.PublicInfo>
-  ): Promise<string> {
-    return upsertPublicInfo(detailsData);
-  }
-
-  async upsertBusinessSegment(
-    segmentData: Partial<Types.BusinessSegment>
-  ): Promise<string> {
-    return upsertBusinessSegment(segmentData);
-  }
-
-  async upsertBrand(brandData: Partial<Types.Brand>): Promise<string> {
-    return upsertBrand(brandData);
   }
 
   async linkParentChild(
     parentId: string,
     childId: string,
-    customProps: Partial<Types.ParentOfEdge> = {}
+    customProps: Partial<ParentOfEdge> = {}
   ): Promise<string> {
     return linkParentChild(parentId, childId, customProps);
   }
 
-  async upsertFiling(filingData: Partial<Types.Filing>): Promise<string> {
+  async upsertFiling(filingData: Partial<Filing> & { company_id: string }): Promise<string> {
     return upsertFiling(filingData);
   }
 
-  async getCompanyIdByCik(cik: string): Promise<string> {
+  getCompanyIdByCik(cik: string): string {
     return getCompanyIdByCik(cik);
   }
 
@@ -71,7 +59,7 @@ export class FinancialGraphRepository {
   async queryUnenriched(options?: {
     limit?: number;
     filing_id?: string;
-  }): Promise<Types.SubsidiaryEnrichment[]> {
+  }): Promise<SubsidiaryEnrichment[]> {
     return queryUnenriched(options);
   }
 

@@ -92,6 +92,28 @@ describe("generateCompanyId", () => {
       });
       expect(publicId).not.toBe(issuerId);
     });
+
+    test("ID changes when primaryCIK changes (older CIK added)", () => {
+      // This test documents expected behavior based on our assumption:
+      // CIKs are assigned sequentially by the SEC, so a company will never
+      // receive an older (smaller) CIK later in practice. However, if it did,
+      // the ID would change because we always use the smallest CIK as primaryCIK.
+      
+      const idWithNewerCIK = generateCompanyId({
+        type: CompanyType.PUBLIC,
+        name: "Test Company",
+        identity: { primaryCIK: "0000500000" }, // Newer CIK
+      });
+      
+      const idWithOlderCIK = generateCompanyId({
+        type: CompanyType.PUBLIC,
+        name: "Test Company",
+        identity: { primaryCIK: "0000100000" }, // Older CIK (smaller number)
+      });
+      
+      // The IDs should be different because primaryCIK is different
+      expect(idWithOlderCIK).not.toBe(idWithNewerCIK);
+    });
   });
 
   describe("PRIVATE companies", () => {

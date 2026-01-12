@@ -1,5 +1,5 @@
 import { db } from "../../../src/db/client";
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect } from "vitest";
 import path from "path";
 import fs from "fs/promises";
 
@@ -14,9 +14,6 @@ interface TickerData {
 }
 
 describe("SEC Ticker Ingestion & Verification", () => {
-  // Increase timeout for heavy reconciliation
-  jest.setTimeout(30000);
-
   let sourceMap: Map<string, { name: string; tickers: Set<string> }>;
 
   it("1. Source Integrity: Should parse source file and identify duplicates", async () => {
@@ -59,25 +56,25 @@ describe("SEC Ticker Ingestion & Verification", () => {
 
   it("2. Sanity Check: DB should have data", async () => {
     const res = await db.query({
-      companies: {
+      company: {
         $: { limit: 1 },
       },
     });
-    expect(res.companies.length).toBeGreaterThan(0);
+    expect(res.company.length).toBeGreaterThan(0);
   });
 
   it("3. Reconciliation: DB Content should match Source Data exactly", async () => {
     // Fetch ALL public companies from DB
     const res = await db.query({
-      companies: {
+      company: {
         $: {
           fields: ["identity", "name"],
-          where: { type: "public" },
+          where: { type: 1 }, // Type 1 = PUBLIC
         },
       },
     });
 
-    const dbCompanies = res.companies;
+    const dbCompanies = res.company;
     console.log(`\n🏦 DB Data: Found ${dbCompanies.length} public companies.`);
 
     // 1. Count Match

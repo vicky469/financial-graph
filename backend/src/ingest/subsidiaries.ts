@@ -8,12 +8,12 @@
  * 4. Reports count of subsidiaries needing LLM enrichment
  *
  * Usage:
- *   npm run ingest:subsidiaries                              # Default: all exhibits, excel output
- *   npm run ingest:subsidiaries -- --sink=excel              # Excel only
- *   npm run ingest:subsidiaries -- --sink=db                 # InstantDB only
- *   npm run ingest:subsidiaries -- --sink=excel,db           # Both
- *   npm run ingest:subsidiaries -- --sink=none               # Dry run (parse only)
- *   npm run ingest:subsidiaries -- --limit=10                # Process only first 10 files
+ *   bun run ingest:subsidiaries                              # Default: all exhibits, excel output
+ *   bun run ingest:subsidiaries -- --sink=excel              # Excel only
+ *   bun run ingest:subsidiaries -- --sink=db                 # InstantDB only
+ *   bun run ingest:subsidiaries -- --sink=excel,db           # Both
+ *   bun run ingest:subsidiaries -- --sink=none               # Dry run (parse only)
+ *   bun run ingest:subsidiaries -- --limit=10                # Process only first 10 files
  */
 
 import { createLogger } from "../utils/logger";
