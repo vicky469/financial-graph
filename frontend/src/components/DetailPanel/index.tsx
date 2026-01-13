@@ -52,7 +52,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-base font-semibold text-foreground leading-tight">{node.name}</h2>
+              <h2 className="text-sm font-semibold text-foreground leading-tight">{node.name}</h2>
               {isLoading && (
                 <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin shrink-0" />
               )}
@@ -81,9 +81,37 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
         onValueChange={(v) => setActiveTab(v as "info" | "audit")}
         className="flex-1 flex flex-col overflow-hidden"
       >
-        <TabsList className="grid w-full grid-cols-2 mx-5 mt-2">
-          <TabsTrigger value="info">Company Info</TabsTrigger>
-          <TabsTrigger value="audit">Audit</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 mx-5 mt-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px', borderRadius: '8px' }}>
+          <TabsTrigger 
+            value="info"
+            className="cursor-pointer select-none"
+            style={{
+              backgroundColor: activeTab === 'info' ? 'rgba(255,255,255,0.2)' : 'transparent',
+              color: activeTab === 'info' ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.5)',
+              fontWeight: activeTab === 'info' ? '600' : '400',
+              borderRadius: '6px',
+              transition: 'all 0.2s ease',
+              padding: '12px 16px',
+              fontSize: '14px',
+            }}
+          >
+            Company Info
+          </TabsTrigger>
+          <TabsTrigger 
+            value="audit"
+            className="cursor-pointer select-none"
+            style={{
+              backgroundColor: activeTab === 'audit' ? 'rgba(255,255,255,0.2)' : 'transparent',
+              color: activeTab === 'audit' ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.5)',
+              fontWeight: activeTab === 'audit' ? '600' : '400',
+              borderRadius: '6px',
+              transition: 'all 0.2s ease',
+              padding: '12px 16px',
+              fontSize: '14px',
+            }}
+          >
+            Audit
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="info" className="flex-1 overflow-y-auto mt-0">

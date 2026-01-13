@@ -22,7 +22,6 @@ const UNKNOWN_CIKS_FILE = path.resolve(
 const TARGET_FORMS = new Set(["10-K", "20-F"]);
 const BATCH_SIZE = 500; // Batch database operations
 
-import { db } from "../db/client";
 
 async function main() {
   logger.info("Starting Filing Ingestion...", { input: INPUT_CSV });

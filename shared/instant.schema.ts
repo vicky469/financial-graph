@@ -104,7 +104,7 @@ const _schema = i.schema({
     }),
   },
   links: {
-    // Company -> Filing
+    // Company -> Filing (many-to-many: multiple companies can file the same document)
     filing: {
       forward: {
         on: "company",
@@ -113,8 +113,8 @@ const _schema = i.schema({
       },
       reverse: {
         on: "filing",
-        has: "one",
-        label: "company",
+        has: "many",
+        label: "companies",
       },
     },
     // Parent company link (parent_of.parentCompany -> company)

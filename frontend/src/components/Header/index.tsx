@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import React from "react";
 
 interface HeaderProps {
   onSearchFiling?: (companyId: string) => void;
@@ -11,6 +12,8 @@ export function Header({ onSearchFiling }: HeaderProps) {
   const [accessionSearch, setAccessionSearch] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   const handleSearch = async () => {
     if (!accessionSearch.trim()) return;
@@ -106,25 +109,32 @@ export function Header({ onSearchFiling }: HeaderProps) {
         <span style={{ marginLeft: "5px" }} className="text-sm font-medium text-foreground/80">Financial Graph</span>
       </div>
 
-      {/* Accession Number Search */}
-      <div className="ml-auto flex items-center gap-2">
-        <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)"}}>Accession #</span>
-        <div style={{
+      {/* Accession Number Search - Centered */}
+      <div className="flex-1 flex items-center justify-center gap-2">
+        <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)", marginRight: "10px"}}>Accession #</span>
+        <div 
+          onClick={() => inputRef.current?.focus()}
+          style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.1)",
+          background: isFocused ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)",
+          border: isFocused ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.1)",
           borderRadius: "6px",
           padding: "0 10px",
           height: "32px",
           minWidth: "200px",
+          cursor: "text",
+          transition: "all 0.2s ease",
         }}>
-          <Search size={14} style={{ color: "rgba(255,255,255,0.4)", flexShrink: 0 }} />
+          <Search size={14} style={{ color: isFocused ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.4)", flexShrink: 0, transition: "color 0.2s ease" }} />
           <input
+            ref={inputRef}
             type="text"
             placeholder="e.g. 0001193125-24-012345"
             value={accessionSearch}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             onChange={(e) => {
               setAccessionSearch(e.target.value.replace(/-/g, ""));
               setError(null);
