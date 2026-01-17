@@ -19,10 +19,8 @@ export function isLikelyFooterTable($: any, table: any): boolean {
   const rows = table.find("tr");
   const text = table.text().toLowerCase();
   
-  // Check for footer keywords
-  const footerKeywords = ["excludes", "exclude", "note:", "liquidation", "dissolution", "dormant", "inactive"];
-  const hasFooterKeywords = footerKeywords.some(kw => text.includes(kw));
-  if (hasFooterKeywords) return true;
+  // Check for footer keywords using the centralized keyword set
+  if (containsAny(text, SUBSIDIARY_KEYWORDS.FOOTNOTE_MARKERS)) return true;
   
   // Check if cells have long text (>100 chars)
   let longCells = 0, totalCells = 0;

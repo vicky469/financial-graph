@@ -4,7 +4,7 @@ import { createReadStream } from "fs";
 import readline from "readline";
 import { FinancialGraphRepository } from "../db/repo";
 import { createLogger } from "../utils/logger";
-import { loadCikLookupCache } from "../db/repo/cik-lookup";
+import { loadCikLookupCache } from "../db/queries";
 
 const logger = createLogger("ingest/filings");
 

@@ -33,7 +33,7 @@ export function extractSubsidiaries(
   rows: any,
   headerRowIndex: number,
   headers: string[],
-  filing: { accession_number: string; cik: string; filingCompanyId: string }
+  filing: { accession_number: string; cik: string; filingCompanyId: string; filingCompanyName: string }
 ): SubsidiaryRecord[] {
   const subsidiaries: SubsidiaryRecord[] = [];
   const parentStack = new ParentStack();
@@ -151,7 +151,7 @@ export function extractSubsidiaries(
       parentId = parent?.id ?? parentCompanyId;
     } else {
       // Level 0 - parent is always the filing company
-      parentName = undefined;
+      parentName = filing.filingCompanyName;
       parentId = parentCompanyId;
     }
 

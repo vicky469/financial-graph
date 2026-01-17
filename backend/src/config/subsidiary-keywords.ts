@@ -12,6 +12,7 @@ const SUBSIDIARY_NAME = new Set([
   "subsidiaries",
   "entity",
   "company",
+  "organization",
 ]);
 
 /** Keywords that identify jurisdiction/incorporation columns */
@@ -28,10 +29,30 @@ const JURISDICTION = new Set([
 /** Keywords that identify percentage/ownership columns */
 const PERCENTAGE = new Set(["percent", "%", "ownership"]);
 
+/** Keywords that identify footnote/note tables */
+const FOOTNOTE_MARKERS = new Set([
+  "note",
+  "excludes", 
+  "exclude",
+  "includes",
+  "see",
+  "refer",
+  "footnote",
+  "reference",
+  "except",
+  "excluding",
+  "including",
+  "liquidation",
+  "dissolution", 
+  "dormant",
+  "inactive",
+]);
+
 export const SUBSIDIARY_KEYWORDS = {
   SUBSIDIARY_NAME,
   JURISDICTION,
   PERCENTAGE,
+  FOOTNOTE_MARKERS,
 
   /** Title/header row markers (combined from above) */
   TITLE_MARKERS: new Set([...SUBSIDIARY_NAME, ...JURISDICTION, ...PERCENTAGE]),

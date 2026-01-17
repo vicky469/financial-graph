@@ -14,7 +14,11 @@
     "./schema": "./dist/types/schema.js",
     "./validation": "./dist/types/validation.js",
     "./composite-keys": "./dist/types/composite-keys.js",
-    "./ids": "./dist/types/ids.js"
+    "./ids": "./dist/types/ids.js",
+    "./db": {
+      "types": "./dist/db/index.d.ts",
+      "default": "./dist/db/index.js"
+    }
   },
   "scripts": {
     "build": "tsc",

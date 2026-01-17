@@ -27,6 +27,29 @@ import { extractSubsidiaries } from "./extraction";
 import { preprocessFootnotesHtml } from "./footnotes-preprocessor";
 import { SUBSIDIARY_KEYWORDS, containsAny } from "../../config/subsidiary-keywords";
 
+// Refactored parser imports
+import { detectDocumentStructure } from "./structure-detection";
+import { extractSubsidiaryRecords, type ContentExtractionResult } from "./content-extraction";
+import type {
+  ParserConfig,
+  DocumentStructure,
+} from "./types-refactored";
+import { DEFAULT_CONFIG, ParserError } from "./types-refactored";
+
+// Re-export refactored types
+export type {
+  ParserConfig,
+  DocumentStructure,
+  TableInfo,
+  DocumentClassification,
+  TableType,
+  ContentExtractionInput,
+} from "./types-refactored";
+export { DEFAULT_CONFIG, ParserError } from "./types-refactored";
+
+// Re-export content extraction types
+export type { ContentExtractionResult } from "./content-extraction";
+
 const logger = createLogger("parsers/subsidiary");
 
 // ============================================================================
@@ -243,4 +266,90 @@ function parseTable(
     maxNestingLevel,
     footnotesHtml,
   };
+}
+
+// ============================================================================
+// Refactored Two-Phase Parser (New Architecture)
+// ============================================================================
+
+/**
+ * Parse SEC exhibit using refactored two-phase architecture
+ *
+ * Phase 1: Structure Detection - Analyzes HTML to identify tables and their types
+ * Phase 2: Content Extraction - Extracts subsidiary records using battle-tested logic
+ *
+ * This produces the same ParseResult format as parseExhibit for compatibility,
+ * but uses the two-phase architecture for better maintainability.
+ *
+ * @param html - HTML content to parse
+ * @param filing - Filing information for logging and ID generation
+ * @param config - Parser configuration (optional, defaults to DEFAULT_CONFIG)
+ * @returns ParseResult containing subsidiaries and metadata
+ * @throws ParserError if parsing fails
+ */
+export async function parseExhibitRefactored(
+  html: string,
+  filing: { accession_number: string; cik: string; filingCompanyId: string; filingCompanyName?: string },
+  config: ParserConfig = DEFAULT_CONFIG
+): Promise<ParseResult> {
+  try {
+    logger.info(`[${filing.accession_number}] Starting two-phase parsing`);
+
+    // Phase 1: Detect document structure
+    logger.debug(`[${filing.accession_number}] Phase 1: Structure detection`);
+    const structure = detectDocumentStructure(html, config);
+    
+    logger.info(`[${filing.accession_number}] Structure detected: ${structure.classification}, ${structure.totalTableCount} total tables, ${structure.tables.length} subsidiary tables`);
+
+    // Phase 2: Extract subsidiary records
+    logger.debug(`[${filing.accession_number}] Phase 2: Content extraction`);
+    const result = extractSubsidiaryRecords({
+      structure,
+      html,
+      config,
+      filing,
+    });
+
+    // Determine status
+    const status: ParseResult["status"] = result.subsidiaries.length > 0 ? "success" : "empty";
+    
+    logger.info(`[${filing.accession_number}] Parsing complete: ${status}, ${result.subsidiaries.length} subsidiaries extracted`);
+
+    // Log detailed info for empty results to help debug
+    if (result.subsidiaries.length === 0) {
+      logger.info(`[${filing.accession_number}] EMPTY RESULT DETAILS: classification=${structure.classification}, totalTables=${structure.totalTableCount}, subsidiaryTables=${structure.tables.length}, textBased=${structure.textBased ? structure.textBased.entryCount : 0}`);
+    }
+
+    return {
+      subsidiaries: result.subsidiaries,
+      method: "heuristic",
+      status,
+      tableCount: result.tableCount,
+      maxNestingLevel: result.maxNestingLevel,
+      footnotesHtml: result.footnotesHtml,
+    };
+  } catch (error: any) {
+    logger.error(`[${filing.accession_number}] Parsing failed: ${error.message}`);
+    
+    // If it's already a ParserError, re-throw it
+    if (error instanceof ParserError) {
+      throw error;
+    }
+
+    // Catch Cheerio/HTML parsing errors and wrap them
+    if (error.name === "CheerioError" || error.message?.includes("Invalid HTML")) {
+      throw new ParserError(
+        `HTML parsing failed: ${error.message}`,
+        "HTML_PARSE_ERROR",
+        { originalError: error }
+      );
+    }
+
+    // All other errors - wrap in ParserError
+    throw new ParserError(
+      `Parsing failed: ${error.message}`,
+      "UNKNOWN_ERROR",
+      { originalError: error }
+    );
+  }
 }

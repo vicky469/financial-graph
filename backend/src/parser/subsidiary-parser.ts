@@ -9,8 +9,8 @@
  * - src/parsers/subsidiary/types.ts (type definitions)
  */
 
-// Re-export main parser function
-export { parseExhibit } from "./subsidiary/index";
+// Re-export main parser functions
+export { parseExhibit, parseExhibitRefactored } from "./subsidiary/index";
 
 // Re-export types
 export type {
@@ -20,3 +20,10 @@ export type {
   ColumnAnalysis,
   ParsedColumns,
 } from "./subsidiary/types";
+
+// Re-export refactored types
+export type {
+  ParserConfig,
+  DocumentStructure,
+  TableInfo,
+} from "./subsidiary/index";

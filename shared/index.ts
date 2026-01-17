@@ -20,3 +20,6 @@ export * from "./types/ids";
 
 // Export shared utilities
 export * from "./utils";
+
+// Export database client and queries
+export * from "./db";

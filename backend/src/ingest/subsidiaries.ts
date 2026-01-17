@@ -17,7 +17,11 @@
  */
 
 import { createLogger } from "../utils/logger";
-import { parseExhibit, SubsidiaryRecord } from "../parser/subsidiary-parser";
+import {
+  parseExhibitRefactored,
+  ParserError,
+} from "../parser/subsidiary";
+import type { SubsidiaryRecord } from "../parser/subsidiary/types";
 import { MissingDBValueError } from "../parser/subsidiary/errors";
 import fs from "fs/promises";
 import path from "path";
@@ -34,7 +38,7 @@ const logger = createLogger("ingest/subsidiaries");
 
 type SinkType = "excel" | "db" | "none";
 
-function parseArgs(): { sinks: SinkType[]; limit?: number } {
+function parseArgs(): { sinks: SinkType[]; limit?: number; accessions?: string[] } {
   const args = process.argv.slice(2);
   
   // Parse sink argument
@@ -69,7 +73,23 @@ function parseArgs(): { sinks: SinkType[]; limit?: number } {
     }
   }
 
-  return { sinks, limit };
+  // Parse accessions argument
+  const accessionsArg = args.find((a) => a.startsWith("--accessions="));
+  let accessions: string[] | undefined;
+
+  if (accessionsArg) {
+    const accessionsValue = accessionsArg.replace("--accessions=", "");
+    accessions = accessionsValue.split(",").map((s) => s.trim()).filter(Boolean);
+    
+    if (accessions.length === 0) {
+      logger.error(`Invalid accessions: ${accessionsArg}. Must be a comma-separated list of accession numbers.`);
+      process.exit(1);
+    }
+    
+    logger.info(`Filtering to specific accessions: ${accessions.join(", ")}`);
+  }
+
+  return { sinks, limit, accessions };
 }
 
 // ============================================================================
@@ -97,6 +117,7 @@ interface CachedFilePreFilter {
 
 interface CachedFile extends CachedFilePreFilter {
   filingCompanyId: string; // Company ID from database (required - must be set during filtering)
+  filingCompanyName?: string; // Company name from database (optional, for parser context)
 }
 
 interface ParseOutput {
@@ -119,13 +140,13 @@ interface ParseOutput {
 // ============================================================================
 
 /**
- * Preprocess cached files: validate they exist in DB and enrich with company_id
+ * Preprocess cached files: validate they exist in DB and enrich with company_id and company_name
  * Uses CIK lookup cache for efficient company_id resolution
  * Note: Assumes CIK lookup cache is already loaded
  */
 async function preprocessCachedFiles(targets: CachedFilePreFilter[]): Promise<CachedFile[]> {
   const { db } = await import("../db/client");
-  const { getCompanyIdByCik } = await import("../db/repo/cik-lookup");
+  const { lookupCompanyIdByCik } = await import("../db/queries/cik-lookup");
   
   logger.info(`Preprocessing ${targets.length} cached files...`);
   
@@ -141,7 +162,7 @@ async function preprocessCachedFiles(targets: CachedFilePreFilter[]): Promise<Ca
     
     // Normalize CIK to 10 digits
     const normalizedCik = target.filing.cik.padStart(10, '0');
-    const companyId = getCompanyIdByCik(normalizedCik);
+    const companyId = lookupCompanyIdByCik(normalizedCik);
     
     if (!companyId) {
       logger.debug(`[${target.filing.accession_number}] Company not found for CIK ${normalizedCik} - skipping`);
@@ -154,11 +175,32 @@ async function preprocessCachedFiles(targets: CachedFilePreFilter[]): Promise<Ca
   
   logger.info(`Found ${companyIds.size} unique companies from ${targetWithCompanyId.length} files`);
   
-  // Add the company ID to create complete CachedFile records
+  // Fetch company names from database
+  const companyNames = new Map<string, string>();
+  if (companyIds.size > 0) {
+    const companies = await db.query({
+      company: {
+        $: {
+          where: {
+            id: { in: Array.from(companyIds) },
+          },
+        },
+      },
+    });
+    
+    for (const company of companies.company || []) {
+      companyNames.set(company.id, company.name);
+    }
+    
+    logger.info(`Fetched names for ${companyNames.size} companies`);
+  }
+  
+  // Add the company ID and name to create complete CachedFile records
   // Note: CIK lookup is only for public companies, so no need to verify company type
   const validTargets: CachedFile[] = targetWithCompanyId.map(({ target, companyId }) => ({
     ...target,
     filingCompanyId: companyId,
+    filingCompanyName: companyNames.get(companyId),
   }));
   
   const noCik = targets.length - targetWithCompanyId.length;
@@ -173,18 +215,18 @@ async function preprocessCachedFiles(targets: CachedFilePreFilter[]): Promise<Ca
 // ============================================================================
 
 async function main() {
-  const { sinks, limit } = parseArgs();
+  const { sinks, limit, accessions } = parseArgs();
   const startTime = performance.now();
 
   logger.info(`Starting Subsidiary Ingestion for Year ${TARGET_YEAR}...`);
   logger.info(
     `Configuration: Concurrency=${CONCURRENCY}, Sinks=${sinks.join(
       ","
-    )}${limit ? `, Limit=${limit}` : ""}`
+    )}${limit ? `, Limit=${limit}` : ""}${accessions ? `, Accessions=${accessions.length}` : ""}`
   );
 
   // Load CIK lookup cache once at startup
-  const { loadCikLookupCache } = await import("../db/repo/cik-lookup");
+  const { loadCikLookupCache } = await import("../db/queries/cik-lookup");
   await loadCikLookupCache();
   logger.info("CIK lookup cache loaded");
 
@@ -201,7 +243,28 @@ async function main() {
     logger.info(`Loaded ${targets.length} ${exhibitType} files`);
   }
 
-  // Apply limit if specified
+  // Apply accessions filter if specified
+  if (accessions && accessions.length > 0) {
+    const originalCount = preFilterTargets.length;
+    preFilterTargets = preFilterTargets.filter(target => 
+      accessions.includes(target.filing.accession_number)
+    );
+    logger.info(`Filtered to ${preFilterTargets.length} files matching specified accessions (from ${originalCount} total)`);
+    
+    // Log which accessions were found and which were missing
+    const foundAccessions = preFilterTargets.map(t => t.filing.accession_number);
+    const missingAccessions = accessions.filter(acc => !foundAccessions.includes(acc));
+    
+    if (foundAccessions.length > 0) {
+      logger.info(`Found accessions: ${foundAccessions.join(", ")}`);
+    }
+    
+    if (missingAccessions.length > 0) {
+      logger.warn(`Missing accessions (not found in cache): ${missingAccessions.join(", ")}`);
+    }
+  }
+
+  // Apply limit if specified (after accessions filter)
   if (limit && limit < preFilterTargets.length) {
     preFilterTargets = preFilterTargets.slice(0, limit);
     logger.info(`Limited to first ${limit} files`);
@@ -362,7 +425,7 @@ async function decompressFile(filePath: string): Promise<string> {
 // ============================================================================
 
 async function processCachedFiling(target: CachedFile): Promise<ParseOutput> {
-  const { filing, url, cachePath, exhibitType, filingCompanyId } = target;
+  const { filing, url, cachePath, exhibitType, filingCompanyId, filingCompanyName } = target;
 
   // Validate required fields
   if (!filing.cik) {
@@ -380,30 +443,50 @@ async function processCachedFiling(target: CachedFile): Promise<ParseOutput> {
     // 1. Decompress and load HTML
     const html = await decompressFile(cachePath);
 
-    // 2. Parse with heuristic approach only, passing the actual filingCompanyId from DB
-    const parseResult = await parseExhibit(
+    // 2. Parse with refactored two-phase parser (returns ParseResult directly)
+    const result = await parseExhibitRefactored(
       html,
       { accession_number: filing.accession_number, cik: normalizedCik, filingCompanyId },
     );
 
-    const success = parseResult.method !== "failed";
-    const hasNestedStructure = parseResult.maxNestingLevel > 0;
+    const success = result.status === "success" || result.status === "empty";
+    const hasNestedStructure = result.maxNestingLevel > 0;
 
     return {
       accession: filing.accession_number,
       cik: normalizedCik,
       exhibitType,
       url,
-      method: parseResult.method,
+      method: result.method,
       success,
-      subsidiaryCount: parseResult.subsidiaries.length,
-      maxNestingLevel: parseResult.maxNestingLevel,
+      subsidiaryCount: result.subsidiaries.length,
+      maxNestingLevel: result.maxNestingLevel,
       hasNestedStructure,
-      errorMessage: parseResult.errorMessage,
-      subsidiaries: parseResult.subsidiaries,
-      footnotesHtml: parseResult.footnotesHtml,
+      errorMessage: result.errorMessage,
+      subsidiaries: result.subsidiaries,
+      footnotesHtml: result.footnotesHtml,
     };
   } catch (error) {
+    // Handle ParserError
+    if (error instanceof ParserError) {
+      logger.error(
+        `[${filing.accession_number}] ParserError: ${error.message}`
+      );
+      return {
+        accession: filing.accession_number,
+        cik: filing.cik,
+        exhibitType,
+        url,
+        method: "failed",
+        success: false,
+        subsidiaryCount: 0,
+        maxNestingLevel: 0,
+        hasNestedStructure: false,
+        errorMessage: error.message,
+        subsidiaries: [],
+      };
+    }
+    
     // Add Accession # context to MissingDBValueError while preserving stack trace
     if (error instanceof MissingDBValueError) {
       logger.error(
@@ -414,7 +497,7 @@ async function processCachedFiling(target: CachedFile): Promise<ParseOutput> {
         cik: filing.cik,
         exhibitType,
         url,
-        method: "Failed",
+        method: "failed",
         success: false,
         subsidiaryCount: 0,
         maxNestingLevel: 0,
@@ -524,14 +607,6 @@ async function writeFailedExcel(results: ParseOutput[], filePath: string) {
       errorMessage: r.errorMessage || "Unknown error",
     });
   });
-
-  // Style header row
-  sheet.getRow(1).font = { bold: true };
-  sheet.getRow(1).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFE0E0E0" },
-  };
 
   await workbook.xlsx.writeFile(filePath);
   logger.info(
