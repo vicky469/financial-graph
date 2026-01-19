@@ -18,8 +18,7 @@
     "download:ex21": "bun src/data_source/sec/scripts/download_exhibit_files.ts EX-21",
     "download:ex8": "bun src/data_source/sec/scripts/download_exhibit_files.ts EX-8",
     "fetch:sp500": "bun src/data_source/sp500/fetch-sp500-list.ts",
-    "mark:sp500": "bun src/scripts/mark-sp500-companies.ts",
-    "validate:csv": "bun src/scripts/validate-subsidiaries-csv.ts"
+    "mark:sp500": "bun src/scripts/mark-sp500-companies.ts"
   },
   "keywords": [],
   "author": "",
