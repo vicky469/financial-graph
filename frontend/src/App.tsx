@@ -13,6 +13,7 @@ function AppContent() {
 
   const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState<string | null>(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showSP500Only, setShowSP500Only] = useState(true); // Persistent filter state at App level
 
   // Derive selectedNodeId from URL param - no state needed
   const selectedNodeId = companyId || null;
@@ -81,6 +82,8 @@ function AppContent() {
           onSelectNode={handleSelectNode} 
           selectedNodeId={selectedNodeId} 
           onSubsidiaryClick={handleSelectSubsidiary}
+          showSP500Only={showSP500Only}
+          onFilterChange={setShowSP500Only}
         />
 
         <main className="flex-1 min-w-0 relative bg-background flex flex-col overflow-hidden">

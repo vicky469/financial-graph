@@ -4,11 +4,12 @@ import { useAllCompaniesCached } from "../../db/queries";
 
 interface CompanyListProps {
   onSelectNode: (id: string) => void;
+  showSP500Only: boolean;
+  onFilterChange: (showSP500Only: boolean) => void;
 }
 
-export const CompanyList = memo(function CompanyList({ onSelectNode }: CompanyListProps) {
+export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500Only, onFilterChange }: CompanyListProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [showSP500Only, setShowSP500Only] = useState(true); // Default to SP500 only
   const { companies: allCompanies, isLoading } = useAllCompaniesCached();
 
   const companies = useMemo(() => {
@@ -84,7 +85,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode }: CompanyLi
       {/* Filter Toggle */}
       <div style={{ padding: "0 16px 12px" }}>
         <button
-          onClick={() => setShowSP500Only(!showSP500Only)}
+          onClick={() => onFilterChange(!showSP500Only)}
           style={{
             display: "flex",
             alignItems: "center",

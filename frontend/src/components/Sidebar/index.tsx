@@ -7,9 +7,11 @@ interface SidebarProps {
   onSelectNode: (id: string | null) => void;
   selectedNodeId: string | null;
   onSubsidiaryClick?: (subsidiaryId: string) => void;
+  showSP500Only: boolean;
+  onFilterChange: (showSP500Only: boolean) => void;
 }
 
-export function Sidebar({ onSelectNode, selectedNodeId, onSubsidiaryClick }: SidebarProps) {
+export function Sidebar({ onSelectNode, selectedNodeId, onSubsidiaryClick, showSP500Only, onFilterChange }: SidebarProps) {
   const MIN_WIDTH = 240;
   const MAX_WIDTH = 360;
   const DEFAULT_LIST_WIDTH = 260;
@@ -101,7 +103,11 @@ export function Sidebar({ onSelectNode, selectedNodeId, onSubsidiaryClick }: Sid
             onSubsidiaryClick={onSubsidiaryClick}
           />
         ) : (
-          <CompanyList onSelectNode={onSelectNode} />
+          <CompanyList 
+            onSelectNode={onSelectNode} 
+            showSP500Only={showSP500Only}
+            onFilterChange={onFilterChange}
+          />
         )}
       </div>
 
