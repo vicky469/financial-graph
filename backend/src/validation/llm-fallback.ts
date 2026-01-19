@@ -8,6 +8,8 @@
 import { SubsidiaryRecord, ParseResult } from "../parser/subsidiary/types";
 import { LLMModification } from "../parser/subsidiary/llm-enrichment";
 import { createLogger } from "../utils/logger";
+import { generateCompanyId } from "@financial-graph/shared/ids";
+import { CompanyType } from "@financial-graph/shared/types";
 
 const logger = createLogger("validation/llm-fallback");
 
@@ -58,8 +60,19 @@ export async function llmFallbackParse(
         continue;
       }
 
+      // Determine company type based on jurisdiction presence
+      const companyType = !llmSub.jurisdiction || llmSub.jurisdiction.trim() === '' 
+        ? CompanyType.UNKNOWN 
+        : CompanyType.PRIVATE;
+
+      const subsidiaryId = generateCompanyId({
+        type: companyType,
+        name: llmSub.name.trim(),
+        jurisdiction_raw: llmSub.jurisdiction.trim(),
+      });
+
       const record: SubsidiaryRecord = {
-        id: generateId(),
+        id: subsidiaryId,
         name: llmSub.name.trim(),
         jurisdiction: llmSub.jurisdiction.trim(),
         nestingLevel: 0, // LLM doesn't provide nesting info
@@ -100,7 +113,7 @@ export async function llmFallbackParse(
     return enhancedResult;
 
   } catch (error) {
-    logger.error(`LLM fallback failed for ${filingInfo.accession_number}:`, error);
+    logger.error(`LLM fallback failed for ${filingInfo.accession_number}: ${error instanceof Error ? error.message : String(error)}`);
     
     return {
       ...originalResult,
@@ -258,11 +271,4 @@ function calculateModifications(
   });
 
   return modifications;
-}
-
-/**
- * Generate a simple ID for subsidiaries
- */
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 15);
 }
