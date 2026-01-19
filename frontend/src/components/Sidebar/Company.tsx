@@ -204,11 +204,16 @@ export function Company({ node, onBack, onSubsidiaryClick }: CompanyProps) {
                             padding: "8px 10px",
                           }}
                         >
-                          {new Date(filing.filingDate).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                          {(() => {
+                            // Parse date string as local date to avoid timezone issues
+                            const [year, month, day] = filing.filingDate.split('-').map(Number);
+                            const date = new Date(year, month - 1, day);
+                            return date.toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            });
+                          })()}
                         </TableCell>
                         <TableCell
                           style={{
@@ -217,13 +222,16 @@ export function Company({ node, onBack, onSubsidiaryClick }: CompanyProps) {
                             padding: "8px 10px",
                           }}
                         >
-                          {filing.periodOfReport ? (
-                            new Date(filing.periodOfReport).toLocaleDateString("en-US", {
+                          {filing.periodOfReport ? (() => {
+                            // Parse date string as local date to avoid timezone issues
+                            const [year, month, day] = filing.periodOfReport.split('-').map(Number);
+                            const date = new Date(year, month - 1, day);
+                            return date.toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
                               year: "numeric",
-                            })
-                          ) : (
+                            });
+                          })() : (
                             <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
                           )}
                         </TableCell>
