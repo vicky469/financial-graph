@@ -19,8 +19,8 @@ const companiesCache = {
   TTL: 5 * 60 * 1000, // 5 minutes cache
 };
 
-// Load ALL public companies (lightweight - just id, name, type)
-// Excludes ISSUER and TRUST companies
+// Load SP500 companies only (lightweight - just id, name, type)
+// Matches the backend pipeline filtering
 export const useAllCompanies = () => {
   const { data, isLoading } = db.useQuery({
     company: {
@@ -36,7 +36,12 @@ export const useAllCompanies = () => {
     if (!data?.company) return [];
     
     return (data.company ?? [])
-      .filter((c: any) => c.name && c.name.trim() !== "") // Filter out empty names
+      .filter((c: any) => {
+        // Filter for SP500 companies only
+        if (!c.identity?.sp500) return false;
+        // Filter out empty names
+        return c.name && c.name.trim() !== "";
+      })
       .map((c: any) => ({
         id: c.id,
         name: c.name,
@@ -46,7 +51,7 @@ export const useAllCompanies = () => {
       }));
   }, [data?.company]);
 
-  // Cache companies when loaded
+  // Cache SP500 companies when loaded
   useEffect(() => {
     if (companies.length > 0) {
       companiesCache.data = companies;

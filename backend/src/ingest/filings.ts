@@ -4,7 +4,7 @@ import { createReadStream } from "fs";
 import readline from "readline";
 import { FinancialGraphRepository } from "../db/repo";
 import { createLogger } from "../utils/logger";
-import { loadCikLookupCache } from "../db/queries";
+import { getCikToCompanyIdLookup } from "../db/queries";
 
 const logger = createLogger("ingest/filings");
 
@@ -27,7 +27,7 @@ async function main() {
   logger.info("Starting Filing Ingestion...", { input: INPUT_CSV });
 
   // Load CIK to Company ID mapping (builds from DB if not cached)
-  const cikToCompanyId = await loadCikLookupCache();
+  const cikToCompanyId = await getCikToCompanyIdLookup();
   const unknownCiks: any[] = [];
   let processed = 0;
   let skippedType = 0;

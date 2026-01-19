@@ -36,7 +36,7 @@ export class CachedSECFilingsSource implements Source<SECFilingTarget> {
 
   private async loadCompanyLookup(): Promise<Map<string, { id: string; name: string }>> {
     const companyLookup = await getPublicCompaniesLookup({
-      sp500Only: this.filterConfig?.sp500Only,
+      sp500Only: this.filterConfig?.sp500Only ?? false, // Explicit filtering based on pipeline config
     });
     
     const filterDesc = this.filterConfig?.sp500Only ? " (SP500 only)" : "";

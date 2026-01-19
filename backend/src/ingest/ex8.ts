@@ -12,8 +12,8 @@ const SEC_USER_AGENT =
   process.env.SEC_USER_AGENT || "FinancialGraphBot/1.0 (bot@example.com)";
 
 // Rate Limiting & Concurrency
-const CONCURRENCY = 10; // 10 workers
-const WORKER_DELAY_MS = 100; // 100ms delay = max 10 req/sec per worker
+const CONCURRENCY = 5; // Reduced workers to be more conservative
+const WORKER_DELAY_MS = 200; // 200ms delay = max 5 req/sec per worker (total: 25 req/sec)
 const BATCH_SIZE = 100; // Batch DB updates
 
 async function main() {
@@ -172,11 +172,22 @@ async function fetchWithRetry(url: string, retries = 3): Promise<string> {
       const res = await fetch(url, {
         headers: { "User-Agent": SEC_USER_AGENT },
       });
+      
+      if (res.status === 429) {
+        // Rate limited - wait longer before retry
+        const waitTime = Math.min(5000 * Math.pow(2, i), 30000); // Cap at 30 seconds
+        logger.warn(`Rate limited (429), waiting ${waitTime}ms before retry ${i + 1}/${retries}`);
+        await new Promise((r) => setTimeout(r, waitTime));
+        continue;
+      }
+      
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.text();
     } catch (e) {
       if (i === retries - 1) throw e;
-      await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, i)));
+      const waitTime = 1000 * Math.pow(2, i);
+      logger.warn(`Fetch failed (attempt ${i + 1}/${retries}), retrying in ${waitTime}ms`);
+      await new Promise((r) => setTimeout(r, waitTime));
     }
   }
   throw new Error("Failed after retries");

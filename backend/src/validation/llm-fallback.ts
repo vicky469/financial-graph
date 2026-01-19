@@ -10,6 +10,7 @@ import { LLMModification } from "../parser/subsidiary/llm-enrichment";
 import { createLogger } from "../utils/logger";
 import { generateCompanyId } from "@financial-graph/shared/ids";
 import { CompanyType } from "@financial-graph/shared/types";
+import { getLLMWorkerPool } from "./llm-worker-pool";
 
 const logger = createLogger("validation/llm-fallback");
 
@@ -39,7 +40,7 @@ export async function llmFallbackParse(
   try {
     logger.info(`LLM fallback parsing for ${filingInfo.accession_number}`);
 
-    const llmResult = await callDeepSeekAPI(html);
+    const llmResult = await callDeepSeekAPI(html, filingInfo.accession_number);
     
     if (!llmResult || !llmResult.subsidiaries || llmResult.subsidiaries.length === 0) {
       logger.warn(`LLM returned no subsidiaries for ${filingInfo.accession_number}`);
@@ -125,76 +126,19 @@ export async function llmFallbackParse(
 }
 
 /**
- * Call DeepSeek V3.1 API to parse HTML
+ * Call DeepSeek V3.1 API to parse HTML using worker pool for parallel processing
  */
-async function callDeepSeekAPI(html: string): Promise<LLMParseResponse | null> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    throw new Error("DEEPSEEK_API_KEY environment variable not set");
-  }
-
-  const prompt = `You are parsing SEC Exhibit 21 (Subsidiaries of the Registrant) from HTML files. I need the name, jurisdiction, and ownership percentage (optional). Your task is to extract a hierarchical tree of subsidiaries.
-
-For each entity, extract:
-- name (legal entity name, verbatim)
-- jurisdiction (country/state if available)
-- ownership_percentage (number if explicitly stated; otherwise null)
-
-Return ONLY a JSON object with this structure:
-{
-  "subsidiaries": [
-    {
-      "name": "Company Name",
-      "jurisdiction": "Delaware",
-      "ownership_percentage": 100
-    }
-  ]
-}
-
-HTML content:
-${html.substring(0, 50000)}`; // Limit HTML to avoid token limits
-
-  const response = await fetch("https://api.deepseek.com/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: "deepseek-chat",
-      messages: [
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 4000
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`DeepSeek API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
+async function callDeepSeekAPI(html: string, accessionNumber: string): Promise<LLMParseResponse | null> {
+  const workerPool = getLLMWorkerPool();
   
-  if (!content) {
-    throw new Error("No content in DeepSeek API response");
-  }
-
   try {
-    // Extract JSON from response (handle potential markdown formatting)
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("No JSON found in LLM response");
-    }
-    
-    return JSON.parse(jsonMatch[0]);
-  } catch (parseError) {
-    logger.error("Failed to parse LLM JSON response:", content);
-    throw new Error(`Failed to parse LLM response as JSON: ${parseError}`);
+    logger.debug(`Queuing LLM request for ${accessionNumber}`);
+    const result = await workerPool.processRequest(accessionNumber, html);
+    logger.debug(`LLM request completed for ${accessionNumber}`);
+    return result;
+  } catch (error) {
+    logger.error(`LLM worker pool request failed for ${accessionNumber}: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
   }
 }
 

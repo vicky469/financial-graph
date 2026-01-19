@@ -7,6 +7,7 @@
  *   bun run src/pipeline/subsidiaries/run.ts
  *   bun run src/pipeline/subsidiaries/run.ts --limit=5 --dry-run
  *   bun run src/pipeline/subsidiaries/run.ts --sp500 --sink=db
+ *   bun run src/pipeline/subsidiaries/run.ts --llm-workers=30 --concurrency=15
  */
 
 import "dotenv/config";
@@ -32,6 +33,8 @@ function parseArgs() {
     dryRun: hasFlag("dry-run"),
     sinks: getArg("sink")?.split(",") || [],
     skipValidation: hasFlag("skip-validation"),
+    llmWorkers: getArg("llm-workers") ? parseInt(getArg("llm-workers")!) : undefined,
+    concurrency: getArg("concurrency") ? parseInt(getArg("concurrency")!) : undefined,
   };
 }
 
@@ -53,8 +56,12 @@ async function main() {
     steps: {
       skipValidation: args.skipValidation,
     },
+    concurrency: args.concurrency,
     dryRun: args.dryRun || args.sinks.length === 0, // Dry run if no sinks
     sinks: args.sinks,
+    llmWorkers: {
+      maxWorkers: args.llmWorkers,
+    },
   });
 
   console.log("\n" + "-".repeat(60));
@@ -63,6 +70,15 @@ async function main() {
 
   // Execute
   const result = await pipeline.execute();
+
+  // Cleanup: Shutdown global LLM worker pool
+  try {
+    const { shutdownLLMWorkerPool } = await import("../../validation/llm-worker-pool");
+    await shutdownLLMWorkerPool();
+    console.log("🤖 LLM Worker Pool shutdown complete");
+  } catch (error) {
+    console.warn("Warning: LLM Worker Pool shutdown failed:", error);
+  }
 
   console.log("\n" + "-".repeat(60));
   console.log("RESULT");

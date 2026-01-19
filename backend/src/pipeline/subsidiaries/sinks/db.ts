@@ -17,13 +17,13 @@ import {
   CompanyType,
 } from "@financial-graph/shared";
 
-// Check if audit trail is enabled
-const ENABLE_AUDIT_TRAIL = process.env.ENABLE_AUDIT_TRAIL !== "false";
 
 export class SubsidiariesDBSink implements Sink<ValidatedFiling> {
   name = "instantdb";
 
   async write(filings: ValidatedFiling[]): Promise<SinkResult> {
+    console.log(`🔄 DB Sink: Starting write for ${filings.length} filings`);
+    
     let written = 0;
     let errors = 0;
     let enrichmentRecords = 0;
@@ -189,37 +189,6 @@ export class SubsidiariesDBSink implements Sink<ValidatedFiling> {
       const subsidiaryIds = new Set<string>();
       const createdLinks = new Set<string>();
 
-      // PHASE 0: Ensure filing record exists with attachments
-      try {
-        // Create/update filing record with EX-21 attachment
-        const filingRecord = {
-          id: filingId,
-          accession_number: filing.accessionNumber,
-          accession_number_nodashes: filing.accessionNumber.replace(/-/g, ''),
-          file_url: filing.fileUrl || '',
-          form_type: filing.formType || '10-K',
-          source_quarter: Math.ceil(new Date().getMonth() / 3), // Current quarter
-          source_year: new Date().getFullYear(),
-          filing_date: filing.filingDate || now.split('T')[0],
-          attachments: {
-            "EX-21": filing.fileUrl || '', // Use the filing URL as EX-21 attachment
-            ...(filing.attachments || {}), // Merge any existing attachments
-          },
-          fiscal_quarter: filing.fiscalQuarter || null,
-          fiscal_year: filing.fiscalYear || null,
-          period_end_date: filing.periodEndDate || null,
-          updated_at: now,
-        };
-
-        txOps.push(db.tx.filing[filingId].update(filingRecord));
-        txOps.push(db.tx.filing[filingId].link({ companies: filingCompanyId }));
-
-        console.log(`   DB: Creating/updating filing record ${filing.accessionNumber} with attachments`);
-      } catch (filingError) {
-        console.warn(`Error creating filing record for ${filing.accessionNumber}:`, filingError);
-        // Continue without filing record - don't fail the whole operation
-      }
-
       // PHASE 1: Create all companies
       for (const subsidiary of subsidiaries) {
         try {
@@ -252,34 +221,6 @@ export class SubsidiariesDBSink implements Sink<ValidatedFiling> {
           txOps.push(db.tx.company[subsidiaryId].update(companyNode));
           subsidiaryIds.add(subsidiaryId);
 
-          // Audit trail
-          if (ENABLE_AUDIT_TRAIL) {
-            try {
-              const companyAudit = {
-                entity_type: "company",
-                entity_id: subsidiaryId,
-                operation: "CREATE",
-                changed_by: "heuristic",
-                changed_at: now,
-                source_id: filingId || null,
-                fields_changed: [
-                  { field: "name", old_value: null, new_value: subsidiary.name },
-                  {
-                    field: "jurisdiction_raw",
-                    old_value: null,
-                    new_value: subsidiary.jurisdiction,
-                  },
-                ],
-                expires_at: new Date(
-                  Date.now() + 7 * 24 * 60 * 60 * 1000
-                ).toISOString(),
-              };
-              txOps.push(db.tx.audit[id()].create(companyAudit));
-            } catch (auditError) {
-              console.warn(`Error creating audit record for company ${subsidiary.name}:`, auditError);
-              // Continue without audit - don't fail the whole operation
-            }
-          }
         } catch (companyError) {
           console.error(`Error processing company ${subsidiary.name} for ${filing.accessionNumber}:`, companyError);
           // Continue with other subsidiaries
@@ -311,28 +252,6 @@ export class SubsidiariesDBSink implements Sink<ValidatedFiling> {
           }
           createdLinks.add(linkKey);
 
-          // Validate parent exists
-          const parentExistsInBatch = subsidiaryIds.has(parentId);
-          const parentIsFilingCompany = parentId === filingCompanyId;
-
-          if (!parentExistsInBatch && !parentIsFilingCompany) {
-            try {
-              const parentCheck = await db.query({
-                company: {
-                  $: { where: { id: parentId } },
-                },
-              });
-
-              if (!parentCheck.company || parentCheck.company.length === 0) {
-                console.warn(`Parent company ${parentId} not found for subsidiary ${subsidiary.name} in filing ${filing.accessionNumber}`);
-                continue; // Parent doesn't exist
-              }
-            } catch (queryError) {
-              console.error(`Error checking parent company ${parentId}:`, queryError);
-              continue; // Skip this subsidiary if we can't verify parent
-            }
-          }
-
           const edgeId = generateParentOfId(parentId, subsidiaryId);
 
           const edge = {
@@ -349,43 +268,9 @@ export class SubsidiariesDBSink implements Sink<ValidatedFiling> {
           txOps.push(
             db.tx.parent_of[edgeId].link({ subsidiaryCompany: subsidiaryId })
           );
-
-          // Edge audit
-          if (ENABLE_AUDIT_TRAIL) {
-            try {
-              const edgeAudit = {
-                entity_type: "parent_of",
-                entity_id: edgeId,
-                operation: "CREATE",
-                changed_by: "heuristic",
-                changed_at: now,
-                source_id: filingId || null,
-                fields_changed: [
-                  { field: "from_company_id", old_value: null, new_value: parentId },
-                  {
-                    field: "to_company_id",
-                    old_value: null,
-                    new_value: subsidiaryId,
-                  },
-                  ...(subsidiary.ownership !== undefined
-                    ? [
-                        {
-                          field: "ownership_percent",
-                          old_value: null,
-                          new_value: subsidiary.ownership,
-                        },
-                      ]
-                    : []),
-                ],
-                expires_at: new Date(
-                  Date.now() + 7 * 24 * 60 * 60 * 1000
-                ).toISOString(),
-              };
-              txOps.push(db.tx.audit[id()].create(edgeAudit));
-            } catch (auditError) {
-              console.warn(`Error creating audit record for edge ${edgeId}:`, auditError);
-              // Continue without audit - don't fail the whole operation
-            }
+          // Link to source filing
+          if (filingId) {
+            txOps.push(db.tx.parent_of[edgeId].link({ sourceFiling: filingId }));
           }
 
           // Enrichment metadata with LLM tracking

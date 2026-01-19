@@ -1,0 +1,14 @@
+{
+  "name": "instant-query-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "start": "bun run index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@instantdb/admin": "^0.18.9",
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

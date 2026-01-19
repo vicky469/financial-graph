@@ -10,7 +10,7 @@ import type { AppSchema } from "../../instant.schema";
 import { CompanyType } from "../../types/types";
 
 // In-memory cache: CIK -> Company ID
-let cikToCompanyId: Map<string, string> | null = null;
+let cikToCompanyIdCache: Map<string, string> | null = null;
 
 /**
  * Query definition: Get public companies with identity for CIK lookup
@@ -48,41 +48,47 @@ export function buildCikCacheFromResult(result: any): Map<string, string> {
  * Set the global CIK lookup cache
  */
 export function setCikLookupCache(cache: Map<string, string>): void {
-  cikToCompanyId = cache;
-  console.log(`CIK lookup cache set with ${cache.size} mappings`);
+  cikToCompanyIdCache = cache;
+}
+
+/**
+ * Get the CIK lookup cache (returns null if not initialized)
+ */
+export function getCikLookupCache(): Map<string, string> | null {
+  return cikToCompanyIdCache;
 }
 
 /**
  * Lookup company ID by CIK from cache
- * Returns null if CIK not found
+ * Returns null if CIK not found or cache not initialized
  */
 export function lookupCompanyIdByCik(cik: string): string | null {
-  if (!cikToCompanyId) {
-    throw new Error("CIK lookup cache not initialized. Call setCikLookupCache() first.");
+  if (!cikToCompanyIdCache) {
+    return null;
   }
   
   // Normalize CIK to 10 digits
   const normalizedCik = cik.padStart(10, "0");
-  return cikToCompanyId.get(normalizedCik) || null;
+  return cikToCompanyIdCache.get(normalizedCik) || null;
 }
 
 /**
  * Check if cache is initialized
  */
 export function isCikLookupCacheInitialized(): boolean {
-  return cikToCompanyId !== null;
+  return cikToCompanyIdCache !== null;
 }
 
 /**
  * Get cache size
  */
 export function getCikLookupCacheSize(): number {
-  return cikToCompanyId?.size || 0;
+  return cikToCompanyIdCache?.size || 0;
 }
 
 /**
  * Clear the cache (useful for testing)
  */
 export function clearCikLookupCache(): void {
-  cikToCompanyId = null;
+  cikToCompanyIdCache = null;
 }

@@ -25,6 +25,13 @@ export interface PipelineConfig {
   concurrency?: number;
   dryRun?: boolean;
 
+  // LLM Worker Pool
+  llmWorkers?: {
+    maxWorkers?: number;
+    maxRetries?: number;
+    requestTimeout?: number;
+  };
+
   // Output
   sinks?: string[];
   outputDir?: string;

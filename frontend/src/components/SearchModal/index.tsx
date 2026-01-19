@@ -25,9 +25,13 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
   // Focus input when modal opens or search type changes
   useEffect(() => {
     if (isOpen && inputRef.current) {
-      setTimeout(() => {
+      // Use a longer timeout to ensure the DOM has updated
+      const timeoutId = setTimeout(() => {
         inputRef.current?.focus();
-      }, 100);
+        inputRef.current?.select(); // Also select any existing text
+      }, 150);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [isOpen, searchType]);
 
@@ -156,6 +160,45 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
     }
   };
 
+  // Handle Tab key navigation between search type tabs
+  const handleModalKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Tab") {
+      // If we're in the input field, Tab should switch between search types
+      if (document.activeElement === inputRef.current) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          // Shift+Tab: go to previous tab
+          setSearchType(searchType === "accession" ? "company" : "accession");
+        } else {
+          // Tab: go to next tab
+          setSearchType(searchType === "accession" ? "company" : "accession");
+        }
+        setError(null);
+        // Keep focus on input after tab switch
+        setTimeout(() => {
+          inputRef.current?.focus();
+          inputRef.current?.select();
+        }, 50);
+      }
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      // Arrow keys also switch between tabs when input is focused
+      if (document.activeElement === inputRef.current) {
+        e.preventDefault();
+        if (e.key === "ArrowLeft") {
+          setSearchType(searchType === "accession" ? "company" : "accession");
+        } else {
+          setSearchType(searchType === "accession" ? "company" : "accession");
+        }
+        setError(null);
+        // Keep focus on input after tab switch
+        setTimeout(() => {
+          inputRef.current?.focus();
+          inputRef.current?.select();
+        }, 50);
+      }
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (searchType === "accession") {
@@ -177,31 +220,59 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
       size="sm"
       container="main-content"
     >
-      <div className="space-y-4">
+      <div className="space-y-4" onKeyDown={handleModalKeyDown}>
         {/* Search Type Tabs */}
-        <div className="flex rounded-md" style={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}>
-          <button
-            onClick={() => setSearchType("accession")}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-l-md transition-colors"
-            style={{
-              backgroundColor: searchType === "accession" ? "rgba(99, 102, 241, 0.3)" : "transparent",
-              color: searchType === "accession" ? "#c7d2fe" : "rgba(255, 255, 255, 0.6)",
-            }}
-          >
-            <FileText size={14} />
-            Accession #
-          </button>
-          <button
-            onClick={() => setSearchType("company")}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-r-md transition-colors"
-            style={{
-              backgroundColor: searchType === "company" ? "rgba(99, 102, 241, 0.3)" : "transparent",
-              color: searchType === "company" ? "#c7d2fe" : "rgba(255, 255, 255, 0.6)",
-            }}
-          >
-            <Building2 size={14} />
-            Company
-          </button>
+        <div>
+          <div className="flex rounded-md" style={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}>
+            <button
+              onClick={() => {
+                setSearchType("accession");
+                setError(null); // Clear any existing error
+                // Focus input after tab switch
+                setTimeout(() => {
+                  inputRef.current?.focus();
+                  inputRef.current?.select();
+                }, 50);
+              }}
+              tabIndex={-1} // Remove from tab order - use Tab key to switch instead
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-l-md transition-colors"
+              style={{
+                backgroundColor: searchType === "accession" ? "rgba(99, 102, 241, 0.3)" : "transparent",
+                color: searchType === "accession" ? "#c7d2fe" : "rgba(255, 255, 255, 0.6)",
+              }}
+            >
+              <FileText size={14} />
+              Accession #
+            </button>
+            <button
+              onClick={() => {
+                setSearchType("company");
+                setError(null); // Clear any existing error
+                // Focus input after tab switch
+                setTimeout(() => {
+                  inputRef.current?.focus();
+                  inputRef.current?.select();
+                }, 50);
+              }}
+              tabIndex={-1} // Remove from tab order - use Tab key to switch instead
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-r-md transition-colors"
+              style={{
+                backgroundColor: searchType === "company" ? "rgba(99, 102, 241, 0.3)" : "transparent",
+                color: searchType === "company" ? "#c7d2fe" : "rgba(255, 255, 255, 0.6)",
+              }}
+            >
+              <Building2 size={14} />
+              Company
+            </button>
+          </div>
+          <div style={{ 
+            fontSize: "11px", 
+            color: "rgba(255, 255, 255, 0.4)", 
+            textAlign: "center", 
+            marginTop: "6px" 
+          }}>
+            Use Tab or ← → to switch • Enter to search
+          </div>
         </div>
 
         {/* Search Input */}
@@ -257,6 +328,7 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
         <button
           onClick={handleSearch}
           disabled={!currentValue.trim() || isSearching}
+          tabIndex={-1} // Remove from tab order - use Enter to search instead
           className="w-full px-4 py-2 rounded-lg transition-colors font-medium"
           style={{
             backgroundColor: (!currentValue.trim() || isSearching) 

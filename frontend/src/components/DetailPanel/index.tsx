@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Clock, User, GitBranch, Sparkles, ExternalLink } from "lucide-react";
+import { X, ExternalLink } from "lucide-react";
 import type { Node } from "../../types";
-import { useCompanyDetails, useCompanyAudits, useSubsidiaryDetails } from "../../db/queries";
+import { useCompanyDetails, /* useCompanyAudits, */ useSubsidiaryDetails } from "../../db/queries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 interface DetailPanelProps {
@@ -13,7 +13,7 @@ interface DetailPanelProps {
 }
 
 export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidiary, parentCompanyId }: DetailPanelProps) {
-  const [activeTab, setActiveTab] = useState<"info" | "audit">("info");
+  const [activeTab, setActiveTab] = useState<"info" /* | "audit" */>("info");
   const panelRef = useRef<HTMLDivElement>(null);
   
   // Fetch company details if it's a company
@@ -27,9 +27,9 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
     parentCompanyId
   );
   
-  const { audits, isLoading: loadingAudits } = useCompanyAudits(
-    node?.type === "Company" ? node.id : null
-  );
+  // const { audits, isLoading: loadingAudits } = useCompanyAudits(
+  //   node?.type === "Company" ? node.id : null
+  // );
   
   const displayNode = fullNode || node;
   const isLoading = loadingCompany || loadingSubsidiary;
@@ -102,10 +102,10 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
       {/* Content */}
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as "info" | "audit")}
+        onValueChange={(v) => setActiveTab(v as "info" /* | "audit" */)}
         className="flex-1 flex flex-col overflow-hidden"
       >
-        <TabsList className="grid w-full grid-cols-2 mx-5 mt-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px', borderRadius: '8px' }}>
+        <TabsList className="grid w-full grid-cols-1 mx-5 mt-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px', borderRadius: '8px' }}>
           <TabsTrigger 
             value="info"
             className="cursor-pointer select-none"
@@ -121,6 +121,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
           >
             {isSubsidiaryNode ? "Company Info" : "Company Info"}
           </TabsTrigger>
+          {/* Audit tab commented out until we have audit data to show
           <TabsTrigger 
             value="audit"
             className="cursor-pointer select-none"
@@ -136,6 +137,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
           >
             Audit
           </TabsTrigger>
+          */}
         </TabsList>
 
         <TabsContent value="info" className="flex-1 overflow-y-auto mt-0">
@@ -312,6 +314,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
           )}
         </TabsContent>
 
+        {/* Audit tab content commented out until we have audit data to show
         <TabsContent value="audit" className="flex-1 overflow-y-auto mt-0">
           <div style={{ padding: "20px" }}>
             <h3
@@ -354,6 +357,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
             )}
           </div>
         </TabsContent>
+        */}
       </Tabs>
     </aside>
   );
@@ -508,7 +512,8 @@ function Badge({
   );
 }
 
-// Audit Entry Component
+/*
+// Audit Entry Component - commented out until we have audit data to show
 function AuditEntry({ audit }: { audit: any }) {
   const getOperationColor = (op: string) => {
     switch (op) {
@@ -565,7 +570,6 @@ function AuditEntry({ audit }: { audit: any }) {
         background: "rgba(255,255,255,0.02)",
       }}
     >
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
         <span
           style={{
@@ -604,7 +608,6 @@ function AuditEntry({ audit }: { audit: any }) {
         </div>
       </div>
 
-      {/* Fields Changed */}
       {audit.fields_changed && audit.fields_changed.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
           {audit.fields_changed.map((change: any, idx: number) => (
@@ -633,3 +636,4 @@ function AuditEntry({ audit }: { audit: any }) {
     </div>
   );
 }
+*/

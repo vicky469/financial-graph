@@ -17,11 +17,11 @@ import {
 /**
  * Get public companies as a CIK -> Company lookup map.
  *
- * @param options.sp500Only - Only include SP500 companies
+ * @param options.sp500Only - Only include SP500 companies (defaults to true)
  * @returns Map of CIK -> { id, name }
  */
 export async function getPublicCompaniesLookup(
-  options: CompanyLookupOptions = {}
+  options: CompanyLookupOptions = { sp500Only: true }
 ): Promise<Map<string, { id: string; name: string }>> {
   const result = await db.query(publicCompaniesQuery);
   return extractPublicCompaniesLookup(result, options);
@@ -31,11 +31,11 @@ export async function getPublicCompaniesLookup(
  * Get CIK -> Company ID lookup map.
  * Simpler version that only returns IDs.
  *
- * @param options.sp500Only - Only include SP500 companies
+ * @param options.sp500Only - Only include SP500 companies (defaults to true)
  * @returns Map of CIK -> companyId
  */
 export async function getCikToCompanyIdLookup(
-  options: CompanyLookupOptions = {}
+  options: CompanyLookupOptions = { sp500Only: true }
 ): Promise<Map<string, string>> {
   const result = await db.query(publicCompaniesQuery);
   return extractCikToCompanyIdLookup(result, options);
