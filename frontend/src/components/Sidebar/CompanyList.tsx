@@ -1,5 +1,5 @@
 import { useState, memo, useMemo } from "react";
-import { Search } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import { useAllCompaniesCached } from "../../db/queries";
 
 interface CompanyListProps {
@@ -8,17 +8,29 @@ interface CompanyListProps {
 
 export const CompanyList = memo(function CompanyList({ onSelectNode }: CompanyListProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSP500Only, setShowSP500Only] = useState(true); // Default to SP500 only
   const { companies: allCompanies, isLoading } = useAllCompaniesCached();
 
   const companies = useMemo(() => {
-    if (!searchQuery.trim()) return allCompanies;
-    const query = searchQuery.toLowerCase();
-    return allCompanies.filter((c) => {
-      const name = c.name.toLowerCase();
-      const ticker = c.ticker?.toLowerCase() ?? "";
-      return name.includes(query) || ticker.includes(query);
-    });
-  }, [allCompanies, searchQuery]);
+    let filtered = allCompanies;
+    
+    // Apply SP500 filter if enabled
+    if (showSP500Only) {
+      filtered = filtered.filter((c) => c.sp500);
+    }
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((c) => {
+        const name = c.name.toLowerCase();
+        const ticker = c.ticker?.toLowerCase() ?? "";
+        return name.includes(query) || ticker.includes(query);
+      });
+    }
+    
+    return filtered;
+  }, [allCompanies, searchQuery, showSP500Only]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -42,7 +54,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode }: CompanyLi
           />
           <input
             type="text"
-            placeholder="Search SP500 companies..."
+            placeholder={showSP500Only ? "Search SP500 companies..." : "Search public companies..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -69,6 +81,44 @@ export const CompanyList = memo(function CompanyList({ onSelectNode }: CompanyLi
         </div>
       </div>
 
+      {/* Filter Toggle */}
+      <div style={{ padding: "0 16px 12px" }}>
+        <button
+          onClick={() => setShowSP500Only(!showSP500Only)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "6px 10px",
+            borderRadius: "6px",
+            border: "1px solid rgba(255,255,255,0.08)",
+            background: showSP500Only ? "rgba(99, 102, 241, 0.15)" : "rgba(255,255,255,0.03)",
+            color: showSP500Only ? "rgba(99, 102, 241, 0.9)" : "rgba(255,255,255,0.6)",
+            fontSize: "11px",
+            fontWeight: "500",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+            width: "100%",
+            justifyContent: "center",
+          }}
+          onMouseEnter={(e) => {
+            if (!showSP500Only) {
+              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+              e.currentTarget.style.color = "rgba(255,255,255,0.8)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!showSP500Only) {
+              e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+              e.currentTarget.style.color = "rgba(255,255,255,0.6)";
+            }
+          }}
+        >
+          <Filter size={12} />
+          {showSP500Only ? "SP500 Only" : "All Public"}
+        </button>
+      </div>
+
       {/* Count */}
       <div
         style={{
@@ -87,7 +137,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode }: CompanyLi
             letterSpacing: "0.04em",
           }}
         >
-          Companies
+          {showSP500Only ? "SP500" : "Companies"}
         </span>
         <span
           style={{
@@ -170,7 +220,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode }: CompanyLi
                     height: "6px",
                     borderRadius: "50%",
                     flexShrink: 0,
-                    backgroundColor: company.cik ? "#34d399" : "rgba(255,255,255,0.2)",
+                    backgroundColor: company.sp500 ? "#34d399" : company.cik ? "#60a5fa" : "rgba(255,255,255,0.2)",
                   }}
                 />
                 <span

@@ -184,22 +184,25 @@ function HierarchyNodeItem({
       )}
 
       {/* Circular Jurisdiction Indicator */}
-      <div
-        style={{
-          width: isRoot ? "8px" : "6px",
-          height: isRoot ? "8px" : "6px",
-          borderRadius: "50%", // Makes it perfectly round
-          backgroundColor: isRoot 
-            ? "#60a5fa" // Keep blue for root company (usually incorporated jurisdiction)
-            : getJurisdictionColor(node.jurisdiction),
-          flexShrink: 0,
-          marginRight: "6px",
-          // Add a subtle glow effect with the same color
-          boxShadow: isRoot 
-            ? "0 0 4px rgba(96, 165, 250, 0.4)"
-            : `0 0 3px ${getJurisdictionColor(node.jurisdiction)}40`, // Add 40 for 25% opacity
-        }}
-      />
+      {/* Only show dot if company has jurisdiction data, or if it's a subsidiary (non-root) */}
+      {(node.jurisdiction && node.jurisdiction !== "Unknown") && (
+        <div
+          style={{
+            width: isRoot ? "8px" : "6px",
+            height: isRoot ? "8px" : "6px",
+            borderRadius: "50%", // Makes it perfectly round
+            backgroundColor: isRoot 
+              ? "#60a5fa" // Keep blue for root company (usually incorporated jurisdiction)
+              : getJurisdictionColor(node.jurisdiction),
+            flexShrink: 0,
+            marginRight: "6px",
+            // Add a subtle glow effect with the same color
+            boxShadow: isRoot 
+              ? "0 0 4px rgba(96, 165, 250, 0.4)"
+              : `0 0 3px ${getJurisdictionColor(node.jurisdiction)}40`, // Add 40 for 25% opacity
+          }}
+        />
+      )}
 
       {/* Company Name */}
       <span

@@ -14,13 +14,13 @@ const companiesCache = {
     type: "Company";
     ticker: string | null;
     cik: string | null;
+    sp500: boolean;
   }> | null,
   timestamp: 0,
   TTL: 5 * 60 * 1000, // 5 minutes cache
 };
 
-// Load SP500 companies only (lightweight - just id, name, type)
-// Matches the backend pipeline filtering
+// Load all public companies (lightweight - just id, name, type, sp500 flag)
 export const useAllCompanies = () => {
   const { data, isLoading } = db.useQuery({
     company: {
@@ -37,8 +37,6 @@ export const useAllCompanies = () => {
     
     return (data.company ?? [])
       .filter((c: any) => {
-        // Filter for SP500 companies only
-        if (!c.identity?.sp500) return false;
         // Filter out empty names
         return c.name && c.name.trim() !== "";
       })
@@ -48,10 +46,11 @@ export const useAllCompanies = () => {
         type: "Company" as const,
         ticker: c.identity?.tickers?.split(',')[0]?.trim() ?? null,
         cik: c.identity?.primaryCIK ?? null,
+        sp500: c.identity?.sp500 === true,
       }));
   }, [data?.company]);
 
-  // Cache SP500 companies when loaded
+  // Cache all public companies when loaded
   useEffect(() => {
     if (companies.length > 0) {
       companiesCache.data = companies;
@@ -64,8 +63,8 @@ export const useAllCompanies = () => {
 
 // Cached version that returns cached data immediately if available
 export const useAllCompaniesCached = () => {
-  const now = Date.now();
-  const isCacheValid = companiesCache.data && (now - companiesCache.timestamp) < companiesCache.TTL;
+  const cacheTimestamp = companiesCache.timestamp;
+  const isCacheValid = companiesCache.data && (Date.now() - cacheTimestamp) < companiesCache.TTL;
   
   // Always call the hook, but conditionally use the data
   const { companies: freshCompanies, isLoading } = useAllCompanies();

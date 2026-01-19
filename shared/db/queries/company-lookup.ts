@@ -34,9 +34,9 @@ export const publicCompaniesQuery = {
  */
 export function extractPublicCompaniesLookup(
   result: any,
-  options: CompanyLookupOptions = { sp500Only: true }
+  options: CompanyLookupOptions = { sp500Only: false }
 ): Map<string, { id: string; name: string }> {
-  const { sp500Only = true } = options;
+  const { sp500Only = false } = options;
   
   const companies = (result.company || []) as any[];
   const lookup = new Map<string, { id: string; name: string }>();
@@ -63,7 +63,7 @@ export function extractPublicCompaniesLookup(
  */
 export function extractCikToCompanyIdLookup(
   result: any,
-  options: CompanyLookupOptions = { sp500Only: true }
+  options: CompanyLookupOptions = { sp500Only: false }
 ): Map<string, string> {
   const lookup = extractPublicCompaniesLookup(result, options);
   const cikLookup = new Map<string, string>();

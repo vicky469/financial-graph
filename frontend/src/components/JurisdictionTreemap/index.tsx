@@ -95,8 +95,8 @@ function squarify(
 export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: JurisdictionTreemapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Fixed dimensions for compact treemap
-  const treemapWidth = 400;
-  const treemapHeight = 280;
+  const treemapWidth = 520;
+  const treemapHeight = 320;
   const { flatHierarchy, isLoading } = useCompanyHierarchy(companyId);
 
   // State for drill-down functionality
@@ -222,7 +222,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
   return (
     <div ref={containerRef} className="p-6">
       {/* Header */}
-      <div className="mb-3">
+      <div className="mb-3" style={{ paddingLeft: "8px" }}>
         <div className="flex items-center gap-3">
           {treemapState.mode === 'companies' && (
             <button
@@ -232,7 +232,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
               ← Back
             </button>
           )}
-          <h2 className="text-base font-semibold text-foreground">
+          <h2 style={{ fontSize: "12px", fontWeight: "500", color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
             {treemapState.mode === 'jurisdictions'
               ? 'Subsidiaries by Jurisdiction'
               : `Companies in ${treemapState.selectedJurisdiction}`}
@@ -241,9 +241,9 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
       </div>
 
       {/* Horizontal layout: Treemap + List */}
-      <div className="flex" style={{ height: treemapHeight, gap: 80 }}>
+      <div className="flex" style={{ height: treemapHeight, gap: 32 }}>
         {/* Left: Treemap */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0" style={{ paddingLeft: "8px" }}>
           <svg
             width={treemapWidth}
             height={treemapHeight}
@@ -316,7 +316,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
         </div>
 
         {/* Right: Scrollable compact list */}
-        <div className="flex-1 overflow-y-auto min-w-0 ml-8" style={{ maxWidth: 280 }}>
+        <div className="flex-1 overflow-y-auto min-w-0" style={{ maxWidth: 280, paddingLeft: "8px", paddingRight: "16px" }}>
           {treemapState.mode === 'jurisdictions' ? (
             <div className="space-y-0">
               {treemapData
@@ -337,11 +337,11 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                         className="w-2.5 h-2.5 rounded flex-shrink-0"
                         style={{ backgroundColor: item.color }}
                       />
-                      <span className="text-xs text-foreground truncate">
+                      <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.75)" }} className="truncate">
                         {item.jurisdiction}
                       </span>
                     </div>
-                    <span className="text-xs font-medium text-muted-foreground ml-2 flex-shrink-0 tabular-nums">
+                    <span style={{ fontSize: "11px", fontWeight: "500", color: "rgba(255,255,255,0.3)" }} className="ml-2 flex-shrink-0 tabular-nums">
                       {item.count}
                     </span>
                   </div>
@@ -356,10 +356,10 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                     onClick={() => onSubsidiaryClick?.(company.id)}
                     className="flex items-center justify-between py-0.5 px-1 hover:bg-accent/20 cursor-pointer transition-colors rounded"
                   >
-                    <span className="text-xs text-foreground truncate">
+                    <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.75)" }} className="truncate">
                       {company.name}
                     </span>
-                    <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                    <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.3)" }} className="ml-2 flex-shrink-0">
                       L{company.level}
                     </span>
                   </div>

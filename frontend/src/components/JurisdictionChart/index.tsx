@@ -51,7 +51,7 @@ export function JurisdictionChart({
         >
           <MapPin size={24} />
         </div>
-        <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)" }}>
+        <p style={{ fontSize: "11px !important", color: "rgba(255,255,255,0.4)" }}>
           No jurisdiction data
         </p>
       </div>
@@ -64,16 +64,16 @@ export function JurisdictionChart({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div style={{ padding: "16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <h2 style={{ fontSize: "15px", fontWeight: "600", color: "rgba(255,255,255,0.9)" }}>
+        <h2 style={{ fontSize: "13px !important", fontWeight: "600", color: "rgba(255,255,255,0.9)" }}>
           Subsidiaries by Jurisdiction
         </h2>
-        <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "4px" }}>
+        <p style={{ fontSize: "11px !important", color: "rgba(255,255,255,0.4)", marginTop: "4px" }}>
           {totalSubsidiaries} subsidiaries across {data.length} jurisdictions
         </p>
       </div>
 
       {/* Chart */}
-      <div style={{ flex: 1, overflow: "auto", padding: "12px 16px" }}>
+      <div style={{ flex: 1, overflow: "auto", padding: "12px 8px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {sortedData.map((item, index) => (
             <JurisdictionRow
@@ -96,7 +96,7 @@ export function JurisdictionChart({
           display: "flex",
           alignItems: "center",
           gap: "12px",
-          fontSize: "10px",
+          fontSize: "9px !important",
           color: "rgba(255,255,255,0.35)",
         }}
       >
@@ -170,7 +170,7 @@ function JurisdictionRow({
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
         <span
           style={{
-            fontSize: "12px",
+            fontSize: "11px !important",
             fontWeight: "500",
             color: "rgba(255,255,255,0.8)",
             flex: 1,
@@ -183,7 +183,7 @@ function JurisdictionRow({
         </span>
         <span
           style={{
-            fontSize: "11px",
+            fontSize: "10px !important",
             fontWeight: "600",
             color: "rgba(255,255,255,0.6)",
             fontFamily: "monospace",
@@ -220,7 +220,7 @@ function JurisdictionRow({
             <span
               key={sub.id}
               style={{
-                fontSize: "10px",
+                fontSize: "9px !important",
                 color: "rgba(255,255,255,0.45)",
                 padding: "2px 6px",
                 borderRadius: "3px",
