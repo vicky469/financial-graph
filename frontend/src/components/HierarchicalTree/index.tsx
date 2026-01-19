@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ChevronRight, ChevronDown, Building2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { ChevronRight, ChevronDown, Building2, Search } from "lucide-react";
 import { getJurisdictionColor } from "../../utils/jurisdictionColors";
 
 interface HierarchyNode {
@@ -18,23 +18,45 @@ interface HierarchicalTreeProps {
 
 export function HierarchicalTree({ hierarchy, onNodeClick }: HierarchicalTreeProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Track which root company we've initialized for
   const rootId = hierarchy[0]?.id;
 
+  // Filter hierarchy based on search query
+  const filteredHierarchy = useMemo(() => {
+    if (!searchQuery.trim()) return hierarchy;
+    
+    const query = searchQuery.toLowerCase();
+    return hierarchy.filter((node) => {
+      // Always include root company
+      if (node.level === 0) return true;
+      
+      // Filter subsidiaries by name or jurisdiction
+      return (
+        node.name.toLowerCase().includes(query) ||
+        (node.jurisdiction && node.jurisdiction.toLowerCase().includes(query))
+      );
+    });
+  }, [hierarchy, searchQuery]);
+
+  // Count of subsidiaries (excluding root)
+  const subsidiaryCount = hierarchy.filter(node => node.level > 0).length;
+  const filteredSubsidiaryCount = filteredHierarchy.filter(node => node.level > 0).length;
+
   // Auto-expand only the root node when hierarchy data loads or root changes
   useEffect(() => {
-    if (hierarchy.length > 0) {
+    if (filteredHierarchy.length > 0) {
       const initialExpanded = new Set<string>();
       // Only expand the root node (level 0) by default
-      hierarchy.forEach((node) => {
+      filteredHierarchy.forEach((node) => {
         if (node.level === 0 && node.hasChildren) {
           initialExpanded.add(node.id);
         }
       });
       setExpandedNodes(initialExpanded);
     }
-  }, [rootId]); // Only re-run when root company changes
+  }, [rootId, filteredHierarchy]); // Re-run when root company changes or filter changes
 
   const toggleNode = (nodeId: string) => {
     setExpandedNodes((prev) => {
@@ -84,12 +106,17 @@ export function HierarchicalTree({ hierarchy, onNodeClick }: HierarchicalTreePro
 
   // Check if a node should be visible based on parent expanded state
   const isNodeVisible = (nodeIndex: number): boolean => {
-    const node = hierarchy[nodeIndex];
+    const node = filteredHierarchy[nodeIndex];
     if (node.level === 0) return true; // Root is always visible
+
+    // When searching, show all matching subsidiaries directly under root
+    if (searchQuery.trim()) {
+      return true; // Show all filtered results
+    }
 
     // Find parent by looking backwards for the first node at level - 1
     for (let i = nodeIndex - 1; i >= 0; i--) {
-      const parentNode = hierarchy[i];
+      const parentNode = filteredHierarchy[i];
       if (parentNode.level === node.level - 1) {
         // Found the parent - check if it's expanded
         const parentExpanded = expandedNodes.has(parentNode.id);
@@ -102,24 +129,109 @@ export function HierarchicalTree({ hierarchy, onNodeClick }: HierarchicalTreePro
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
-      {hierarchy.map((node, index) => {
-        // Skip rendering if parent is collapsed
-        if (!isNodeVisible(index)) return null;
+      {/* Search Input */}
+      {subsidiaryCount > 10 && ( // Only show search if there are more than 10 subsidiaries
+        <div style={{ padding: "0 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <div
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <Search
+              size={12}
+              style={{
+                position: "absolute",
+                left: "12px",
+                color: "rgba(255,255,255,0.3)",
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Search subsidiaries..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "6px",
+                padding: "8px 12px 8px 32px",
+                fontSize: "11px",
+                color: "rgba(255,255,255,0.9)",
+                outline: "none",
+                transition: "all 0.15s ease",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.4)";
+                e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+              }}
+            />
+          </div>
+          {/* Search results count */}
+          {searchQuery.trim() && (
+            <div
+              style={{
+                fontSize: "10px",
+                color: "rgba(255,255,255,0.4)",
+                marginTop: "6px",
+                textAlign: "center",
+              }}
+            >
+              {filteredSubsidiaryCount} of {subsidiaryCount} subsidiaries
+            </div>
+          )}
+        </div>
+      )}
 
-        const isExpanded = expandedNodes.has(node.id);
-        const indentWidth = node.level * 16;
+      {/* Hierarchy List */}
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {filteredHierarchy.map((node, index) => {
+          // Skip rendering if parent is collapsed (unless searching)
+          if (!isNodeVisible(index)) return null;
 
-        return (
-          <HierarchyNodeItem
-            key={node.id}
-            node={node}
-            indentWidth={indentWidth}
-            isExpanded={isExpanded}
-            onToggle={() => toggleNode(node.id)}
-            onClick={() => onNodeClick?.(node.id)}
-          />
-        );
-      })}
+          const isExpanded = expandedNodes.has(node.id);
+          // When searching, don't indent subsidiaries as much
+          const indentWidth = searchQuery.trim() ? (node.level === 0 ? 0 : 8) : node.level * 16;
+
+          return (
+            <HierarchyNodeItem
+              key={node.id}
+              node={node}
+              indentWidth={indentWidth}
+              isExpanded={isExpanded}
+              onToggle={() => toggleNode(node.id)}
+              onClick={() => onNodeClick?.(node.id)}
+              isSearching={!!searchQuery.trim()}
+            />
+          );
+        })}
+        
+        {/* No results message */}
+        {searchQuery.trim() && filteredSubsidiaryCount === 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "32px 16px",
+              gap: "8px",
+            }}
+          >
+            <Search size={20} style={{ color: "rgba(255,255,255,0.15)" }} />
+            <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>
+              No subsidiaries found
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -130,12 +242,14 @@ function HierarchyNodeItem({
   isExpanded,
   onToggle,
   onClick,
+  isSearching,
 }: {
   node: HierarchyNode;
   indentWidth: number;
   isExpanded: boolean;
   onToggle: () => void;
   onClick: () => void;
+  isSearching?: boolean;
 }) {
   const isRoot = node.level === 0;
   const hasChildren = node.hasChildren;
@@ -161,7 +275,7 @@ function HierarchyNodeItem({
       }}
     >
       {/* Expand/Collapse Icon */}
-      {hasChildren ? (
+      {hasChildren && !isSearching ? (
         <div
           style={{
             width: "14px",

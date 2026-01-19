@@ -73,7 +73,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-sm font-semibold text-foreground leading-tight">
+              <h2 style={{ fontSize: "13px", fontWeight: "600", color: "rgba(255,255,255,0.9)", lineHeight: "1.2" }}>
                 {isSubsidiaryNode ? (subsidiary?.name || "Loading...") : (node?.name || "Unknown")}
               </h2>
               {isLoading && (
@@ -116,7 +116,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
               borderRadius: '6px',
               transition: 'all 0.2s ease',
               padding: '12px 16px',
-              fontSize: '14px',
+              fontSize: '12px',
             }}
           >
             {isSubsidiaryNode ? "Company Info" : "Company Info"}
@@ -155,7 +155,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
                 {/* Parent Company Link */}
                 {parentEdge?.parentCompany && (
                   <div style={{ marginBottom: "16px" }}>
-                    <div style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)", marginBottom: "4px" }}>
+                    <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", marginBottom: "4px" }}>
                       Parent Company
                     </div>
                     <button
@@ -166,7 +166,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
                         border: "none",
                         padding: 0,
                         cursor: "pointer",
-                        fontSize: "14px",
+                        fontSize: "12px",
                         color: "#60a5fa",
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = "#93c5fd")}
@@ -397,12 +397,12 @@ function FieldRow({
 
   return (
     <div style={{ marginBottom: "16px" }}>
-      <div style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)", marginBottom: "4px" }}>
+      <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", marginBottom: "4px" }}>
         {label}
       </div>
       <div
         style={{
-          fontSize: "14px",
+          fontSize: "13px",
           color: "rgba(255,255,255,0.9)",
           fontFamily: mono ? "monospace" : "inherit",
         }}
@@ -437,7 +437,7 @@ function TickerField({ tickers }: { tickers?: string | string[] | null }) {
 
   return (
     <div style={{ marginBottom: "16px" }}>
-      <div style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)", marginBottom: "8px" }}>
+      <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", marginBottom: "8px" }}>
         Tickers
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
