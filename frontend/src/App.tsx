@@ -103,12 +103,8 @@ function AppContent() {
                 </svg>
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium mb-1">Search and select a company</p>
-                <p className="text-xs text-muted-foreground/50">
-                  Use the search box to find companies
-                </p>
                 <p className="text-xs text-muted-foreground/40 mt-2">
-                  Press <kbd className="px-2 py-1 text-xs bg-accent/20 rounded border">⌘⇧F</kbd> to search by accession number
+                  Press <kbd className="px-2 py-1 text-xs bg-accent/20 rounded border">⌘ Shift F</kbd> to search by accession number
                 </p>
               </div>
             </div>
