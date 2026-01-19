@@ -1,6 +1,6 @@
 import { useState, memo, useMemo } from "react";
 import { Search } from "lucide-react";
-import { useAllCompanies } from "../../db/queries";
+import { useAllCompaniesCached } from "../../db/queries";
 
 interface CompanyListProps {
   onSelectNode: (id: string) => void;
@@ -8,7 +8,7 @@ interface CompanyListProps {
 
 export const CompanyList = memo(function CompanyList({ onSelectNode }: CompanyListProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const { companies: allCompanies, isLoading } = useAllCompanies();
+  const { companies: allCompanies, isLoading } = useAllCompaniesCached();
 
   const companies = useMemo(() => {
     if (!searchQuery.trim()) return allCompanies;

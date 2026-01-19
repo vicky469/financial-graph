@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Routes, Route, useParams, useNavigate } from "react-router-dom";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { DetailPanel } from "./components/DetailPanel";
 import { JurisdictionTreemap } from "./components/JurisdictionTreemap";
+import { SearchModal } from "./components/SearchModal";
 import { useCompanyGraph } from "./db/queries";
 
 function AppContent() {
@@ -11,6 +12,7 @@ function AppContent() {
   const navigate = useNavigate();
 
   const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState<string | null>(null);
+  const [showSearchModal, setShowSearchModal] = useState(false);
 
   // Derive selectedNodeId from URL param - no state needed
   const selectedNodeId = companyId || null;
@@ -20,6 +22,20 @@ function AppContent() {
     if (selectedSubsidiaryId) return null; // Close company panel when subsidiary is selected
     return selectedNodeId; // Open company panel when company is selected
   }, [selectedNodeId, selectedSubsidiaryId]);
+
+  // Keyboard shortcut for search modal (Cmd+Shift+F or Ctrl+Shift+F)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'F' || e.key === 'f' || e.code === 'KeyF')) {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowSearchModal(true);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, []);
 
   // Update URL when company is selected
   const handleSelectNode = (nodeId: string | null) => {
@@ -91,6 +107,9 @@ function AppContent() {
                 <p className="text-xs text-muted-foreground/50">
                   Use the search box to find companies
                 </p>
+                <p className="text-xs text-muted-foreground/40 mt-2">
+                  Press <kbd className="px-2 py-1 text-xs bg-accent/20 rounded border">⌘⇧F</kbd> to search by accession number
+                </p>
               </div>
             </div>
           ) : isLoading ? (
@@ -103,6 +122,13 @@ function AppContent() {
               onSubsidiaryClick={handleSelectSubsidiary}
             />
           )}
+
+          {/* Search Modal */}
+          <SearchModal
+            isOpen={showSearchModal}
+            onClose={() => setShowSearchModal(false)}
+            onSearchFiling={handleSelectNode}
+          />
         </main>
 
         {detailPanelNode && (

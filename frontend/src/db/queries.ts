@@ -1,10 +1,23 @@
 // Shared Query Hooks
 
-import { useRef } from "react";
+import { useMemo, useEffect } from "react";
 import { db } from "./client";
 import { companyToNode } from "./adapters";
 import type { Node } from "../types";
 import { CompanyType, type Company } from "@financial-graph/shared";
+
+// Simple in-memory cache for companies
+const companiesCache = {
+  data: null as Array<{
+    id: string;
+    name: string;
+    type: "Company";
+    ticker: string | null;
+    cik: string | null;
+  }> | null,
+  timestamp: 0,
+  TTL: 5 * 60 * 1000, // 5 minutes cache
+};
 
 // Load ALL public companies (lightweight - just id, name, type)
 // Excludes ISSUER and TRUST companies
@@ -19,17 +32,46 @@ export const useAllCompanies = () => {
     },
   });
 
-  const companies = (data?.company ?? [])
-    .filter((c: any) => c.name && c.name.trim() !== "") // Filter out empty names
-    .map((c: any) => ({
-      id: c.id,
-      name: c.name,
-      type: "Company" as const,
-      ticker: c.identity?.tickers?.split(',')[0]?.trim() ?? null,
-      cik: c.identity?.primaryCIK ?? null,
-    }));
+  const companies = useMemo(() => {
+    if (!data?.company) return [];
+    
+    return (data.company ?? [])
+      .filter((c: any) => c.name && c.name.trim() !== "") // Filter out empty names
+      .map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        type: "Company" as const,
+        ticker: c.identity?.tickers?.split(',')[0]?.trim() ?? null,
+        cik: c.identity?.primaryCIK ?? null,
+      }));
+  }, [data?.company]);
+
+  // Cache companies when loaded
+  useEffect(() => {
+    if (companies.length > 0) {
+      companiesCache.data = companies;
+      companiesCache.timestamp = Date.now();
+    }
+  }, [companies]);
 
   return { companies, isLoading };
+};
+
+// Cached version that returns cached data immediately if available
+export const useAllCompaniesCached = () => {
+  const now = Date.now();
+  const isCacheValid = companiesCache.data && (now - companiesCache.timestamp) < companiesCache.TTL;
+  
+  // Always call the hook, but conditionally use the data
+  const { companies: freshCompanies, isLoading } = useAllCompanies();
+  
+  // If cache is valid, return cached data immediately
+  if (isCacheValid) {
+    return { companies: companiesCache.data!, isLoading: false };
+  }
+  
+  // Otherwise, return fresh data
+  return { companies: freshCompanies, isLoading };
 };
 
 // Load only edges needed for a specific company
@@ -203,34 +245,15 @@ export const useCompanyHierarchy = (companyId: string | null) => {
       : null
   );
 
-  // Use refs to preserve previous data during refetch
-  const prevDataRef = useRef<{ company: any; edges: any[] } | null>(null);
-
-  // Update ref when we have valid data
   const company = data?.company?.[0];
   const directSubsidiaries = company?.subsidiaries || [];
-
-  // If we have new data, store it; otherwise use previous data during loading
-  if (company && !isLoading) {
-    prevDataRef.current = { company, edges: directSubsidiaries };
-  }
-
-  // Use current data if available, otherwise fall back to previous
-  const effectiveCompany = company || prevDataRef.current?.company;
-  const effectiveEdges = directSubsidiaries.length > 0 ? directSubsidiaries : (prevDataRef.current?.edges || []);
-  
-  // Debug logging
-  if (companyId && effectiveCompany) {
-    console.log('Company:', effectiveCompany.name);
-    console.log('Direct subsidiaries:', effectiveEdges.length);
-  }
   
   // Build a multi-level hierarchy tree from nested subsidiary relationships
   const buildNestedHierarchy = (rootCompany: any, level = 0): any => {
     if (!rootCompany) return null;
 
     // Get subsidiaries at this level
-    const subsidiaryEdges = level === 0 ? effectiveEdges : (rootCompany.subsidiaries || []);
+    const subsidiaryEdges = level === 0 ? directSubsidiaries : (rootCompany.subsidiaries || []);
     
     const children = subsidiaryEdges.map((edge: any) => {
       const child = edge.subsidiaryCompany;
@@ -253,8 +276,8 @@ export const useCompanyHierarchy = (companyId: string | null) => {
     };
   };
 
-  const hierarchyTree = effectiveCompany
-    ? buildNestedHierarchy(effectiveCompany)
+  const hierarchyTree = company
+    ? buildNestedHierarchy(company)
     : null;
 
   // Flatten the hierarchy for list view with proper indentation levels

@@ -1,6 +1,3 @@
-import { useState } from "react";
-import { Search } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import React from "react";
 
 interface HeaderProps {
@@ -8,85 +5,6 @@ interface HeaderProps {
 }
 
 export function Header({ onSearchFiling }: HeaderProps) {
-  const navigate = useNavigate();
-  const [accessionSearch, setAccessionSearch] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isFocused, setIsFocused] = useState(false);
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleSearch = async () => {
-    if (!accessionSearch.trim()) return;
-    
-    setIsSearching(true);
-    setError(null);
-    
-    try {
-      const { db } = await import("../../db/client");
-      
-      const searchValue = accessionSearch.trim();
-      
-      // Try searching by accession_number_nodashes first
-      let result = await db.queryOnce({
-        filing: {
-          $: {
-            where: {
-              accession_number_nodashes: searchValue,
-            },
-          },
-          companies: {}, // Get linked companies
-        },
-      });
-
-      let filing = result.data?.filing?.[0];
-      
-      // If not found, try with accession_number (with dashes)
-      if (!filing) {
-        // Try to format it with dashes: XXXXXXXXXX-XX-XXXXXX
-        let formattedSearch = searchValue;
-        if (searchValue.length === 18 && !searchValue.includes('-')) {
-          formattedSearch = `${searchValue.slice(0, 10)}-${searchValue.slice(10, 12)}-${searchValue.slice(12)}`;
-        }
-        
-        result = await db.queryOnce({
-          filing: {
-            $: {
-              where: {
-                accession_number: formattedSearch,
-              },
-            },
-            companies: {}, // Get linked companies
-          },
-        });
-        
-        filing = result.data?.filing?.[0];
-      }
-
-      if (filing && filing.companies && filing.companies.length > 0) {
-        const companyId = filing.companies[0].id;
-        if (onSearchFiling) {
-          onSearchFiling(companyId);
-        } else {
-          navigate(`/company/${companyId}`);
-        }
-        setAccessionSearch("");
-      } else {
-        setError("Filing not found");
-      }
-    } catch (err) {
-      console.error("Search error:", err);
-      setError("Search failed");
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-  };
-
   return (
     <header className="h-11 flex items-center px-4 shrink-0">
       <div className="flex items-center gap-4">
@@ -110,67 +28,6 @@ export function Header({ onSearchFiling }: HeaderProps) {
           </svg>
         </div>
         <span style={{ marginLeft: "5px" }} className="text-sm font-medium text-foreground/80">Financial Graph</span>
-      </div>
-
-      {/* Accession Number Search - Centered */}
-      <div className="flex-1 flex items-center justify-center gap-2">
-        <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)", marginRight: "10px"}}>Accession #</span>
-        <div 
-          onClick={() => inputRef.current?.focus()}
-          style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          background: isFocused ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)",
-          border: isFocused ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.1)",
-          borderRadius: "6px",
-          padding: "0 10px",
-          height: "32px",
-          minWidth: "200px",
-          cursor: "text",
-          transition: "all 0.2s ease",
-        }}>
-          <Search size={14} style={{ color: isFocused ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.4)", flexShrink: 0, transition: "color 0.2s ease" }} />
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder="e.g. 0001193125-24-012345"
-            value={accessionSearch}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            onChange={(e) => {
-              setAccessionSearch(e.target.value.replace(/-/g, ""));
-              setError(null);
-            }}
-            onKeyDown={handleKeyDown}
-            style={{
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              fontSize: "12px",
-              color: "rgba(255,255,255,0.8)",
-              width: "170px",
-            }}
-          />
-          {isSearching && (
-            <div style={{
-              width: "12px",
-              height: "12px",
-              border: "2px solid rgba(255,255,255,0.2)",
-              borderTopColor: "rgba(255,255,255,0.6)",
-              borderRadius: "50%",
-              animation: "spin 0.8s linear infinite",
-            }} />
-          )}
-        </div>
-        {error && (
-          <span style={{ 
-            fontSize: "11px", 
-            color: "#f87171", 
-            whiteSpace: "nowrap",
-            minWidth: "120px",
-          }}>{error}</span>
-        )}
       </div>
     </header>
   );
