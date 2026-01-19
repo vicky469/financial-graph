@@ -17,7 +17,7 @@ export function useGraphEdges(
 
   return useMemo(() => {
     return visibleEdges.map((e) => {
-        const isBrandConnection = e.label === "owns";
+        // Since owns entity is not active, we only handle parent_of relationships
         const isOwnership = e.label === "parent_of" || e.ownership !== undefined;
         const isSelected = selectedEdgeId === e.id;
 
@@ -25,8 +25,6 @@ export function useGraphEdges(
         let strokeColor = "#64748b"; // Default gray
         if (isSelected) {
           strokeColor = "#60a5fa"; // Blue when selected
-        } else if (isBrandConnection) {
-          strokeColor = "#a78bfa"; // Purple for brand connections
         } else if (isOwnership) {
           strokeColor = "#94a3b8"; // Light gray for ownership
         }
@@ -43,12 +41,11 @@ export function useGraphEdges(
           target: e.targetId,
           sourceHandle: "bottom",
           targetHandle: "top",
-          type: isBrandConnection ? "straight" : "smoothstep",
+          type: "smoothstep", // Always use smoothstep since we don't have brand connections
           label: labelText,
           animated: false,
           style: {
             strokeWidth: 2,
-            strokeDasharray: isBrandConnection ? "8 4" : "none",
             stroke: strokeColor,
           },
           labelStyle: {
@@ -62,14 +59,12 @@ export function useGraphEdges(
           },
           labelBgPadding: [6, 8] as [number, number],
           labelBgBorderRadius: 4,
-          markerEnd: isBrandConnection
-            ? undefined
-            : {
-                type: MarkerType.ArrowClosed,
-                color: strokeColor,
-                width: 20,
-                height: 20,
-              },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: strokeColor,
+            width: 20,
+            height: 20,
+          },
         };
       });
   }, [visibleEdges, selectedEdgeId]);

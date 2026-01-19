@@ -29,6 +29,7 @@ export interface ParseResult {
   subsidiaries: SubsidiaryRecord[];
   method: string;
   status: "success" | "empty" | "failed"; // success=found data, empty=no subsidiaries found, failed=error occurred
+  classification: string; // Document classification (text-based, single-table, multi-table, etc.)
   tableCount: number;
   maxNestingLevel: number;
   footnotesHtml: string; // Raw HTML of footnote sections

@@ -50,17 +50,22 @@ export const DEFAULT_CONFIG: ParserConfig = {
 /**
  * Document classification based on structure
  */
-export type DocumentClassification =
-  | "single-table" // One subsidiary table
-  | "multi-table" // Multiple subsidiary tables (may include continuations)
-  | "no-table" // No tables found
-  | "has-table-no-data" // Tables exist but no data rows
-  | "text-based"; // Text-based subsidiary listing (no tables)
+export enum DocumentClassification {
+  SINGLE_TABLE = "single-table",
+  MULTI_TABLE = "multi-table", 
+  NO_TABLE = "no-table",
+  HAS_TABLE_NO_DATA = "has-table-no-data",
+  TEXT_BASED = "text-based"
+}
 
 /**
  * Table type classification
  */
-export type TableType = "subsidiary" | "footnote" | "unknown";
+export enum TableType {
+  SUBSIDIARY = "subsidiary",
+  FOOTNOTE = "footnote", 
+  UNKNOWN = "unknown"
+}
 
 /**
  * Information about a detected table

@@ -72,6 +72,13 @@ async function main() {
     itemsProcessed: result.itemsProcessed,
     itemsSucceeded: result.itemsSucceeded,
     itemsFailed: result.itemsFailed,
+    ...(result.metadata.itemsWithSubsidiaries !== undefined && {
+      breakdown: {
+        withSubsidiaries: `${result.metadata.itemsWithSubsidiaries} (${result.itemsProcessed > 0 ? ((result.metadata.itemsWithSubsidiaries / result.itemsProcessed) * 100).toFixed(1) : "0.0"}%)`,
+        empty: `${result.metadata.itemsEmpty} (${result.itemsProcessed > 0 ? ((result.metadata.itemsEmpty / result.itemsProcessed) * 100).toFixed(1) : "0.0"}%)`,
+        failed: `${result.metadata.itemsFailed} (${result.itemsProcessed > 0 ? ((result.metadata.itemsFailed / result.itemsProcessed) * 100).toFixed(1) : "0.0"}%)`,
+      }
+    }),
     sinkResults: result.sinkResults,
     errorCount: result.errors.length,
   });

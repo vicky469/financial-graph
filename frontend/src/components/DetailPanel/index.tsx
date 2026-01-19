@@ -1,26 +1,38 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Clock, User, GitBranch, Sparkles } from "lucide-react";
+import { X, Clock, User, GitBranch, Sparkles, ExternalLink } from "lucide-react";
 import type { Node } from "../../types";
-import { useCompanyDetails, useCompanyAudits } from "../../db/queries";
+import { useCompanyDetails, useCompanyAudits, useSubsidiaryDetails } from "../../db/queries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 interface DetailPanelProps {
-  node: Node | null;
+  node: Node | { id: string; type: string } | null;
   onClose: () => void;
   isPublic?: boolean;
   isSubsidiary?: boolean;
+  parentCompanyId?: string | null;
 }
 
-export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPanelProps) {
+export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidiary, parentCompanyId }: DetailPanelProps) {
   const [activeTab, setActiveTab] = useState<"info" | "audit">("info");
   const panelRef = useRef<HTMLDivElement>(null);
-  const { node: fullNode, isLoading } = useCompanyDetails(
+  
+  // Fetch company details if it's a company
+  const { node: fullNode, isLoading: loadingCompany } = useCompanyDetails(
     node?.type === "Company" ? node.id : null
   );
+  
+  // Fetch subsidiary details if it's a subsidiary
+  const { subsidiary, parentEdge, isLoading: loadingSubsidiary } = useSubsidiaryDetails(
+    node?.type === "Subsidiary" ? node.id : null,
+    parentCompanyId
+  );
+  
   const { audits, isLoading: loadingAudits } = useCompanyAudits(
     node?.type === "Company" ? node.id : null
   );
+  
   const displayNode = fullNode || node;
+  const isLoading = loadingCompany || loadingSubsidiary;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -41,6 +53,15 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
 
   const isEntity = displayNode?.type === "Company";
   const isBrand = displayNode?.type === "Brand";
+  const isSubsidiaryNode = node?.type === "Subsidiary";
+
+  // Handle subsidiary navigation to parent company
+  const handleParentCompanyClick = () => {
+    if (parentCompanyId) {
+      // Navigate to parent company (don't open new tab)
+      window.location.href = `/company/${parentCompanyId}`;
+    }
+  };
 
   return (
     <aside
@@ -52,7 +73,9 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-sm font-semibold text-foreground leading-tight">{node.name}</h2>
+              <h2 className="text-sm font-semibold text-foreground leading-tight">
+                {isSubsidiaryNode ? (subsidiary?.name || "Loading...") : (node?.name || "Unknown")}
+              </h2>
               {isLoading && (
                 <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin shrink-0" />
               )}
@@ -65,6 +88,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
               </Badge>
             )}
             {isBrand && <Badge variant="purple">BRD</Badge>}
+            {isSubsidiaryNode && <Badge variant="muted">SUB</Badge>}
             <button
               onClick={onClose}
               className="p-1.5 rounded-md hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-colors"
@@ -95,7 +119,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
               fontSize: '14px',
             }}
           >
-            Company Info
+            {isSubsidiaryNode ? "Company Info" : "Company Info"}
           </TabsTrigger>
           <TabsTrigger 
             value="audit"
@@ -115,6 +139,95 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
         </TabsList>
 
         <TabsContent value="info" className="flex-1 overflow-y-auto mt-0">
+          {/* Subsidiary Information */}
+          {isSubsidiaryNode && subsidiary && (
+            <>
+              <Section title="Identity">
+                <FieldRow label="CIK" value={subsidiary.cik} mono />
+                <FieldRow label="Jurisdiction" value={subsidiary.jurisdiction} />
+                <FieldRow 
+                  label="Ownership %" 
+                  value={parentEdge?.ownership_percent ? `${parentEdge.ownership_percent}%` : "-"} 
+                />
+                
+                {/* Parent Company Link */}
+                {parentEdge?.parentCompany && (
+                  <div style={{ marginBottom: "16px" }}>
+                    <div style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)", marginBottom: "4px" }}>
+                      Parent Company
+                    </div>
+                    <button
+                      onClick={handleParentCompanyClick}
+                      className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        color: "#60a5fa",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#93c5fd")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "#60a5fa")}
+                    >
+                      {parentEdge.parentCompany.name}
+                      <ExternalLink size={12} />
+                    </button>
+                  </div>
+                )}
+              </Section>
+
+              {/* Metadata for subsidiaries */}
+              {subsidiary && (
+                <div style={{ padding: "20px" }}>
+                  <h3
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 500,
+                      color: "rgba(255,255,255,0.4)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    Metadata
+                  </h3>
+                  <div style={{ display: "flex", gap: "24px" }}>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: "rgba(255,255,255,0.4)",
+                          marginBottom: "2px",
+                        }}
+                      >
+                        Updated At
+                      </div>
+                      <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
+                        {subsidiary.updatedAt ? new Date(subsidiary.updatedAt).toLocaleDateString() : "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: "rgba(255,255,255,0.4)",
+                          marginBottom: "2px",
+                        }}
+                      >
+                        Updated By
+                      </div>
+                      <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
+                        {subsidiary.updatedBy || "—"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Company Information */}
           {isEntity && displayNode && (
             <>
               <Section title="Identity">
@@ -136,7 +249,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary }: DetailPan
           )}
 
           {/* Metadata - compact two column layout, no bottom border */}
-          {displayNode && (
+          {displayNode && !isSubsidiaryNode && (
             <div style={{ padding: "20px" }}>
               <h3
                 style={{

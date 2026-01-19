@@ -1,16 +1,17 @@
 import { ArrowLeft, ExternalLink, Building2, Sparkles, FileText } from "lucide-react";
 import type { Node } from "../../types";
-import { useCompanySubsidiaries, useCompanyBrands, useCompanyFilings } from "../../db/queries";
+import { useCompanyHierarchy, useCompanyBrands, useCompanyFilings } from "../../db/queries";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { SubsidiaryTree } from "./SubsidiaryTree";
+import { HierarchicalTree } from "../HierarchicalTree";
 
 interface CompanyProps {
   node: Node;
   onBack: () => void;
+  onSubsidiaryClick?: (subsidiaryId: string) => void;
 }
 
-export function Company({ node, onBack }: CompanyProps) {
-  const { subsidiaries, subsidiaryTree, isLoading: loadingSubsidiaries } = useCompanySubsidiaries(node.id);
+export function Company({ node, onBack, onSubsidiaryClick }: CompanyProps) {
+  const { flatHierarchy, isLoading: loadingHierarchy } = useCompanyHierarchy(node.id);
   const { brands, isLoading: loadingBrands } = useCompanyBrands(node.id);
   const { filings, isLoading: loadingFilings } = useCompanyFilings(node.id);
 
@@ -71,13 +72,21 @@ export function Company({ node, onBack }: CompanyProps) {
         <Section
           icon={<Building2 size={14} />}
           title="Structure"
-          count={subsidiaries.length}
-          loading={loadingSubsidiaries}
+          count={Math.max(0, flatHierarchy.length - 1)} // Subtract 1 to exclude the root company
+          loading={loadingHierarchy}
         >
-          {loadingSubsidiaries ? (
+          {loadingHierarchy ? (
             <LoadingState />
           ) : (
-            <SubsidiaryTree subsidiaries={subsidiaryTree} />
+            <HierarchicalTree 
+              hierarchy={flatHierarchy} 
+              onNodeClick={(nodeId) => {
+                // Only handle subsidiary clicks, not the root company
+                if (nodeId !== node.id && onSubsidiaryClick) {
+                  onSubsidiaryClick(nodeId);
+                }
+              }}
+            />
           )}
         </Section>
 

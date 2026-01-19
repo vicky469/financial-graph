@@ -17,13 +17,11 @@ import { load } from "cheerio";
 import { createLogger } from "../../utils/logger";
 
 import type {
-  DocumentStructure,
   TableInfo,
-  ParserConfig,
   ContentExtractionInput,
 } from "./types-refactored";
-import { ParserError } from "./types-refactored";
-import type { SubsidiaryRecord, ParseResult } from "./types";
+import { ParserError, DocumentClassification } from "./types-refactored";
+import type { SubsidiaryRecord } from "./types";
 import { extractSubsidiaries } from "./extraction";
 import { findHeaderRow, extractHeaders } from "./table-detection";
 import { extractDocumentFootnotes } from "./footnotes";
@@ -83,7 +81,7 @@ export function extractSubsidiaryRecords(input: ContentExtractionInput): Content
     const footnotesHtml = config.processFootnotes ? preprocessFootnotesHtml(rawFootnotesHtml) : "";
 
     // Handle no-table, no-data, or text-based cases
-    if (structure.classification === "no-table" || structure.classification === "has-table-no-data") {
+    if (structure.classification === DocumentClassification.NO_TABLE || structure.classification === DocumentClassification.HAS_TABLE_NO_DATA) {
       logger.info(`[${filing.accession_number}] No extractable content: ${structure.classification}`);
       return {
         subsidiaries: [],
@@ -94,18 +92,12 @@ export function extractSubsidiaryRecords(input: ContentExtractionInput): Content
     }
 
     // Handle text-based subsidiary listings
-    if (structure.classification === "text-based" && structure.textBased) {
-      logger.info(`[${filing.accession_number}] Processing text-based subsidiaries: ${structure.textBased.entryCount} entries`);
-      const subsidiaries = extractTextBasedSubsidiaries($, structure.textBased, filing);
-      const maxNestingLevel = subsidiaries.length > 0
-        ? Math.max(...subsidiaries.map((s) => s.nestingLevel))
-        : 0;
-
-      logger.info(`[${filing.accession_number}] Extracted ${subsidiaries.length} text-based subsidiaries`);
-
+    if (structure.classification === DocumentClassification.TEXT_BASED && structure.textBased) {
+      logger.info(`[${filing.accession_number}] Skipping text-based subsidiaries: ${structure.textBased.entryCount} entries`);
+      // Return empty result to force classification as empty
       return {
-        subsidiaries,
-        maxNestingLevel,
+        subsidiaries: [],
+        maxNestingLevel: 0,
         footnotesHtml,
         tableCount: structure.totalTableCount,
       };
@@ -227,145 +219,4 @@ function getHeadersForTable(
   }
 
   return [];
-}
-
-// ============================================================================
-// Text-Based Subsidiary Extraction
-// ============================================================================
-
-/**
- * Extract subsidiaries from text-based listings
- * 
- * Handles formats like:
- * - Company Name (Jurisdiction)
- * - Company Name - Jurisdiction
- * - Company Name, Jurisdiction
- * 
- * @param $ - Cheerio instance
- * @param textBasedInfo - Text-based subsidiary information from structure detection
- * @param filing - Filing information for ID generation
- * @returns Array of SubsidiaryRecord objects
- */
-function extractTextBasedSubsidiaries(
-  $: CheerioAPI,
-  textBasedInfo: import("./types-refactored").TextBasedInfo,
-  filing: { accession_number: string; cik: string; filingCompanyId: string; filingCompanyName?: string }
-): SubsidiaryRecord[] {
-  const subsidiaries: SubsidiaryRecord[] = [];
-
-  for (const element of textBasedInfo.elements) {
-    const text = element.text().trim();
-    const parsed = parseTextBasedEntry(text);
-    
-    if (parsed) {
-      // Generate unique ID for this subsidiary
-      const id = `${filing.filingCompanyId}-sub-${subsidiaries.length + 1}`;
-      
-      // Extract footnote references (simple pattern matching)
-      const footnoteRefs = extractFootnoteReferences(text);
-      
-      const subsidiary: SubsidiaryRecord = {
-        id,
-        name: parsed.name,
-        jurisdiction: parsed.jurisdiction,
-        nestingLevel: 0, // Text-based entries are always flat
-        parentName: filing.filingCompanyName, // Parent is the filing company
-        parentId: filing.filingCompanyId,
-        ownership: parsed.ownership,
-        footnoteRefs,
-        indentationSpaces: 0,
-        isNested: false,
-      };
-      
-      subsidiaries.push(subsidiary);
-    }
-  }
-
-  return subsidiaries;
-}
-
-/**
- * Parse a single text-based subsidiary entry
- * 
- * @param text - Text content to parse
- * @returns Parsed subsidiary information or null if parsing fails
- */
-function parseTextBasedEntry(text: string): {
-  name: string;
-  jurisdiction: string;
-  ownership?: number;
-} | null {
-  // Remove footnote references for parsing (but keep original for footnote extraction)
-  const cleanText = text.replace(/\(\d+\)/g, '').trim();
-  
-  // Pattern 1: Company Name (Jurisdiction)
-  const parenthesesMatch = cleanText.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
-  if (parenthesesMatch) {
-    return {
-      name: parenthesesMatch[1].trim(),
-      jurisdiction: parenthesesMatch[2].trim(),
-    };
-  }
-  
-  // Pattern 2: Company Name - Jurisdiction
-  const dashMatch = cleanText.match(/^(.+?)\s*-\s*([^-]+)$/);
-  if (dashMatch) {
-    return {
-      name: dashMatch[1].trim(),
-      jurisdiction: dashMatch[2].trim(),
-    };
-  }
-  
-  // Pattern 3: Company Name, Jurisdiction
-  const commaMatch = cleanText.match(/^(.+?),\s*([^,]+)$/);
-  if (commaMatch) {
-    return {
-      name: commaMatch[1].trim(),
-      jurisdiction: commaMatch[2].trim(),
-    };
-  }
-  
-  // Pattern 4: Just company name (no jurisdiction)
-  // Check if it has business entity suffixes
-  const entitySuffixes = [
-    'LLC', 'Inc', 'Corp', 'Ltd', 'Limited', 'Company', 'Co.',
-    'GmbH', 'S.A.', 'S.L.', 'SRL', 'AB', 'PTY', 'PTE', 'K.K.',
-    'Yuhan Hoesa', 'Private Limited', 'FZ LLC'
-  ];
-  
-  const upperText = cleanText.toUpperCase();
-  const hasEntitySuffix = entitySuffixes.some(suffix => 
-    upperText.includes(suffix.toUpperCase())
-  );
-  
-  if (hasEntitySuffix && cleanText.length > 5) {
-    return {
-      name: cleanText,
-      jurisdiction: "Unknown",
-    };
-  }
-  
-  return null;
-}
-
-/**
- * Extract footnote references from text
- * 
- * @param text - Text to search for footnote references
- * @returns Array of footnote reference numbers
- */
-function extractFootnoteReferences(text: string): string[] {
-  const footnoteRefs: string[] = [];
-  const matches = text.match(/\((\d+)\)/g);
-  
-  if (matches) {
-    for (const match of matches) {
-      const num = match.replace(/[()]/g, '');
-      if (!footnoteRefs.includes(num)) {
-        footnoteRefs.push(num);
-      }
-    }
-  }
-  
-  return footnoteRefs;
 }

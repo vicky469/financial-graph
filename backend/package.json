@@ -14,12 +14,12 @@
     "ingest:metadata": "bun src/data_source/sec/scripts/ingestSecMetadata.ts",
     "ingest:tickers": "bun src/ingest/tickers.ts",
     "ingest:filings": "bun src/ingest/filings.ts && bun src/ingest/ex21.ts && bun src/ingest/ex8.ts",
-    "ingest:subsidiaries": "bun src/ingest/subsidiaries.ts",
+    "ingest:subsidiaries": "bun src/pipeline/subsidiaries/run.ts --sink=excel",
     "download:ex21": "bun src/data_source/sec/scripts/download_exhibit_files.ts EX-21",
     "download:ex8": "bun src/data_source/sec/scripts/download_exhibit_files.ts EX-8",
     "fetch:sp500": "bun src/data_source/sp500/fetch-sp500-list.ts",
     "mark:sp500": "bun src/scripts/mark-sp500-companies.ts",
-    "mark:trust": "bun src/scripts/mark-trust-companies.ts"
+    "validate:csv": "bun src/scripts/validate-subsidiaries-csv.ts"
   },
   "keywords": [],
   "author": "",

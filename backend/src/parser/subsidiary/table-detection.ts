@@ -36,6 +36,92 @@ export function isLikelyFooterTable($: any, table: any): boolean {
 }
 
 /**
+ * Check if a table contains subsidiary data even without explicit headers
+ * This handles cases where tables go straight to data without header rows
+ */
+export function hasSubsidiaryData($: any, table: any): boolean {
+  const rows = table.find("tr");
+  if (rows.length < 2) return false;
+  
+  let subsidiaryDataRows = 0;
+  let totalContentRows = 0;
+  let companyNameRows = 0;
+  let jurisdictionRows = 0;
+  
+  // Check first 10 rows for subsidiary-like patterns
+  rows.slice(0, 10).each((_: any, row: any) => {
+    const $row = $(row);
+    const cells = $row.find("td, th");
+    const cellTexts = cells.map((_: any, cell: any) => $(cell).text().trim()).get();
+    
+    // Skip empty rows
+    if (cellTexts.every(text => text.length === 0)) return;
+    
+    // Skip rows that are clearly descriptive text (long single-cell content)
+    if (cells.length === 1 && cellTexts[0].length > 100) return;
+    
+    totalContentRows++;
+    
+    // Look for patterns that suggest subsidiary data:
+    // 1. Company name patterns (contains LLC, Inc, Corp, Ltd, etc.)
+    // 2. Jurisdiction patterns (country/state names)
+    // 3. At least 2 non-empty cells (name + jurisdiction pattern)
+    
+    const hasCompanyName = cellTexts.some((text: string) => {
+      const lower = text.toLowerCase();
+      return lower.includes('llc') || lower.includes('inc') || lower.includes('corp') || 
+             lower.includes('ltd') || lower.includes('limited') || lower.includes('company') ||
+             lower.includes('s.a.') || lower.includes('gmbh') || lower.includes('b.v.') ||
+             lower.includes('pty') || lower.includes('plc') || lower.includes('n.v.') ||
+             lower.includes('bank') || lower.includes('corporation') || lower.includes('national');
+    });
+    
+    const hasJurisdiction = cellTexts.some((text: string) => {
+      const lower = text.toLowerCase();
+      // Common countries and states - expanded list
+      return lower.includes('united states') || lower.includes('delaware') || 
+             lower.includes('new york') || lower.includes('california') || 
+             lower.includes('colombia') || lower.includes('india') || 
+             lower.includes('chile') || lower.includes('netherlands') ||
+             lower.includes('canada') || lower.includes('uk') || lower.includes('germany') ||
+             lower.includes('france') || lower.includes('japan') || lower.includes('australia') ||
+             lower.includes('west virginia') || lower.includes('virginia') || lower.includes('texas') ||
+             lower.includes('florida') || lower.includes('nevada') || lower.includes('illinois') ||
+             lower.includes('pennsylvania') || lower.includes('ohio') || lower.includes('michigan') ||
+             lower.includes('georgia') || lower.includes('north carolina') || lower.includes('south carolina');
+    });
+    
+    const hasMultipleCells = cellTexts.filter((text: string) => text.length > 0).length >= 2;
+    
+    // Track company names and jurisdictions separately for multi-row detection
+    if (hasCompanyName) companyNameRows++;
+    if (hasJurisdiction) jurisdictionRows++;
+    
+    // Single-row pattern: require both company name AND jurisdiction patterns
+    if (hasCompanyName && hasJurisdiction && hasMultipleCells) {
+      subsidiaryDataRows++;
+    }
+    // Multi-row pattern: company name OR jurisdiction (but not both in same row)
+    else if ((hasCompanyName || hasJurisdiction) && hasMultipleCells) {
+      subsidiaryDataRows++;
+    }
+  });
+  
+  // For single-row pattern: require at least 3 complete subsidiary rows
+  if (subsidiaryDataRows >= 3 && totalContentRows > 0 && (subsidiaryDataRows / totalContentRows) >= 0.3) {
+    return true;
+  }
+  
+  // For multi-row pattern: require both company names AND jurisdictions present
+  // This handles cases like City National Bank where data spans multiple rows
+  if (companyNameRows >= 2 && jurisdictionRows >= 2 && totalContentRows >= 4) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Find all tables that look like subsidiary tables
  */
 export function findAllSubsidiaryTables($: any, tables: any): any[] {
@@ -63,36 +149,38 @@ export function findAllSubsidiaryTables($: any, tables: any): any[] {
 }
 
 /**
- * Find the header row index in a table
+ * Find the header row index in a table - check first 6 rows to handle cases with descriptive text
  */
 export function findHeaderRow($: any, rows: any): number {
-  let headerRowIndex = -1;
-
-  rows.slice(0, 10).each((i: number, tr: any) => {
-    const $tr = $(tr);
-    const hasThCells = $tr.find("th").length > 0;
+  // Check first 6 rows for the best header match (increased from 3 to handle descriptive text)
+  for (let i = 0; i < Math.min(6, rows.length); i++) {
+    const $tr = $(rows[i]);
     const text = $tr.text().toLowerCase();
-    const cellCount = $tr.find("td, th").length;
-
-    if (cellCount === 1) return;
-    if (text.length < 10 && !text.includes("name")) return;
-
-    if (hasThCells && headerRowIndex === -1) {
-      headerRowIndex = i;
-      return false;
+    
+    // Skip empty rows
+    if (text.trim().length < 3) continue;
+    
+    // Skip rows that are clearly descriptive text (long single-cell content)
+    const cells = $tr.find('td, th');
+    if (cells.length === 1 && text.length > 100) continue;
+    
+    // If row has both name and jurisdiction keywords AND has multiple cells, it's likely a header
+    if (containsAny(text, SUBSIDIARY_KEYWORDS.SUBSIDIARY_NAME) && 
+        containsAny(text, SUBSIDIARY_KEYWORDS.JURISDICTION) &&
+        cells.length >= 2) {
+      return i;
     }
-
-    if (
-      headerRowIndex === -1 &&
-      containsAny(text, SUBSIDIARY_KEYWORDS.SUBSIDIARY_NAME) &&
-      containsAny(text, SUBSIDIARY_KEYWORDS.JURISDICTION)
-    ) {
-      headerRowIndex = i;
-      return false;
+  }
+  
+  // Fallback: check for TH elements in first 6 rows
+  for (let i = 0; i < Math.min(6, rows.length); i++) {
+    const $tr = $(rows[i]);
+    if ($tr.find("th").length > 0) {
+      return i;
     }
-  });
-
-  return headerRowIndex;
+  }
+  
+  return -1; // No header found
 }
 
 /**

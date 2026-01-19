@@ -1,30 +1,28 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Routes, Route, useParams, useNavigate } from "react-router-dom";
-import FinancialGraph from "./components/FinancialGraph";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { DetailPanel } from "./components/DetailPanel";
+import { JurisdictionTreemap } from "./components/JurisdictionTreemap";
 import { useCompanyGraph } from "./db/queries";
 
 function AppContent() {
   const { companyId } = useParams<{ companyId?: string }>();
   const navigate = useNavigate();
-  
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(companyId || null);
-  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null);
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
 
-  // Sync URL param to state
-  useEffect(() => {
-    if (companyId && companyId !== selectedNodeId) {
-      setSelectedNodeId(companyId);
-    }
-  }, [companyId]);
+  const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState<string | null>(null);
+
+  // Derive selectedNodeId from URL param - no state needed
+  const selectedNodeId = companyId || null;
+  
+  // Derive selectedGraphNodeId - open company panel by default when company is selected
+  const selectedGraphNodeId = useMemo(() => {
+    if (selectedSubsidiaryId) return null; // Close company panel when subsidiary is selected
+    return selectedNodeId; // Open company panel when company is selected
+  }, [selectedNodeId, selectedSubsidiaryId]);
 
   // Update URL when company is selected
   const handleSelectNode = (nodeId: string | null) => {
-    setSelectedNodeId(nodeId);
     if (nodeId) {
       navigate(`/company/${nodeId}`);
     } else {
@@ -32,12 +30,26 @@ function AppContent() {
     }
   };
 
-  const { nodes, edges, isLoading } = useCompanyGraph(selectedNodeId);
+  // Handle subsidiary selection from treemap
+  const handleSelectSubsidiary = (subsidiaryId: string) => {
+    setSelectedSubsidiaryId(subsidiaryId);
+  };
+
+  const { nodes, isLoading } = useCompanyGraph(selectedNodeId);
 
   const selectedGraphNode = useMemo(
     () => nodes.find((n) => n.id === selectedGraphNodeId) ?? null,
     [nodes, selectedGraphNodeId]
   );
+
+  // Get the detail panel node - either the selected company or subsidiary
+  const detailPanelNode = useMemo(() => {
+    if (selectedSubsidiaryId) {
+      // Create a node object for the subsidiary (we'll need to fetch its data)
+      return { id: selectedSubsidiaryId, type: "Subsidiary" };
+    }
+    return selectedGraphNode;
+  }, [selectedGraphNode, selectedSubsidiaryId]);
 
   const isPublic = selectedGraphNode?.cik ? true : false;
   const isSubsidiary = selectedGraphNode?.id !== selectedNodeId;
@@ -48,8 +60,12 @@ function AppContent() {
 
       <div style={{ height: "1px", background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
 
-      <div className="flex-1 flex overflow-hidden relative max-w-full">
-        <Sidebar onSelectNode={handleSelectNode} selectedNodeId={selectedNodeId} />
+      <div className="flex-1 flex overflow-hidden relative max-w-full" key={selectedNodeId}>
+        <Sidebar 
+          onSelectNode={handleSelectNode} 
+          selectedNodeId={selectedNodeId} 
+          onSubsidiaryClick={handleSelectSubsidiary}
+        />
 
         <main className="flex-1 min-w-0 relative bg-background flex flex-col overflow-hidden">
           {!selectedNodeId ? (
@@ -82,28 +98,22 @@ function AppContent() {
               Loading Graph Data...
             </div>
           ) : (
-            <FinancialGraph
-              focusedNodeId={focusedNodeId}
-              selectedNodeId={selectedNodeId}
-              selectedGraphNodeId={selectedGraphNodeId}
-              selectedEdgeId={selectedEdgeId}
-              nodes={nodes}
-              edges={edges}
-              onSelectGraphNode={setSelectedGraphNodeId}
-              onSelectEdge={setSelectedEdgeId}
-              onClearFocus={() => setFocusedNodeId(null)}
-              showNodes={true}
-              showBrands={true}
+            <JurisdictionTreemap
+              companyId={selectedNodeId}
+              onSubsidiaryClick={handleSelectSubsidiary}
             />
           )}
         </main>
 
-        {selectedGraphNode && (
+        {detailPanelNode && (
           <DetailPanel
-            node={selectedGraphNode}
-            onClose={() => setSelectedGraphNodeId(null)}
+            node={detailPanelNode}
+            onClose={() => {
+              setSelectedSubsidiaryId(null);
+            }}
             isPublic={isPublic}
-            isSubsidiary={isSubsidiary}
+            isSubsidiary={selectedSubsidiaryId ? true : isSubsidiary}
+            parentCompanyId={selectedSubsidiaryId ? selectedNodeId : null}
           />
         )}
       </div>

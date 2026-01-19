@@ -14,15 +14,15 @@ import { createLogger } from "../../utils/logger";
 
 import type {
   DocumentStructure,
-  DocumentClassification,
   TableInfo,
   ParserConfig,
 } from "./types-refactored";
-import { ParserError } from "./types-refactored";
+import { ParserError, DocumentClassification, TableType } from "./types-refactored";
 import {
   findHeaderRow,
   extractHeaders,
   isLikelyFooterTable,
+  hasSubsidiaryData,
 } from "./table-detection";
 import { SUBSIDIARY_KEYWORDS, containsAny } from "../../config/subsidiary-keywords";
 
@@ -53,34 +53,41 @@ export function detectDocumentStructure(
     
     logger.debug("Starting structure detection");
 
-    // Step 1: Check for text-based subsidiary listings first
-    const textBasedInfo = detectTextBasedSubsidiaries($);
-    if (textBasedInfo && textBasedInfo.entryCount > 0) {
-      logger.debug(`Found text-based subsidiary listing with ${textBasedInfo.entryCount} entries`);
-      return {
-        classification: "text-based",
-        tables: [],
-        totalTableCount: 0,
-        textBased: textBasedInfo,
-      };
-    }
-
-    // Step 2: Find all tables
+    // Step 1: Find all tables first to check if we have table-based structure
     const tables = $("table");
     logger.debug(`Found ${tables.length} tables in document`);
+
+    // Step 2: Process tables to find subsidiary tables
+    let allTableInfos: TableInfo[] = [];
+    let subsidiaryTables: TableInfo[] = [];
+    
+    if (tables.length > 0) {
+      allTableInfos = processAllTables($, tables);
+      subsidiaryTables = allTableInfos.filter((t) => t.type === TableType.SUBSIDIARY);
+    }
+
+    // Step 3: Only check for text-based if we don't have any subsidiary tables
+    if (subsidiaryTables.length === 0) {
+      const textBasedInfo = detectTextBasedSubsidiaries($);
+      if (textBasedInfo && textBasedInfo.entryCount > 0) {
+        logger.debug(`Found text-based subsidiary listing with ${textBasedInfo.entryCount} entries`);
+        return {
+          classification: DocumentClassification.TEXT_BASED,
+          tables: [],
+          totalTableCount: tables.length,
+          textBased: textBasedInfo,
+        };
+      }
+    }
 
     if (tables.length === 0) {
       logger.debug("No tables found - document is empty");
       return {
-        classification: "no-table",
+        classification: DocumentClassification.NO_TABLE,
         tables: [],
         totalTableCount: 0,
       };
     }
-
-    // Step 3: Process tables to find subsidiary tables
-    const allTableInfos = processAllTables($, tables);
-    const subsidiaryTables = allTableInfos.filter((t) => t.type === "subsidiary");
 
     // Step 4: Determine classification
     const classification = classifyDocument(subsidiaryTables);
@@ -185,19 +192,7 @@ function isSubsidiaryPattern(text: string): boolean {
  * Check if text is likely a header or title (should be excluded)
  */
 function isHeaderOrTitle(text: string): boolean {
-  const upperText = text.toUpperCase();
-  
-  // Common header patterns
-  const headerPatterns = [
-    'EXHIBIT',
-    'SUBSIDIARIES OF',
-    'LIST OF SUBSIDIARIES',
-    'SUBSIDIARY COMPANIES',
-    'SIGNIFICANT SUBSIDIARIES',
-    'SUBSIDIARIES LIST',
-  ];
-  
-  return headerPatterns.some(pattern => upperText.includes(pattern));
+  return containsAny(text, SUBSIDIARY_KEYWORDS.DOCUMENT_HEADERS);
 }
 
 /**
@@ -266,7 +261,7 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
         logger.debug(`Table ${tableIndex}: Single row table with note-like content, treating as footnote`);
         allTableInfos.push({
           index: tableIndex,
-          type: "footnote",
+          type: TableType.FOOTNOTE,
           rowCount: 1,
           columnCount: calculateColumnCount($, rows),
           headers: [],
@@ -281,7 +276,7 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
     if (rows.length < 2) {
       allTableInfos.push({
         index: tableIndex,
-        type: "unknown",
+        type: TableType.UNKNOWN,
         rowCount: 0, // No data rows
         columnCount: 0,
         headers: [],
@@ -295,7 +290,7 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
 
     let headers: string[];
     let isContinuation = false;
-    let tableType: TableInfo["type"] = "unknown";
+    let tableType: TableInfo["type"] = TableType.UNKNOWN;
     let dataRowCount = 0; // Count of data rows (excluding header)
 
     if (headerRowIndex === -1) {
@@ -304,7 +299,7 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
         logger.debug(`Table ${tableIndex}: Identified as footer table`);
         allTableInfos.push({
           index: tableIndex,
-          type: "footnote",
+          type: TableType.FOOTNOTE,
           rowCount: rows.length, // Footer tables count all rows
           columnCount: calculateColumnCount($, rows),
           headers: [],
@@ -317,9 +312,25 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
       // Check if this could be a continuation table
       if (lastHeaders === null) {
         logger.debug(`Table ${tableIndex}: No headers and no previous headers available`);
+        
+        // Before giving up, check if this table has subsidiary data without headers
+        if (hasSubsidiaryData($, $table)) {
+          logger.debug(`Table ${tableIndex}: Found subsidiary data without explicit headers`);
+          allTableInfos.push({
+            index: tableIndex,
+            type: TableType.SUBSIDIARY,
+            rowCount: rows.length, // All rows are data rows
+            columnCount: calculateColumnCount($, rows),
+            headers: null, // No explicit headers
+            isContinuation: false,
+            cheerioElement: $table,
+          });
+          return;
+        }
+        
         allTableInfos.push({
           index: tableIndex,
-          type: "unknown",
+          type: TableType.UNKNOWN,
           rowCount: rows.length, // Count all rows for unknown tables
           columnCount: calculateColumnCount($, rows),
           headers: [],
@@ -339,7 +350,7 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
           logger.debug(`Table ${tableIndex}: Column mismatch with note-like content, treating as footnote`);
           allTableInfos.push({
             index: tableIndex,
-            type: "footnote",
+            type: TableType.FOOTNOTE,
             rowCount: rows.length,
             columnCount: currentColumnCount,
             headers: [],
@@ -353,7 +364,7 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
       // This is a continuation table
       headers = null as any; // Continuation tables have no headers of their own
       isContinuation = true;
-      tableType = "subsidiary"; // Assume continuation of subsidiary table
+      tableType = TableType.SUBSIDIARY; // Assume continuation of subsidiary table
       dataRowCount = rows.length; // All rows are data rows in continuation tables
       logger.debug(`Table ${tableIndex}: Identified as continuation table`);
     } else {
@@ -367,7 +378,7 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
         containsAny(headerText, SUBSIDIARY_KEYWORDS.JURISDICTION);
 
       if (hasSubsidiaryKeywords) {
-        tableType = "subsidiary";
+        tableType = TableType.SUBSIDIARY;
         
         // Calculate actual column count with colspan
         const $headerRow = $(rows[headerRowIndex]);
@@ -419,20 +430,20 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
  */
 function classifyDocument(subsidiaryTables: TableInfo[]): DocumentClassification {
   if (subsidiaryTables.length === 0) {
-    return "has-table-no-data";
+    return DocumentClassification.HAS_TABLE_NO_DATA;
   }
 
   // Check if we have any tables with actual data rows
   const tablesWithData = subsidiaryTables.filter(t => t.rowCount > 0); // At least 1 data row
   
   if (tablesWithData.length === 0) {
-    return "has-table-no-data";
+    return DocumentClassification.HAS_TABLE_NO_DATA;
   }
 
   // Return specific classifications based on number of tables
   if (subsidiaryTables.length === 1) {
-    return "single-table";
+    return DocumentClassification.SINGLE_TABLE;
   } else {
-    return "multi-table";
+    return DocumentClassification.MULTI_TABLE;
   }
 }

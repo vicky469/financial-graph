@@ -168,6 +168,12 @@ export function extractSubsidiaries(
       ? CompanyType.UNKNOWN 
       : CompanyType.PRIVATE;
 
+    // Validate that we have required fields before creating the record
+    if (!parsed.cleanName || !parsed.cleanName.trim() || !parsed.jurisdiction || !parsed.jurisdiction.trim()) {
+      logger.warn(`Skipping subsidiary with invalid data: name="${parsed.cleanName}", jurisdiction="${parsed.jurisdiction}"`);
+      return;
+    }
+
     const subsidiaryId = generateCompanyId({
       type: companyType,
       name: parsed.cleanName,
@@ -176,8 +182,8 @@ export function extractSubsidiaries(
 
     subsidiaries.push({
       id: subsidiaryId,
-      name: parsed.cleanName,
-      jurisdiction: parsed.jurisdiction, // Now guaranteed to be populated
+      name: parsed.cleanName.trim(),
+      jurisdiction: parsed.jurisdiction.trim(),
       nestingLevel: level,
       parentName,
       parentId,

@@ -6,9 +6,10 @@ import { useCompanyGraph } from "../../db/queries";
 interface SidebarProps {
   onSelectNode: (id: string | null) => void;
   selectedNodeId: string | null;
+  onSubsidiaryClick?: (subsidiaryId: string) => void;
 }
 
-export function Sidebar({ onSelectNode, selectedNodeId }: SidebarProps) {
+export function Sidebar({ onSelectNode, selectedNodeId, onSubsidiaryClick }: SidebarProps) {
   const MIN_WIDTH = 240;
   const MAX_WIDTH = 360;
   const DEFAULT_LIST_WIDTH = 260;
@@ -94,7 +95,11 @@ export function Sidebar({ onSelectNode, selectedNodeId }: SidebarProps) {
         } transition-opacity duration-200`}
       >
         {selectedNode ? (
-          <Company node={selectedNode} onBack={() => onSelectNode(null)} />
+          <Company 
+            node={selectedNode} 
+            onBack={() => onSelectNode(null)} 
+            onSubsidiaryClick={onSubsidiaryClick}
+          />
         ) : (
           <CompanyList onSelectNode={onSelectNode} />
         )}

@@ -83,6 +83,7 @@ export async function parseExhibit(
       subsidiaries: [],
       method: "heuristic",
       status: "empty",
+      classification: "unknown",
       tableCount: parseResult?.tableCount ?? 0,
       maxNestingLevel: 0,
       footnotesHtml: parseResult?.footnotesHtml ?? "",
@@ -95,6 +96,7 @@ export async function parseExhibit(
         subsidiaries: [],
         method: "failed",
         status: "failed",
+        classification: "failed",
         tableCount: 0,
         maxNestingLevel: 0,
         footnotesHtml: "",
@@ -293,14 +295,17 @@ export async function parseExhibitRefactored(
   config: ParserConfig = DEFAULT_CONFIG
 ): Promise<ParseResult> {
   try {
-    logger.info(`[${filing.accession_number}] Starting two-phase parsing`);
-
-    // Phase 1: Detect document structure
-    logger.debug(`[${filing.accession_number}] Phase 1: Structure detection`);
     const structure = detectDocumentStructure(html, config);
-    
-    logger.info(`[${filing.accession_number}] Structure detected: ${structure.classification}, ${structure.totalTableCount} total tables, ${structure.tables.length} subsidiary tables`);
 
+    // Log detailed table information for debugging
+    if (structure.tables.length > 0) {
+      logger.info(`[${filing.accession_number}] Table details:`);
+      structure.tables.forEach((table, i) => {
+        const headerInfo = table.headers ? `headers: [${table.headers.join(', ')}]` : 'continuation table';
+        logger.info(`[${filing.accession_number}]   Table ${i + 1} (index ${table.index}): ${table.rowCount} rows × ${table.columnCount} cols, ${headerInfo}`);
+      });
+    }
+  
     // Phase 2: Extract subsidiary records
     logger.debug(`[${filing.accession_number}] Phase 2: Content extraction`);
     const result = extractSubsidiaryRecords({
@@ -324,6 +329,7 @@ export async function parseExhibitRefactored(
       subsidiaries: result.subsidiaries,
       method: "heuristic",
       status,
+      classification: structure.classification,
       tableCount: result.tableCount,
       maxNestingLevel: result.maxNestingLevel,
       footnotesHtml: result.footnotesHtml,

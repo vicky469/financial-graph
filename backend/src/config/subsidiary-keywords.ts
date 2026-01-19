@@ -24,6 +24,7 @@ const JURISDICTION = new Set([
   "country",
   "location",
   "organized",
+  "laws", // "Laws of [State]" is common in SEC filings
 ]);
 
 /** Keywords that identify percentage/ownership columns */
@@ -48,11 +49,22 @@ const FOOTNOTE_MARKERS = new Set([
   "inactive",
 ]);
 
+/** Keywords that identify document headers/titles (should be excluded from subsidiary lists) */
+const DOCUMENT_HEADERS = new Set([
+  "exhibit",
+  "subsidiaries of",
+  "list of subsidiaries",
+  "subsidiary companies",
+  "significant subsidiaries",
+  "subsidiaries list",
+]);
+
 export const SUBSIDIARY_KEYWORDS = {
   SUBSIDIARY_NAME,
   JURISDICTION,
   PERCENTAGE,
   FOOTNOTE_MARKERS,
+  DOCUMENT_HEADERS,
 
   /** Title/header row markers (combined from above) */
   TITLE_MARKERS: new Set([...SUBSIDIARY_NAME, ...JURISDICTION, ...PERCENTAGE]),

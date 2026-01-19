@@ -97,16 +97,13 @@ export class Pipeline<TSource, TOutput = TSource> {
     const filtered = await this.applyFilters(items);
     if (!filtered) return this.buildResult([], {});
 
-    // Stage 3: Process steps
-    const results = await this.processSteps(filtered);
-
-    // Stage 4: Write to sinks
-    await this.writeSinks(results);
+    // Stage 3 & 4: Process and sink in batches
+    const { processResults, sinkResults } = await this.processAndSinkInBatches(filtered);
 
     // Summary
     this.logSummary();
 
-    return this.buildResult([], {});
+    return this.buildResult(processResults, sinkResults);
   }
 
   // ===========================================================================
@@ -160,69 +157,129 @@ export class Pipeline<TSource, TOutput = TSource> {
   }
 
   // ===========================================================================
-  // STAGE 3: Process Steps
+  // STAGE 3 & 4: Process and Sink in Batches (Memory Optimized)
   // ===========================================================================
 
-  private async processSteps(items: TSource[]): Promise<(TOutput | null)[]> {
-    console.log(`\n⚙️  Stage 3: Process steps`);
-
-    // Log step names
-    this.steps.forEach((step, i) => {
-      console.log(`   ${i + 1}. ${step.name}`);
-    });
+  private async processAndSinkInBatches(items: TSource[]): Promise<{
+    processResults: (TOutput | null)[],
+    sinkResults: Record<string, SinkResult>
+  }> {
+    console.log(`\n⚙️  Stage 3 & 4: Process and sink in batches`);
+    this.steps.forEach((step, i) => console.log(`   ${i + 1}. ${step.name}`));
 
     const start = Date.now();
-    const results = await this.processItems(items);
-    this.timings["steps.total"] = Date.now() - start;
+    let successCount = 0, emptyCount = 0, failedCount = 0;
+    const processResults: (TOutput | null)[] = [];
 
-    const succeeded = results.filter((r) => r !== null).length;
-    const failed = results.length - succeeded;
-
-    console.log(`   ✓ ${succeeded} succeeded, ${failed} failed (${this.timings["steps.total"]}ms)`);
-    logger.info(`Processed: ${succeeded} succeeded, ${failed} failed`);
-
-    return results;
-  }
-
-  // ===========================================================================
-  // STAGE 4: Write Sinks
-  // ===========================================================================
-
-  private async writeSinks(
-    results: (TOutput | null)[]
-  ): Promise<Record<string, SinkResult>> {
+    // Initialize sink results
     const sinkResults: Record<string, SinkResult> = {};
-    const succeeded = results.filter((r) => r !== null) as TOutput[];
-
-    if (this.config.dryRun) {
-      console.log(`\n🔸 Stage 4: Dry run - skipping sinks`);
-      logger.info("Dry run - skipping sinks");
-      return sinkResults;
-    }
-
-    if (this.sinks.length === 0) {
-      console.log(`\n📤 Stage 4: No sinks configured`);
-      return sinkResults;
-    }
-
-    console.log(`\n📤 Stage 4: Write sinks`);
-
     for (const sink of this.sinks) {
-      try {
-        const start = Date.now();
-        sinkResults[sink.name] = await sink.write(succeeded);
-        this.timings[`sink.${sink.name}`] = Date.now() - start;
+      sinkResults[sink.name] = { written: 0, errors: 0, details: {} };
+    }
 
-        console.log(`   ✓ ${sink.name}: ${sinkResults[sink.name].written} written (${this.timings[`sink.${sink.name}`]}ms)`);
-        logger.info(`${sink.name}: ${sinkResults[sink.name].written} written`);
-      } catch (error) {
-        console.log(`   ✗ ${sink.name} failed`);
-        this.addError("sink", sink.name, null, error, true);
-        sinkResults[sink.name] = { written: 0, errors: 1 };
+    const PROCESS_BATCH_SIZE = this.config.concurrency || 10;
+    const SINK_BATCH_SIZE = 20;
+
+    // Process items in batches
+    for (let i = 0; i < items.length; i += PROCESS_BATCH_SIZE) {
+      const batch = items.slice(i, i + PROCESS_BATCH_SIZE);
+      
+      // Process batch in parallel
+      const batchResults = await Promise.all(
+        batch.map(item => this.processItemSafe(item))
+      );
+      
+      processResults.push(...batchResults);
+      
+      // Count results for summary
+      for (const result of batchResults) {
+        if (result) {
+          const parseStatus = (result as any).parseResult?.status;
+          if (parseStatus === "success") successCount++;
+          else if (parseStatus === "empty") emptyCount++;
+        } else {
+          failedCount++;
+        }
+      }
+
+      // Sink successful results immediately (if not dry run and have sinks)
+      const succeededInBatch = batchResults.filter(r => r !== null) as TOutput[];
+      if (!this.config.dryRun && this.sinks.length > 0 && succeededInBatch.length > 0) {
+        await this.sinkBatch(succeededInBatch, sinkResults, SINK_BATCH_SIZE);
+      }
+
+      // Progress
+      const processed = Math.min(i + PROCESS_BATCH_SIZE, items.length);
+      logger.info(`Progress: ${processed}/${items.length} (${((processed / items.length) * 100).toFixed(1)}%)`);
+    }
+
+    this.timings["process_and_sink.total"] = Date.now() - start;
+
+    // Summary
+    const total = processResults.length;
+    const successPct = ((successCount / total) * 100).toFixed(1);
+    const emptyPct = ((emptyCount / total) * 100).toFixed(1);
+    const failedPct = ((failedCount / total) * 100).toFixed(1);
+    
+    console.log(`   ✓ ${total} processed: ${successCount} success (${successPct}%), ${emptyCount} empty (${emptyPct}%), ${failedCount} failed (${failedPct}%) (${this.timings["process_and_sink.total"]}ms)`);
+
+    // Handle dry run case
+    if (this.config.dryRun) {
+      console.log(`\n🔸 Dry run - skipped sinks`);
+    } else if (this.sinks.length === 0) {
+      console.log(`\n📤 No sinks configured`);
+    } else {
+      // Final totals
+      console.log(`\n📤 Final sink totals:`);
+      for (const sink of this.sinks) {
+        console.log(`   ${sink.name}: ${sinkResults[sink.name].written} written, ${sinkResults[sink.name].errors} errors`);
       }
     }
 
-    return sinkResults;
+    // Store for buildResult
+    this.context.metadata = { 
+      itemsWithSubsidiaries: successCount, 
+      itemsEmpty: emptyCount, 
+      itemsFailed: failedCount
+    };
+
+    return { processResults, sinkResults };
+  }
+
+  // ===========================================================================
+  // SINK BATCH HELPER
+  // ===========================================================================
+
+  private async sinkBatch(
+    results: TOutput[], 
+    sinkResults: Record<string, SinkResult>, 
+    batchSize: number
+  ): Promise<void> {
+    // Sink in smaller batches if needed
+    for (let i = 0; i < results.length; i += batchSize) {
+      const batch = results.slice(i, i + batchSize);
+      
+      for (const sink of this.sinks) {
+        try {
+          const start = Date.now();
+          const batchResult = await sink.write(batch);
+          const time = Date.now() - start;
+          
+          sinkResults[sink.name].written += batchResult.written;
+          sinkResults[sink.name].errors += batchResult.errors;
+          
+          if (batchResult.details) {
+            Object.assign(sinkResults[sink.name].details || {}, batchResult.details);
+          }
+          
+          console.log(`   ✓ ${sink.name}: +${batchResult.written} (${time}ms)`);
+        } catch (error) {
+          console.log(`   ✗ ${sink.name}: batch failed`);
+          this.addError("sink", sink.name, null, error, true);
+          sinkResults[sink.name].errors += batch.length;
+        }
+      }
+    }
   }
 
   // ===========================================================================
@@ -351,14 +408,19 @@ export class Pipeline<TSource, TOutput = TSource> {
     results: (TOutput | null)[],
     sinkResults: Record<string, SinkResult>
   ): PipelineResult {
-    const succeeded = results.filter((r) => r !== null);
     const hasFatalError = this.errors.some((e) => !e.recoverable);
+
+    // Use metadata from batch processing
+    const itemsWithSubsidiaries = this.context.metadata.itemsWithSubsidiaries || 0;
+    const itemsEmpty = this.context.metadata.itemsEmpty || 0;
+    const itemsFailed = this.context.metadata.itemsFailed || 0;
+    const totalProcessed = itemsWithSubsidiaries + itemsEmpty + itemsFailed;
 
     return {
       success: !hasFatalError && this.errors.length === 0,
-      itemsProcessed: results.length,
-      itemsSucceeded: succeeded.length,
-      itemsFailed: results.length - succeeded.length,
+      itemsProcessed: totalProcessed,
+      itemsSucceeded: itemsWithSubsidiaries + itemsEmpty, // Both success and empty are "succeeded"
+      itemsFailed: itemsFailed,
       metadata: this.context.metadata,
       sinkResults,
       timings: this.timings,

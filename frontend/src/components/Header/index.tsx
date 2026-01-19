@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import React from "react";
@@ -28,16 +28,17 @@ export function Header({ onSearchFiling }: HeaderProps) {
       
       // Try searching by accession_number_nodashes first
       let result = await db.queryOnce({
-        filings: {
+        filing: {
           $: {
             where: {
               accession_number_nodashes: searchValue,
             },
           },
+          companies: {}, // Get linked companies
         },
       });
 
-      let filing = result.data?.filings?.[0];
+      let filing = result.data?.filing?.[0];
       
       // If not found, try with accession_number (with dashes)
       if (!filing) {
@@ -48,23 +49,25 @@ export function Header({ onSearchFiling }: HeaderProps) {
         }
         
         result = await db.queryOnce({
-          filings: {
+          filing: {
             $: {
               where: {
                 accession_number: formattedSearch,
               },
             },
+            companies: {}, // Get linked companies
           },
         });
         
-        filing = result.data?.filings?.[0];
+        filing = result.data?.filing?.[0];
       }
 
-      if (filing) {
+      if (filing && filing.companies && filing.companies.length > 0) {
+        const companyId = filing.companies[0].id;
         if (onSearchFiling) {
-          onSearchFiling(filing.company_id);
+          onSearchFiling(companyId);
         } else {
-          navigate(`/company/${filing.company_id}`);
+          navigate(`/company/${companyId}`);
         }
         setAccessionSearch("");
       } else {

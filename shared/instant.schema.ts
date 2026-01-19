@@ -139,8 +139,21 @@ const _schema = i.schema({
       },
       reverse: {
         on: "company",
-        has: "many", //Temporal tracking: a company could have different parents over time 
+        has: "many", //Temporal tracking: a company could have different parents over time
         label: "parents",
+      },
+    },
+    // Source filing link (parent_of.sourceFiling -> filing, when source=5/sec_filing)
+    sourceFiling: {
+      forward: {
+        on: "parent_of",
+        has: "one",
+        label: "sourceFiling",
+      },
+      reverse: {
+        on: "filing",
+        has: "many",
+        label: "parentOfEdges",
       },
     },
     // Company -> Subsidiary Enrichment

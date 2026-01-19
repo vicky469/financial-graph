@@ -5,7 +5,7 @@ import { GICS } from "./sec";
 
 export const NodeType = {
   Company: "Company",
-  Brand: "Brand",
+  // Brand: "Brand", // Disabled - brand entities not active in schema
 } as const;
 
 export type NodeType = (typeof NodeType)[keyof typeof NodeType];
@@ -30,14 +30,15 @@ export interface CompanyBaseProperties {
   primary_industry?: string | null;
 }
 
-export interface BrandBaseProperties {
-  brand_type?: "product" | "service" | "trademark";
-  category?: string | null;
-  company_id?: string | null;
-}
+// Disabled - brand entities not active in schema
+// export interface BrandBaseProperties {
+//   brand_type?: "product" | "service" | "trademark";
+//   category?: string | null;
+//   company_id?: string | null;
+// }
 
 // Union type for all typed properties
-export type TypedNodeProperties = CompanyBaseProperties | BrandBaseProperties;
+export type TypedNodeProperties = CompanyBaseProperties; // | BrandBaseProperties;
 
 // Meta & Quality Fields - tracking data provenance and quality
 // Applies to both Company and Brand nodes

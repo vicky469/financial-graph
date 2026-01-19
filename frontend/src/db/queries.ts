@@ -1,5 +1,6 @@
 // Shared Query Hooks
 
+import { useRef } from "react";
 import { db } from "./client";
 import { companyToNode } from "./adapters";
 import type { Node } from "../types";
@@ -117,9 +118,20 @@ export const useCompanySubsidiaries = (companyId: string | null) => {
     }
   });
 
-  // Build tree structure recursively
-  const buildTree = (parentId: string): any[] => {
-    const childEdges = edges.filter((e: any) => e.subsidiaryCompany?.id);
+  // Build hierarchical tree structure based on actual parent-child relationships
+  const buildHierarchicalTree = (parentId: string, processedIds = new Set()): any[] => {
+    // Prevent infinite loops
+    if (processedIds.has(parentId)) {
+      return [];
+    }
+    processedIds.add(parentId);
+
+    // Find all direct children of this parent
+    const childEdges = edges.filter((edge: any) => {
+      // Check if this edge represents a parent-child relationship where parentId is the parent
+      // Since we're querying from the parent company, all edges should have the parent as the source
+      return edge.subsidiaryCompany?.id && !processedIds.has(edge.subsidiaryCompany.id);
+    });
     
     return childEdges.map((edge: any) => {
       const child = edge.subsidiaryCompany;
@@ -129,20 +141,29 @@ export const useCompanySubsidiaries = (companyId: string | null) => {
         id: child.id,
         name: child.name,
         ownership_percent: edge.ownership_percent,
-        children: [], // TODO: Implement recursive loading
+        jurisdiction: child.jurisdiction_raw || child.jurisdiction_iso || "Unknown",
+        parentId: parentId,
+        parentName: company?.name,
+        children: [], // TODO: Implement recursive subsidiary querying for true multi-level
+        level: 1, // Direct subsidiaries are level 1
       };
     }).filter(Boolean);
   };
 
-  const subsidiaryTree = companyId ? buildTree(companyId) : [];
+  const subsidiaryTree = companyId ? buildHierarchicalTree(companyId) : [];
 
-  // Flat list for backward compatibility
+  // Enhanced flat list with hierarchy information
   const subsidiariesList = edges.map((edge: any) => {
     const child = edge.subsidiaryCompany;
     return child ? {
       id: child.id,
       name: child.name,
       cik: child.identity?.primaryCIK,
+      jurisdiction: child.jurisdiction_raw || child.jurisdiction_iso || "Unknown",
+      ownership_percent: edge.ownership_percent,
+      parentCompanyId: companyId,
+      parentCompanyName: company?.name,
+      level: 1, // All are direct subsidiaries for now
     } : null;
   }).filter(Boolean);
 
@@ -153,34 +174,125 @@ export const useCompanySubsidiaries = (companyId: string | null) => {
   };
 };
 
-// Fetch brands for a company
-export const useCompanyBrands = (companyId: string | null) => {
+// New query to get full hierarchical structure by recursively fetching subsidiary relationships
+export const useCompanyHierarchy = (companyId: string | null) => {
   const { data, isLoading } = db.useQuery(
     companyId
       ? {
-          owns: {
+          company: {
             $: {
               where: {
-                from_company_id: companyId,
+                id: companyId,
+              },
+            },
+            subsidiaries: {
+              subsidiaryCompany: {
+                // Get subsidiaries of subsidiaries (2 levels deep)
+                subsidiaries: {
+                  subsidiaryCompany: {
+                    // Get subsidiaries of subsidiaries of subsidiaries (3 levels deep)
+                    subsidiaries: {
+                      subsidiaryCompany: {},
+                    },
+                  },
+                },
               },
             },
           },
-          brand: {},
         }
       : null
   );
 
-  const brandIds = new Set((data?.owns ?? []).map((o: any) => o.to_brand_id));
-  const brands = (data?.brand ?? [])
-    .filter((b: any) => brandIds.has(b.id))
-    .map((b: any) => ({
-      id: b.id,
-      name: b.name,
-      category: b.category,
-      status: b.status,
-    }));
+  // Use refs to preserve previous data during refetch
+  const prevDataRef = useRef<{ company: any; edges: any[] } | null>(null);
 
-  return { brands, isLoading };
+  // Update ref when we have valid data
+  const company = data?.company?.[0];
+  const directSubsidiaries = company?.subsidiaries || [];
+
+  // If we have new data, store it; otherwise use previous data during loading
+  if (company && !isLoading) {
+    prevDataRef.current = { company, edges: directSubsidiaries };
+  }
+
+  // Use current data if available, otherwise fall back to previous
+  const effectiveCompany = company || prevDataRef.current?.company;
+  const effectiveEdges = directSubsidiaries.length > 0 ? directSubsidiaries : (prevDataRef.current?.edges || []);
+  
+  // Debug logging
+  if (companyId && effectiveCompany) {
+    console.log('Company:', effectiveCompany.name);
+    console.log('Direct subsidiaries:', effectiveEdges.length);
+  }
+  
+  // Build a multi-level hierarchy tree from nested subsidiary relationships
+  const buildNestedHierarchy = (rootCompany: any, level = 0): any => {
+    if (!rootCompany) return null;
+
+    // Get subsidiaries at this level
+    const subsidiaryEdges = level === 0 ? effectiveEdges : (rootCompany.subsidiaries || []);
+    
+    const children = subsidiaryEdges.map((edge: any) => {
+      const child = edge.subsidiaryCompany;
+      if (!child) return null;
+
+      // Recursively build children
+      return buildNestedHierarchy({
+        ...child,
+        subsidiaries: child.subsidiaries || [],
+      }, level + 1);
+    }).filter(Boolean);
+
+    return {
+      id: rootCompany.id,
+      name: rootCompany.name,
+      jurisdiction: rootCompany.jurisdiction_raw || rootCompany.jurisdiction_iso || "Unknown",
+      level,
+      children,
+      ownership_percent: level > 0 ? rootCompany.ownership_percent : null,
+    };
+  };
+
+  const hierarchyTree = effectiveCompany
+    ? buildNestedHierarchy(effectiveCompany)
+    : null;
+
+  // Flatten the hierarchy for list view with proper indentation levels
+  const flattenHierarchy = (node: any, result: any[] = []): any[] => {
+    if (!node) return result;
+    
+    result.push({
+      id: node.id,
+      name: node.name,
+      jurisdiction: node.jurisdiction,
+      level: node.level,
+      ownership_percent: node.ownership_percent,
+      hasChildren: node.children && node.children.length > 0,
+    });
+
+    // Add children recursively
+    if (node.children) {
+      node.children.forEach((child: any) => {
+        flattenHierarchy(child, result);
+      });
+    }
+
+    return result;
+  };
+
+  const flatHierarchy = hierarchyTree ? flattenHierarchy(hierarchyTree) : [];
+
+  return {
+    hierarchyTree,
+    flatHierarchy,
+    isLoading,
+  };
+};
+
+// Fetch brands for a company (disabled - brand entities are commented out in schema)
+export const useCompanyBrands = (_companyId: string | null) => {
+  // Return empty brands since brand/owns entities are not active in schema
+  return { brands: [] as { id: string; name: string; status: string; category?: string }[], isLoading: false };
 };
 
 // Fetch SEC filings for a company (query through link)
@@ -248,7 +360,54 @@ export const useCompanyDetails = (companyId: string | null) => {
   return { node, isLoading };
 };
 
-// Fetch audit trail for a company
+// Fetch subsidiary details including parent relationship - OPTIMIZED
+export const useSubsidiaryDetails = (subsidiaryId: string | null, parentCompanyId?: string | null) => {
+  const { data, isLoading } = db.useQuery(
+    subsidiaryId
+      ? {
+          company: {
+            $: {
+              where: {
+                id: subsidiaryId,
+              },
+            },
+            // Use the reverse link to get parent relationships directly
+            parents: {
+              parentCompany: {},
+            },
+          },
+        }
+      : null
+  );
+
+  const subsidiary = data?.company?.[0];
+  // Get the first parent relationship (there should typically be only one)
+  const parentEdge = subsidiary?.parents?.[0];
+
+  if (!subsidiary) return { subsidiary: null, parentEdge: null, isLoading };
+
+  return { 
+    subsidiary: {
+      id: subsidiary.id,
+      name: subsidiary.name,
+      jurisdiction: subsidiary.jurisdiction_raw || subsidiary.jurisdiction_iso || "Unknown",
+      type: subsidiary.type,
+      // Add all the company fields that we show for public companies
+      cik: subsidiary.identity?.primaryCIK,
+      identity: subsidiary.identity,
+      aliases: subsidiary.aliases,
+      updatedAt: subsidiary.updated_at,
+      updatedBy: "system", // Default value
+    },
+    parentEdge: parentEdge ? {
+      ownership_percent: parentEdge.ownership_percent,
+      parentCompany: parentEdge.parentCompany,
+    } : null,
+    isLoading 
+  };
+};
+
+// Fetch audit trail for a company (limited to recent records for performance)
 export const useCompanyAudits = (entityId: string | null) => {
   const { data, isLoading } = db.useQuery(
     entityId
@@ -262,6 +421,7 @@ export const useCompanyAudits = (entityId: string | null) => {
               order: {
                 changed_at: "desc",
               },
+              limit: 50, // Limit to 50 most recent audit records for performance
             },
           },
         }

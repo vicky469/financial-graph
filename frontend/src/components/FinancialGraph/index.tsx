@@ -67,23 +67,24 @@ const FinancialGraph = ({
       if (node.type === "Company") {
         if (showNodes) finalVisibleSet.add(id);
       }
-      // Filter Brands
+      // Filter Brands (currently disabled since brand/owns entities are not active)
       else if (node.type === "Brand") {
-        if (showBrands) {
-          // If a company is selected, show ONLY its brands
-          if (selectedNode?.type === "Company") {
-            // Check if this brand belongs to the selected company
-            const isOwnedBySelect = edges.some(
-              (e) => e.sourceId === selectedNode.id && e.targetId === id && e.label === "owns"
-            );
-            if (isOwnedBySelect) {
-              finalVisibleSet.add(id);
-            }
-          } else {
-            // Otherwise show all brands (that are candidates)
-            finalVisibleSet.add(id);
-          }
-        }
+        // Brand functionality is disabled since owns entity is not active in schema
+        // if (showBrands) {
+        //   // If a company is selected, show ONLY its brands
+        //   if (selectedNode?.type === "Company") {
+        //     // Check if this brand belongs to the selected company
+        //     const isOwnedBySelect = edges.some(
+        //       (e) => e.sourceId === selectedNode.id && e.targetId === id && e.label === "owns"
+        //     );
+        //     if (isOwnedBySelect) {
+        //       finalVisibleSet.add(id);
+        //     }
+        //   } else {
+        //     // Otherwise show all brands (that are candidates)
+        //     finalVisibleSet.add(id);
+        //   }
+        // }
       }
       // Keep other node types (if any) visible by default or add logic
       else {
