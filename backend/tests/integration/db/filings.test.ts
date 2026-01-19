@@ -18,8 +18,7 @@ describe("Filing Repository", () => {
     file_url: "https://www.sec.gov/Archives/edgar/data/1234567/test-filing.txt",
     source_quarter: 1,
     source_year: 2025,
-    fiscal_year: 2024,
-    fiscal_quarter: 4,
+    period_of_report: "2024-12-31",
     ...overrides,
   });
 
@@ -53,7 +52,7 @@ describe("Filing Repository", () => {
 
       // Second insert with same accession number (should update, not error)
       const updatedData = createTestFiling({
-        fiscal_year: 2025, // Changed value
+        period_of_report: "2024-09-30", // Changed value
       });
       const filingId2 = await upsertFiling(updatedData);
 
@@ -69,7 +68,7 @@ describe("Filing Repository", () => {
 
       expect(result.filing).toBeDefined();
       expect(result.filing.length).toBe(1);
-      expect(result.filing[0].fiscal_year).toBe(2025);
+      expect(result.filing[0].period_of_report).toBe("2024-09-30");
     });
 
     it("should not create duplicate links when upserting existing filing", async () => {

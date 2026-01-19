@@ -169,15 +169,17 @@ export function Company({ node, onBack, onSubsidiaryClick }: CompanyProps) {
                 borderRadius: "8px",
                 border: "1px solid rgba(255,255,255,0.08)",
                 overflow: "hidden",
+                minWidth: "100%",
               }}
             >
               <Table>
                 <TableHeader>
                   <TableRow style={{ background: "rgba(255,255,255,0.03)" }}>
-                    <TableHead style={tableHeadStyle}>Date</TableHead>
-                    <TableHead style={tableHeadStyle}>Type</TableHead>
-                    <TableHead style={tableHeadStyle}>Filing</TableHead>
-                    <TableHead style={tableHeadStyle}>Attachments</TableHead>
+                    <TableHead style={{...tableHeadStyle, width: "20%"}}>Filing Date</TableHead>
+                    <TableHead style={{...tableHeadStyle, width: "20%"}}>Period of Report</TableHead>
+                    <TableHead style={{...tableHeadStyle, width: "15%"}}>Type</TableHead>
+                    <TableHead style={{...tableHeadStyle, width: "20%"}}>Filing</TableHead>
+                    <TableHead style={{...tableHeadStyle, width: "25%"}}>Attachments</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -197,9 +199,9 @@ export function Company({ node, onBack, onSubsidiaryClick }: CompanyProps) {
                       >
                         <TableCell
                           style={{
-                            fontSize: "12px",
+                            fontSize: "10px",
                             color: "rgba(255,255,255,0.6)",
-                            padding: "10px 12px",
+                            padding: "8px 10px",
                           }}
                         >
                           {new Date(filing.filingDate).toLocaleDateString("en-US", {
@@ -208,26 +210,43 @@ export function Company({ node, onBack, onSubsidiaryClick }: CompanyProps) {
                             year: "numeric",
                           })}
                         </TableCell>
-                        <TableCell style={{ padding: "10px 12px" }}>
+                        <TableCell
+                          style={{
+                            fontSize: "10px",
+                            color: "rgba(255,255,255,0.6)",
+                            padding: "8px 10px",
+                          }}
+                        >
+                          {filing.periodOfReport ? (
+                            new Date(filing.periodOfReport).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })
+                          ) : (
+                            <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
+                          )}
+                        </TableCell>
+                        <TableCell style={{ padding: "8px 10px" }}>
                           <span
                             style={{
-                              fontSize: "11px",
+                              fontSize: "9px",
                               fontWeight: 600,
                               color: "rgba(255,255,255,0.8)",
                               background: "rgba(99, 102, 241, 0.15)",
-                              padding: "4px 8px",
-                              borderRadius: "4px",
+                              padding: "3px 6px",
+                              borderRadius: "3px",
                             }}
                           >
                             {filing.formType}
                           </span>
                         </TableCell>
-                        <TableCell style={{ padding: "10px 12px" }}>
+                        <TableCell style={{ padding: "8px 10px" }}>
                           <FilingLink url={filing.fileUrl} />
                         </TableCell>
-                        <TableCell style={{ padding: "10px 12px" }}>
+                        <TableCell style={{ padding: "8px 10px" }}>
                           {attachments.length > 0 ? (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                               {attachments.map(({ key, url }) => (
                                 <FilingLink key={key} url={url} label={key} />
                               ))}
@@ -371,12 +390,12 @@ function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
 
 // Shared table head style
 const tableHeadStyle: React.CSSProperties = {
-  fontSize: "11px",
+  fontSize: "9px",
   fontWeight: 500,
   color: "rgba(255,255,255,0.4)",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
-  padding: "10px 12px",
+  padding: "8px 10px",
 };
 
 // Filing link component
@@ -392,8 +411,8 @@ function FilingLink({ url, label = "View" }: { url: string; label?: string }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: "4px",
-        fontSize: "12px",
+        gap: "3px",
+        fontSize: "10px",
         color: "#818cf8",
         textDecoration: "none",
         transition: "color 0.15s ease",
@@ -402,7 +421,7 @@ function FilingLink({ url, label = "View" }: { url: string; label?: string }) {
       onMouseLeave={(e) => (e.currentTarget.style.color = "#818cf8")}
     >
       {label}
-      <ExternalLink size={11} />
+      <ExternalLink size={9} />
     </a>
   );
 }

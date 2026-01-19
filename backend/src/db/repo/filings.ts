@@ -58,9 +58,7 @@ export async function upsertFiling(
     file_url: validatedData.file_url,
     source_quarter: validatedData.source_quarter,
     source_year: validatedData.source_year,
-    fiscal_year: filingData.fiscal_year ?? undefined,
-    fiscal_quarter: filingData.fiscal_quarter ?? undefined,
-    period_end_date: filingData.period_end_date ?? undefined,
+    period_of_report: filingData.period_of_report ?? undefined,
     attachments: filingData.attachments ?? undefined,
     updated_at: new Date().toISOString(),
   };

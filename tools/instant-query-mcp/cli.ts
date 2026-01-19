@@ -26,7 +26,7 @@ const db = init({
 const SCHEMA_INFO = {
   entities: {
     company: ["id", "name", "type (1=public,2=private,3=issuer,4=unknown,5=trust)", "jurisdiction_raw", "jurisdiction_iso", "aliases", "identity", "updated_at"],
-    filing: ["id", "accession_number", "file_url", "form_type", "filing_date", "fiscal_year", "fiscal_quarter"],
+    filing: ["id", "accession_number", "file_url", "form_type", "filing_date", "period_of_report"],
     parent_of: ["id", "source (1=ma,2=spinoff,3=ipo,4=manual,5=sec_filing)", "ownership_percent", "established_date", "ended_date"],
     subsidiary_enrichment: ["id", "footnoteRefs", "footnotesHtml", "llmEnriched"],
     audit: ["id", "changed_at", "changed_by", "entity_id", "entity_type", "operation"],

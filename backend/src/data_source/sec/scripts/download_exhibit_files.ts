@@ -120,7 +120,7 @@ async function downloadExhibitFiles(config: ExhibitConfig, logger: ReturnType<ty
           $: {
             where: {
               form_type: formType,
-              fiscal_year: TARGET_YEAR,
+              source_year: TARGET_YEAR,
             },
             limit: 10000,
           },

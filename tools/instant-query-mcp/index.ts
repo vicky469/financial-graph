@@ -33,7 +33,7 @@ const SCHEMA_INFO = {
       typeValues: "1=public, 2=private, 3=issuer, 4=unknown, 5=trust",
     },
     filing: {
-      fields: ["id", "accession_number", "file_url", "form_type", "source_quarter", "source_year", "filing_date", "attachments", "fiscal_quarter", "fiscal_year", "period_end_date", "updated_at"],
+      fields: ["id", "accession_number", "file_url", "form_type", "source_quarter", "source_year", "filing_date", "attachments", "period_of_report", "updated_at"],
       description: "SEC filings",
     },
     parent_of: {

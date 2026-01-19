@@ -34,12 +34,10 @@ const _schema = i.schema({
       form_type: i.string().indexed(),
       source_quarter: i.number().indexed(), // When filed: 1-4
       source_year: i.number().indexed(), // When filed: e.g., 2025
-      filing_date: i.string().indexed(),
+      filing_date: i.string().indexed(), // Date when filed with SEC
+      period_of_report: i.string().optional(), // Period end date from the filing (renamed from period_end_date)
       attachments: i.json().optional(),
       file_name: i.string().optional(),
-      fiscal_quarter: i.number().indexed().optional(), // Reported period (from document, not filing date)
-      fiscal_year: i.number().indexed().optional(), // Reported period (from document, not filing date)
-      period_end_date: i.string().optional(),
       updated_at: i.string(),
     }),
     parent_of: i.entity({

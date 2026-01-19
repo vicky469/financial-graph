@@ -348,16 +348,12 @@ export const useCompanyFilings = (companyId: string | null) => {
         id: f.id,
         formType: f.form_type,
         filingDate: f.filing_date,
-        fiscalYear: f.fiscal_year,
+        periodOfReport: f.period_of_report,
         fileUrl: f.file_url,
         attachments: attachments || {},
       };
     })
     .sort((a: any, b: any) => {
-      // Sort by fiscal year desc, then by filing date desc
-      if (b.fiscalYear !== a.fiscalYear) {
-        return (b.fiscalYear || 0) - (a.fiscalYear || 0);
-      }
       return b.filingDate.localeCompare(a.filingDate);
     });
 

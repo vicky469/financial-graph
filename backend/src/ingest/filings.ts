@@ -99,8 +99,7 @@ async function main() {
       file_url: `https://www.sec.gov/Archives/${row.file_path}`,
       source_quarter: sourceQuarter,
       source_year: sourceYear,
-      fiscal_year: null,
-      fiscal_quarter: null,
+      period_of_report: null,
     });
 
     // Process batch when full
