@@ -27,7 +27,7 @@ export function Header({ onSearchFiling }: HeaderProps) {
             <circle cx="30" cy="70" r="5" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
           </svg>
         </div>
-        <span style={{ marginLeft: "5px" }} className="text-sm font-medium text-foreground/80">Financial Graph</span>
+        <span style={{ marginLeft: "5px" }} className="text-sm font-medium text-foreground/80">Corperate Structure</span>
       </div>
     </header>
   );

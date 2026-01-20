@@ -6,12 +6,13 @@ import { useCompanyGraph } from "../../db/queries";
 interface SidebarProps {
   onSelectNode: (id: string | null) => void;
   selectedNodeId: string | null;
+  selectedSubsidiaryId: string | null;
   onSubsidiaryClick?: (subsidiaryId: string) => void;
   showSP500Only: boolean;
   onFilterChange: (showSP500Only: boolean) => void;
 }
 
-export function Sidebar({ onSelectNode, selectedNodeId, onSubsidiaryClick, showSP500Only, onFilterChange }: SidebarProps) {
+export function Sidebar({ onSelectNode, selectedNodeId, selectedSubsidiaryId, onSubsidiaryClick, showSP500Only, onFilterChange }: SidebarProps) {
   const MIN_WIDTH = 280;
   const MAX_WIDTH = 420;
   const DEFAULT_LIST_WIDTH = MIN_WIDTH;
@@ -100,6 +101,7 @@ export function Sidebar({ onSelectNode, selectedNodeId, onSubsidiaryClick, showS
           <Company 
             node={selectedNode} 
             onBack={() => onSelectNode(null)} 
+            selectedSubsidiaryId={selectedSubsidiaryId}
             onSubsidiaryClick={onSubsidiaryClick}
           />
         ) : (

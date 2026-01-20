@@ -7,10 +7,11 @@ import { HierarchicalTree } from "../HierarchicalTree";
 interface CompanyProps {
   node: Node;
   onBack: () => void;
+  selectedSubsidiaryId?: string | null;
   onSubsidiaryClick?: (subsidiaryId: string) => void;
 }
 
-export function Company({ node, onBack, onSubsidiaryClick }: CompanyProps) {
+export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick }: CompanyProps) {
   const { flatHierarchy, isLoading: loadingHierarchy } = useCompanyHierarchy(node.id);
   const { brands, isLoading: loadingBrands } = useCompanyBrands(node.id);
   const { filings, isLoading: loadingFilings } = useCompanyFilings(node.id);
@@ -80,6 +81,7 @@ export function Company({ node, onBack, onSubsidiaryClick }: CompanyProps) {
           ) : (
             <HierarchicalTree 
               hierarchy={flatHierarchy} 
+              selectedNodeId={selectedSubsidiaryId}
               onNodeClick={(nodeId) => {
                 // Only handle subsidiary clicks, not the root company
                 if (nodeId !== node.id && onSubsidiaryClick) {

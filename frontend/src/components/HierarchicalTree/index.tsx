@@ -13,10 +13,11 @@ interface HierarchyNode {
 
 interface HierarchicalTreeProps {
   hierarchy: HierarchyNode[];
+  selectedNodeId?: string | null;
   onNodeClick?: (nodeId: string) => void;
 }
 
-export function HierarchicalTree({ hierarchy, onNodeClick }: HierarchicalTreeProps) {
+export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: HierarchicalTreeProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -198,7 +199,7 @@ export function HierarchicalTree({ hierarchy, onNodeClick }: HierarchicalTreePro
 
           const isExpanded = expandedNodes.has(node.id);
           // When searching, don't indent subsidiaries as much
-          const indentWidth = searchQuery.trim() ? (node.level === 0 ? 0 : 8) : node.level * 16;
+          const indentWidth = searchQuery.trim() ? (node.level === 0 ? 0 : 4) : node.level * 8;
 
           return (
             <HierarchyNodeItem
@@ -206,6 +207,7 @@ export function HierarchicalTree({ hierarchy, onNodeClick }: HierarchicalTreePro
               node={node}
               indentWidth={indentWidth}
               isExpanded={isExpanded}
+              isSelected={selectedNodeId === node.id}
               onToggle={() => toggleNode(node.id)}
               onClick={() => onNodeClick?.(node.id)}
               isSearching={!!searchQuery.trim()}
@@ -240,6 +242,7 @@ function HierarchyNodeItem({
   node,
   indentWidth,
   isExpanded,
+  isSelected,
   onToggle,
   onClick,
   isSearching,
@@ -247,6 +250,7 @@ function HierarchyNodeItem({
   node: HierarchyNode;
   indentWidth: number;
   isExpanded: boolean;
+  isSelected?: boolean;
   onToggle: () => void;
   onClick: () => void;
   isSearching?: boolean;
@@ -261,17 +265,23 @@ function HierarchyNodeItem({
         alignItems: "center",
         gap: "4px",
         padding: "4px 8px",
-        paddingLeft: `${8 + indentWidth}px`,
+        paddingLeft: `${4 + indentWidth}px`,
         borderRadius: "4px",
         transition: "background 0.15s ease",
         cursor: "pointer",
+        background: isSelected ? "rgba(99, 102, 241, 0.15)" : "transparent",
+        border: isSelected ? "1px solid rgba(99, 102, 241, 0.3)" : "1px solid transparent",
       }}
       onClick={onClick}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+        if (!isSelected) {
+          e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+        }
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = "transparent";
+        if (!isSelected) {
+          e.currentTarget.style.background = "transparent";
+        }
       }}
     >
       {/* Expand/Collapse Icon */}

@@ -72,15 +72,16 @@ function AppContent() {
   const isSubsidiary = selectedGraphNode?.id !== selectedNodeId;
 
   return (
-    <div className="flex flex-col h-screen w-screen max-w-screen bg-background text-foreground overflow-hidden font-sans p-3">
+    <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans p-3">
       <Header onSearchFiling={handleSelectNode} />
 
       <div style={{ height: "1px", background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
 
-      <div className="flex-1 flex overflow-hidden relative max-w-full" key={selectedNodeId}>
+      <div className="flex-1 flex overflow-hidden relative min-w-0" key={selectedNodeId}>
         <Sidebar 
           onSelectNode={handleSelectNode} 
           selectedNodeId={selectedNodeId} 
+          selectedSubsidiaryId={selectedSubsidiaryId}
           onSubsidiaryClick={handleSelectSubsidiary}
           showSP500Only={showSP500Only}
           onFilterChange={setShowSP500Only}

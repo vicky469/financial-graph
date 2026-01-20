@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { X, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import type { Node } from "../../types";
 import { useCompanyDetails, /* useCompanyAudits, */ useSubsidiaryDetails } from "../../db/queries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -66,50 +66,40 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
   return (
     <aside
       ref={panelRef}
-      className="w-[340px] min-w-[340px] shrink-0 h-full bg-card border-l border-border/40 flex flex-col"
+      className="w-[340px] min-w-[340px] shrink-0 h-full bg-card border-l border-border/40 flex flex-col overflow-hidden"
     >
       {/* Header */}
       <div className="p-5 border-b border-border/30">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h2 style={{ fontSize: "13px", fontWeight: "600", color: "rgba(255,255,255,0.9)", lineHeight: "1.2" }}>
-                {isSubsidiaryNode ? (subsidiary?.name || "Loading...") : (node?.name || "Unknown")}
-              </h2>
-              {isLoading && (
-                <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin shrink-0" />
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {isEntity && (
-              <Badge variant={isPublic ? "success" : "default"}>
-                {isPublic ? "PUB" : "PVT"}
-              </Badge>
-            )}
-            {isBrand && <Badge variant="purple">BRD</Badge>}
-            {isSubsidiaryNode && <Badge variant="muted">SUB</Badge>}
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-md hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X size={18} />
-            </button>
-          </div>
+        <div className="flex items-center gap-2 mb-2 justify-end">
+          {isEntity && (
+            <Badge variant={isPublic ? "success" : "default"}>
+              {isPublic ? "PUB" : "PVT"}
+            </Badge>
+          )}
+          {isBrand && <Badge variant="purple">BRD</Badge>}
+          {isSubsidiaryNode && <Badge variant="muted">SUB</Badge>}
+          {isLoading && (
+            <span className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+          )}
         </div>
+        <h2 style={{ fontSize: "16px", fontWeight: "600", color: "rgba(255,255,255,0.95)", lineHeight: "1.4", wordBreak: "break-word", padding: "0 10px" }}>
+          {isSubsidiaryNode ? (subsidiary?.name || "Loading...") : (node?.name || "Unknown")}
+        </h2>
       </div>
 
       {/* Content */}
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as "info" /* | "audit" */)}
-        className="flex-1 flex flex-col overflow-hidden"
+        className="flex-1 flex flex-col overflow-hidden min-w-0"
       >
-        <TabsList className="grid w-full grid-cols-1 mx-5 mt-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px', borderRadius: '8px' }}>
-          <TabsTrigger 
+        <div style={{ width: '100%', boxSizing: 'border-box' }}>
+          <TabsList style={{ display: 'flex', width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px', borderRadius: '0', boxSizing: 'border-box' }}>
+          <TabsTrigger
             value="info"
             className="cursor-pointer select-none"
             style={{
+              flex: 1,
               backgroundColor: activeTab === 'info' ? 'rgba(255,255,255,0.2)' : 'transparent',
               color: activeTab === 'info' ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.5)',
               fontWeight: activeTab === 'info' ? '600' : '400',
@@ -139,6 +129,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
           </TabsTrigger>
           */}
         </TabsList>
+        </div>
 
         <TabsContent value="info" className="flex-1 overflow-y-auto mt-0">
           {/* Subsidiary Information */}
