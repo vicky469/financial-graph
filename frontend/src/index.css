@@ -732,8 +732,9 @@
 
   /* Desktop enhancements */
   .mobile-header {
-    padding: 20px 24px !important;
+    padding: 4px 16px !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    min-height: 36px !important;
   }
 
   /* Better desktop spacing for main content */
