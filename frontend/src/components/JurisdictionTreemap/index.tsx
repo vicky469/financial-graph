@@ -28,13 +28,18 @@ function squarify(
 ): TreemapRect[] {
   if (items.length === 0) return [];
   if (items.length === 1) {
-    return [{
-      x, y, width, height,
-      jurisdiction: items[0].jurisdiction,
-      count: items[0].count,
-      scaledValue: items[0].scaledValue,
-      color: items[0].color,
-    }];
+    return [
+      {
+        x,
+        y,
+        width,
+        height,
+        jurisdiction: items[0].jurisdiction,
+        count: items[0].count,
+        scaledValue: items[0].scaledValue,
+        color: items[0].color,
+      },
+    ];
   }
 
   const totalValue = items.reduce((sum, item) => sum + item.scaledValue, 0);
@@ -86,14 +91,16 @@ function squarify(
 }
 
 // Layout constraints
-const CHART_MIN_WIDTH = 400;
+const CHART_MIN_WIDTH = 280;
 const CHART_MAX_WIDTH = 600;
-const CHART_HEIGHT = 300;
+const CHART_HEIGHT = 280;
+const MOBILE_BREAKPOINT = 768;
 
 export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: JurisdictionTreemapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [chartWidth, setChartWidth] = useState(CHART_MIN_WIDTH);
   const [selectedJurisdiction, setSelectedJurisdiction] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const { flatHierarchy, isLoading } = useCompanyHierarchy(companyId);
 
@@ -105,10 +112,19 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
       const entry = entries[0];
       if (entry) {
         const containerWidth = entry.contentRect.width;
-        // Calculate available width for chart (container - list - gap - padding)
-        const availableForChart = containerWidth - 220 - 32 - 48;
-        const newWidth = Math.max(CHART_MIN_WIDTH, Math.min(CHART_MAX_WIDTH, availableForChart));
-        setChartWidth(newWidth);
+        const mobile = containerWidth < MOBILE_BREAKPOINT;
+        setIsMobile(mobile);
+
+        if (mobile) {
+          // On mobile, chart takes full width minus padding
+          const newWidth = Math.max(CHART_MIN_WIDTH, containerWidth - 40);
+          setChartWidth(newWidth);
+        } else {
+          // Calculate available width for chart (container - list - gap - padding)
+          const availableForChart = containerWidth - 220 - 32 - 48;
+          const newWidth = Math.max(CHART_MIN_WIDTH, Math.min(CHART_MAX_WIDTH, availableForChart));
+          setChartWidth(newWidth);
+        }
       }
     });
 
@@ -147,11 +163,14 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
     return { treemapData: entries, companiesByJurisdiction };
   }, [flatHierarchy]);
 
+  // Calculate chart height based on mobile state
+  const chartHeight = isMobile ? 200 : CHART_HEIGHT;
+
   // Calculate treemap layout
   const rects = useMemo(() => {
     if (treemapData.length === 0) return [];
-    return squarify(treemapData, 0, 0, chartWidth, CHART_HEIGHT);
-  }, [treemapData, chartWidth]);
+    return squarify(treemapData, 0, 0, chartWidth, chartHeight);
+  }, [treemapData, chartWidth, chartHeight]);
 
   // Get companies to display in list
   const listItems = useMemo(() => {
@@ -164,10 +183,22 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
   if (isLoading) {
     return (
       <div ref={containerRef} style={{ padding: "24px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: CHART_HEIGHT }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: CHART_HEIGHT,
+          }}
+        >
           <div style={{ textAlign: "center" }}>
-            <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" style={{ margin: "0 auto 12px" }} />
-            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)" }}>Loading subsidiaries...</p>
+            <div
+              className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin"
+              style={{ margin: "0 auto 12px" }}
+            />
+            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)" }}>
+              Loading subsidiaries...
+            </p>
           </div>
         </div>
       </div>
@@ -177,15 +208,27 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
   if (!companyId || treemapData.length === 0) {
     return (
       <div ref={containerRef} style={{ padding: "24px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: CHART_HEIGHT, color: "rgba(255,255,255,0.4)" }}>
-          <p style={{ fontSize: "13px" }}>{!companyId ? "Select a company to view subsidiary distribution" : "No subsidiaries found"}</p>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: CHART_HEIGHT,
+            color: "rgba(255,255,255,0.4)",
+          }}
+        >
+          <p style={{ fontSize: "13px" }}>
+            {!companyId
+              ? "Select a company to view subsidiary distribution"
+              : "No subsidiaries found"}
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} style={{ padding: "24px" }}>
+    <div ref={containerRef} style={{ padding: isMobile ? "16px" : "24px" }}>
       {/* Header */}
       <div style={{ marginBottom: "12px", display: "flex", alignItems: "center", gap: "12px" }}>
         {selectedJurisdiction && (
@@ -194,37 +237,52 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
             style={{
               fontSize: "12px",
               color: "#60a5fa",
-              background: "none",
-              border: "none",
+              background: "rgba(96, 165, 250, 0.1)",
+              border: "1px solid rgba(96, 165, 250, 0.3)",
+              borderRadius: "6px",
               cursor: "pointer",
-              padding: 0,
+              padding: "6px 12px",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(96, 165, 250, 0.2)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(96, 165, 250, 0.1)";
             }}
           >
             ← Back
           </button>
         )}
-        <h2 style={{
-          fontSize: "11px",
-          fontWeight: "600",
-          color: "rgba(255,255,255,0.5)",
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-        }}>
-          {selectedJurisdiction ? `Companies in ${selectedJurisdiction}` : "Subsidiaries by Jurisdiction"}
+        <h2
+          style={{
+            fontSize: "11px",
+            fontWeight: "600",
+            color: "rgba(255,255,255,0.5)",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          {selectedJurisdiction
+            ? `Companies in ${selectedJurisdiction}`
+            : "Subsidiaries by Jurisdiction"}
         </h2>
       </div>
 
-      {/* Main layout: Chart left, List right */}
-      <div style={{
-        display: "flex",
-        gap: "32px",
-        alignItems: "flex-start",
-      }}>
+      {/* Main layout: Stack on mobile, side-by-side on desktop */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          gap: isMobile ? "20px" : "32px",
+          alignItems: isMobile ? "stretch" : "flex-start",
+        }}
+      >
         {/* Left: Chart (anchored to left) */}
-        <div style={{ flexShrink: 0 }}>
+        <div style={{ flexShrink: 0, width: isMobile ? "100%" : "auto" }}>
           <svg
             width={chartWidth}
-            height={CHART_HEIGHT}
+            height={chartHeight}
             style={{ borderRadius: "8px", overflow: "hidden", display: "block" }}
           >
             {rects.map((rect) => {
@@ -233,8 +291,12 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                 Math.max(9, rect.height / 4),
                 14
               );
-              const showLabel = rect.width > 50 && rect.height > 35;
-              const showCount = rect.width > 35 && rect.height > 22;
+              // Stricter visibility rules for mobile to avoid clutter
+              const minWidth = isMobile ? 60 : 50;
+              const minHeight = isMobile ? 40 : 35;
+              const showLabel = rect.width > minWidth && rect.height > minHeight;
+              const showCount =
+                rect.width > (isMobile ? 45 : 35) && rect.height > (isMobile ? 30 : 22);
               const isSelected = selectedJurisdiction === rect.jurisdiction;
 
               return (
@@ -262,9 +324,15 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                       fill="white"
                       fontSize={fontSize}
                       fontWeight="500"
-                      style={{ pointerEvents: "none", userSelect: "none", textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}
+                      style={{
+                        pointerEvents: "none",
+                        userSelect: "none",
+                        textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+                      }}
                     >
-                      {rect.jurisdiction.length > 15 ? rect.jurisdiction.substring(0, 13) + "..." : rect.jurisdiction}
+                      {rect.jurisdiction.length > 15
+                        ? rect.jurisdiction.substring(0, 13) + "..."
+                        : rect.jurisdiction}
                     </text>
                   )}
 
@@ -283,9 +351,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                     </text>
                   )}
 
-                  {!showLabel && (
-                    <title>{`${rect.jurisdiction}: ${rect.count}`}</title>
-                  )}
+                  {!showLabel && <title>{`${rect.jurisdiction}: ${rect.count}`}</title>}
                 </g>
               );
             })}
@@ -293,16 +359,33 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
         </div>
 
         {/* Right: List (anchored to right, scrollable) */}
-        <div style={{
-          flex: 1,
-          minWidth: "180px",
-          maxWidth: "280px",
-          maxHeight: CHART_HEIGHT,
-          overflowY: "auto",
-        }}>
+        <div
+          style={{
+            flex: 1,
+            minWidth: isMobile ? "auto" : "180px",
+            maxWidth: isMobile ? "none" : "280px",
+            maxHeight: isMobile ? "250px" : CHART_HEIGHT, // Taller scrolling area on mobile
+            overflowY: "auto",
+          }}
+        >
           {listItems ? (
             // Show companies in selected jurisdiction
             <div>
+              <div
+                style={{
+                  fontSize: "12px",
+                  fontWeight: "600",
+                  color: "rgba(255,255,255,0.7)",
+                  marginBottom: "8px",
+                  position: "sticky",
+                  top: 0,
+                  background: "#0f1115", // Match simplistic dark bg
+                  padding: "4px 0",
+                  zIndex: 1,
+                }}
+              >
+                {listItems.length} Companies
+              </div>
               {listItems.map((company) => (
                 <div
                   key={company.id}
@@ -311,29 +394,38 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    padding: "6px 8px",
+                    padding: isMobile ? "12px 8px" : "6px 8px", // Larger touch target
                     borderRadius: "4px",
                     cursor: "pointer",
                     transition: "background 0.15s",
+                    borderBottom: isMobile ? "1px solid rgba(255,255,255,0.05)" : "none",
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
-                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                  onMouseEnter={(e) =>
+                    !isMobile && (e.currentTarget.style.background = "rgba(255,255,255,0.05)")
+                  }
+                  onMouseLeave={(e) =>
+                    !isMobile && (e.currentTarget.style.background = "transparent")
+                  }
                 >
-                  <span style={{
-                    fontSize: "13px",
-                    color: "rgba(255,255,255,0.8)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}>
+                  <span
+                    style={{
+                      fontSize: isMobile ? "14px" : "13px",
+                      color: "rgba(255,255,255,0.8)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
                     {company.name}
                   </span>
-                  <span style={{
-                    fontSize: "10px",
-                    color: "rgba(255,255,255,0.3)",
-                    marginLeft: "8px",
-                    flexShrink: 0,
-                  }}>
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      color: "rgba(255,255,255,0.3)",
+                      marginLeft: "8px",
+                      flexShrink: 0,
+                    }}
+                  >
                     L{company.level}
                   </span>
                 </div>
@@ -352,13 +444,18 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "6px 8px",
+                      padding: isMobile ? "12px 8px" : "6px 8px", // Larger touch target
                       borderRadius: "4px",
                       cursor: "pointer",
                       transition: "background 0.15s",
+                      borderBottom: isMobile ? "1px solid rgba(255,255,255,0.05)" : "none",
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
-                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                    onMouseEnter={(e) =>
+                      !isMobile && (e.currentTarget.style.background = "rgba(255,255,255,0.05)")
+                    }
+                    onMouseLeave={(e) =>
+                      !isMobile && (e.currentTarget.style.background = "transparent")
+                    }
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
                       <div
@@ -370,24 +467,28 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                           flexShrink: 0,
                         }}
                       />
-                      <span style={{
-                        fontSize: "13px",
-                        color: "rgba(255,255,255,0.8)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}>
+                      <span
+                        style={{
+                          fontSize: isMobile ? "14px" : "13px",
+                          color: "rgba(255,255,255,0.8)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
                         {item.jurisdiction}
                       </span>
                     </div>
-                    <span style={{
-                      fontSize: "12px",
-                      fontWeight: "500",
-                      color: "rgba(255,255,255,0.4)",
-                      marginLeft: "12px",
-                      flexShrink: 0,
-                      fontVariantNumeric: "tabular-nums",
-                    }}>
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: "500",
+                        color: "rgba(255,255,255,0.4)",
+                        marginLeft: "12px",
+                        flexShrink: 0,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
                       {item.count}
                     </span>
                   </div>

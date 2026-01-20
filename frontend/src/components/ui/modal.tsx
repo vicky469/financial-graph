@@ -10,7 +10,7 @@ interface ModalProps {
   container?: "fullscreen" | "main-content";
 }
 
-export function Modal({ isOpen, onClose, title, children, size = "md", container = "fullscreen" }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, size: _size = "md", container = "fullscreen" }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Handle escape key
@@ -55,12 +55,12 @@ export function Modal({ isOpen, onClose, title, children, size = "md", container
 
   if (!isOpen) return null;
 
-  const sizeClasses = {
-    sm: "w-72",
-    md: "w-80", 
-    lg: "w-96",
-    xl: "w-[32rem]",
-  };
+  // const sizeClasses = {
+  //   sm: "w-72",
+  //   md: "w-80", 
+  //   lg: "w-96",
+  //   xl: "w-[32rem]",
+  // };
 
   const containerClasses = container === "fullscreen" 
     ? "fixed inset-0 z-50" 

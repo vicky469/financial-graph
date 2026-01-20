@@ -57,7 +57,7 @@ const FinancialGraph = ({
 
     // 2. Apply Visibility Filters
     const finalVisibleSet = new Set<string>();
-    const selectedNode = entities.find((n) => n.id === selectedNodeId);
+    // const selectedNode = entities.find((n) => n.id === selectedNodeId); // Commented out unused variable
 
     candidateIds.forEach((id) => {
       const node = entities.find((e) => e.id === id);

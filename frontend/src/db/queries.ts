@@ -401,7 +401,7 @@ export const useCompanyDetails = (companyId: string | null) => {
 // Fetch subsidiary details including parent relationship - OPTIMIZED
 export const useSubsidiaryDetails = (
   subsidiaryId: string | null,
-  parentCompanyId?: string | null
+  _parentCompanyId?: string | null
 ) => {
   const { data, isLoading } = db.useQuery(
     subsidiaryId
