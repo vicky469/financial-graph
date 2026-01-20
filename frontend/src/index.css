@@ -48,17 +48,20 @@
   /* App container styles - applied when authenticated */
   body.app-mode {
     height: 100vh;
-    padding: 0 12px 12px 12px;
+    padding: 16px;
     overflow: hidden;
+    background: linear-gradient(135deg, hsl(240 6% 4%) 0%, hsl(240 8% 6%) 100%);
   }
   body.app-mode #root {
     height: 100%;
     width: 100%;
     background-color: hsl(var(--background));
-    border-radius: 12px;
+    border-radius: 16px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
   }
   /* Landing page mode - allow scrolling */
   body.landing-mode {
@@ -422,22 +425,33 @@
 /* ==================== DESKTOP BREAKPOINT (1024px+) ==================== */
 @media (min-width: 1024px) {
   .landing-container {
-    padding: 80px 40px;
+    padding: 100px 40px;
   }
 
   .hero-section {
-    padding-top: 80px;
-    padding-bottom: 100px;
+    padding-top: 120px;
+    padding-bottom: 140px;
   }
 
   .landing-brand {
-    margin-bottom: 80px;
+    margin-bottom: 100px;
+  }
+
+  .brand-icon {
+    width: 44px;
+    height: 44px;
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
+  }
+
+  .brand-name {
+    font-size: 22px;
+    font-weight: 700;
   }
 
   .hero-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 80px;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 100px;
     align-items: center;
   }
 
@@ -447,84 +461,104 @@
 
   .hero-graph {
     order: 2;
-    height: 480px;
+    height: 520px;
   }
 
   .hero-title {
-    font-size: 56px;
-    margin-bottom: 24px;
+    font-size: 64px;
+    margin-bottom: 32px;
+    line-height: 1.1;
+    font-weight: 800;
   }
 
   .hero-description {
-    font-size: 18px;
-    margin-bottom: 40px;
-    max-width: 480px;
+    font-size: 20px;
+    margin-bottom: 48px;
+    max-width: 520px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .hero-cta {
+    margin-top: 16px;
   }
 
   .section-header {
-    margin-bottom: 64px;
+    margin-bottom: 80px;
   }
 
   .section-label {
     font-size: 14px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
+    font-weight: 700;
   }
 
   .section-title {
-    font-size: 32px;
-    margin-bottom: 16px;
+    font-size: 40px;
+    margin-bottom: 20px;
+    font-weight: 700;
+    line-height: 1.2;
   }
 
   .section-subtitle {
-    font-size: 16px;
+    font-size: 18px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.6);
   }
 
   .features-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 32px;
+    gap: 40px;
   }
 
   .entity-grid {
     grid-template-columns: repeat(4, 1fr);
-    gap: 24px;
+    gap: 32px;
   }
 
   .questions-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
+    gap: 32px;
   }
 
   .relations-box {
-    margin-top: 48px;
-    padding: 32px;
+    margin-top: 64px;
+    padding: 48px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   }
 
   .relations-content {
-    gap: 24px;
+    gap: 32px;
   }
 
   .cta-section {
-    padding-top: 100px;
-    padding-bottom: 100px;
+    padding-top: 120px;
+    padding-bottom: 120px;
   }
 
   .cta-title {
-    font-size: 40px;
-    margin-bottom: 24px;
+    font-size: 48px;
+    margin-bottom: 32px;
+    font-weight: 800;
+    line-height: 1.1;
   }
 
   .cta-subtitle {
-    font-size: 18px;
-    margin-bottom: 40px;
+    font-size: 20px;
+    margin-bottom: 48px;
+    color: rgba(255, 255, 255, 0.6);
   }
 
   .cta-button-large {
-    padding: 18px 40px;
-    font-size: 17px;
+    padding: 20px 48px;
+    font-size: 18px;
+    font-weight: 600;
   }
 
   .landing-footer {
-    padding: 40px;
+    padding: 60px 40px;
   }
 }
 
@@ -647,10 +681,12 @@
   /* Make body padding smaller on mobile */
   body.app-mode {
     padding: 0; /* Remove padding to eliminate black stripe */
+    background: hsl(240 6% 6%); /* Simpler background for mobile */
   }
 
   body.app-mode #root {
     border-radius: 0; /* Remove border radius for full screen */
+    box-shadow: none; /* Remove shadow on mobile */
   }
 
   /* Make detail panel full width on mobile */
@@ -692,5 +728,29 @@
   .mobile-overlay,
   .mobile-detail-panel {
     display: none !important;
+  }
+
+  /* Desktop enhancements */
+  .mobile-header {
+    padding: 20px 24px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+
+  /* Better desktop spacing for main content */
+  .main-content {
+    padding: 24px;
+    gap: 24px;
+  }
+
+  /* Enhanced sidebar styling for desktop */
+  .group\/sidebar {
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+  }
+
+  /* Enhanced detail panel for desktop */
+  .detail-panel {
+    border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(255, 255, 255, 0.02) !important;
   }
 }

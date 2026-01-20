@@ -4,7 +4,7 @@ import { useMemo, useEffect } from "react";
 import { db } from "./client";
 import { companyToNode } from "./adapters";
 import type { Node } from "../types";
-import { CompanyType, type Company } from "@financial-graph/shared";
+import { CompanyType, type Company } from "financial-graph-shared";
 
 // Simple in-memory cache for companies
 const companiesCache = {
@@ -400,8 +400,7 @@ export const useCompanyDetails = (companyId: string | null) => {
 
 // Fetch subsidiary details including parent relationship - OPTIMIZED
 export const useSubsidiaryDetails = (
-  subsidiaryId: string | null,
-  _parentCompanyId?: string | null
+  subsidiaryId: string | null
 ) => {
   const { data, isLoading } = db.useQuery(
     subsidiaryId

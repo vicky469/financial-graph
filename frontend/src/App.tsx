@@ -20,7 +20,6 @@ function MobileCompanyView({
   handleSelectNode,
   detailPanelNode,
   isPublic,
-  isSubsidiary,
   parentCompanyId,
   setSelectedSubsidiaryId,
   showSP500Only,
@@ -35,7 +34,6 @@ function MobileCompanyView({
   handleSelectNode: (nodeId: string | null) => void;
   detailPanelNode: { id: string; type: string; name?: string } | null;
   isPublic: boolean;
-  isSubsidiary: boolean;
   parentCompanyId: string | null;
   setSelectedSubsidiaryId: (id: string | null) => void;
   showSP500Only: boolean;
@@ -56,10 +54,6 @@ function MobileCompanyView({
       handleSelectNode(null);
     }
   };
-
-  const isEntity = displayNode?.type === "Company";
-  const isBrand = displayNode?.type === "Brand";
-  const isSubsidiaryNode = selectedSubsidiaryId ? true : false;
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-card">
@@ -104,54 +98,6 @@ function MobileCompanyView({
       {/* Header with company name, badges, and updated date - clean mobile styling */}
       <div className="px-4 pb-4 border-b border-border/30" style={{ paddingTop: "5px" }}>
         <div className="flex items-center gap-3 mb-3 justify-end">
-          {isEntity && (
-            <span
-              style={{
-                display: "inline-block",
-                fontSize: "10px",
-                fontWeight: 600,
-                padding: "3px 8px",
-                borderRadius: "4px",
-                backgroundColor: isPublic ? "rgba(34, 197, 94, 0.3)" : "rgba(100, 100, 100, 0.3)",
-                color: isPublic ? "#4ade80" : "#a1a1aa",
-                border: isPublic ? "1px solid rgba(34, 197, 94, 0.5)" : "1px solid rgba(100, 100, 100, 0.5)",
-              }}
-            >
-              {isPublic ? "PUB" : "PVT"}
-            </span>
-          )}
-          {isBrand && (
-            <span
-              style={{
-                display: "inline-block",
-                fontSize: "10px",
-                fontWeight: 600,
-                padding: "3px 8px",
-                borderRadius: "4px",
-                backgroundColor: "rgba(168, 85, 247, 0.3)",
-                color: "#c084fc",
-                border: "1px solid rgba(168, 85, 247, 0.5)",
-              }}
-            >
-              BRD
-            </span>
-          )}
-          {isSubsidiaryNode && (
-            <span
-              style={{
-                display: "inline-block",
-                fontSize: "10px",
-                fontWeight: 600,
-                padding: "3px 8px",
-                borderRadius: "4px",
-                backgroundColor: "rgba(100, 100, 100, 0.3)",
-                color: "#a1a1aa",
-                border: "1px solid rgba(100, 100, 100, 0.5)",
-              }}
-            >
-              SUB
-            </span>
-          )}
           {isLoading && (
             <span className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
           )}
@@ -168,20 +114,6 @@ function MobileCompanyView({
         >
           {displayNode?.name || "Unknown"}
         </h2>
-        {(displayNode && 'updatedAt' in displayNode && displayNode.updatedAt && typeof displayNode.updatedAt === 'string') ? (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginTop: "2px",
-              paddingRight: "2px",
-            }}
-          >
-            <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>
-              Updated: {new Date(displayNode.updatedAt).toLocaleDateString()}
-            </span>
-          </div>
-        ) : null}
       </div>
 
       {/* Tab Navigation - styled exactly like DetailPanel tabs */}
@@ -265,7 +197,6 @@ function MobileCompanyView({
               node={detailPanelNode}
               onClose={() => {}} // Empty function to prevent auto-closing
               isPublic={isPublic}
-              isSubsidiary={isSubsidiary}
               parentCompanyId={parentCompanyId}
               hideTabs={true} // Hide the DetailPanel's internal tabs for mobile
             />
@@ -383,7 +314,6 @@ function AppContent() {
   }, [selectedGraphNode, selectedSubsidiaryId]);
 
   const isPublic = selectedGraphNode?.cik ? true : false;
-  const isSubsidiary = selectedGraphNode?.id !== selectedNodeId;
 
   return (
     <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans p-3">
@@ -417,7 +347,6 @@ function AppContent() {
               handleSelectNode={handleSelectNode}
               detailPanelNode={detailPanelNode}
               isPublic={isPublic}
-              isSubsidiary={selectedSubsidiaryId ? true : isSubsidiary}
               parentCompanyId={selectedSubsidiaryId ? selectedNodeId : null}
               setSelectedSubsidiaryId={setSelectedSubsidiaryId}
               showSP500Only={showSP500Only}
@@ -493,7 +422,6 @@ function AppContent() {
                 setSelectedSubsidiaryId(null);
               }}
               isPublic={isPublic}
-              isSubsidiary={selectedSubsidiaryId ? true : isSubsidiary}
               parentCompanyId={selectedSubsidiaryId ? selectedNodeId : null}
             />
           </div>

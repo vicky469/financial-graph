@@ -1,5 +1,5 @@
 {
-  "name": "@financial-graph/shared",
+  "name": "financial-graph-shared",
   "version": "1.0.0",
   "description": "Shared types, schema, and utilities for financial-graph",
   "type": "module",

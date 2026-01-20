@@ -22,7 +22,7 @@ export type {
   Audit,
   FieldChange,
   AuditWithChanges,
-} from "@financial-graph/shared";
+} from "financial-graph-shared";
 
 // Define types that are not exported from shared but used locally
 export interface CompanyInfo {
@@ -57,17 +57,17 @@ export interface Brand {
 }
 
 // Import enums and constants
-export { CompanyType, ParentOfSource } from "@financial-graph/shared";
+export { CompanyType, ParentOfSource } from "financial-graph-shared";
 
 // Import type guards
 export {
   isPublicCompany,
   isPrivateCompany,
   isFromSecFiling,
-} from "@financial-graph/shared";
+} from "financial-graph-shared";
 
 // Frontend-specific type aliases for compatibility with existing code
-import type { ParentOfEdge as BackendParentOf } from "@financial-graph/shared";
+import type { ParentOfEdge as BackendParentOf } from "financial-graph-shared";
 
 export type ParentOf = BackendParentOf & {
   from_company_id: string; // Alias for parentCompany link

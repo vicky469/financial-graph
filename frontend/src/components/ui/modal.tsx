@@ -6,11 +6,10 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
-  size?: "sm" | "md" | "lg" | "xl";
   container?: "fullscreen" | "main-content";
 }
 
-export function Modal({ isOpen, onClose, title, children, size: _size = "md", container = "fullscreen" }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, container = "fullscreen" }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Handle escape key

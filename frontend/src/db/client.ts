@@ -1,7 +1,7 @@
 // InstantDB Client Initialization and Shared Utilities
 
 import { init, tx, id } from "@instantdb/react";
-import { schema } from "@financial-graph/shared";
+import { schema } from "financial-graph-shared";
 
 const APP_ID = import.meta.env.VITE_INSTANTDB_APP_ID;
 

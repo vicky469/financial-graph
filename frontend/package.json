@@ -7,13 +7,13 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "dev": "bun --bun vite",
-    "build": "bun run tsc -b && bun --bun vite build",
-    "lint": "bun run eslint .",
-    "preview": "bun --bun vite preview"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@financial-graph/shared": "workspace:*",
+    "financial-graph-shared": "^1.0.0",
     "@instantdb/admin": "^0.22.96",
     "@instantdb/react": "^0.22.96",
     "@radix-ui/react-scroll-area": "^1.2.10",

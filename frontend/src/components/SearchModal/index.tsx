@@ -263,7 +263,6 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
       isOpen={isOpen}
       onClose={onClose}
       title="Search"
-      size="sm"
       container="main-content"
     >
       <div className="space-y-4" onKeyDown={handleModalKeyDown}>

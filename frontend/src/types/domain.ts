@@ -1,5 +1,5 @@
 import { GICS } from "./sec";
-import type { CompanyIdentity } from "@financial-graph/shared";
+import type { CompanyIdentity } from "financial-graph-shared";
 
 // Domain types for Financial Graph
 // These represent the core business entities

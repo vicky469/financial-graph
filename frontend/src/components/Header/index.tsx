@@ -60,20 +60,20 @@ export function Header() {
   };
 
   return (
-    <header className="flex items-center justify-between px-4 shrink-0 mobile-header border-b border-border/30">
+    <header className="flex items-center justify-between px-6 py-4 shrink-0 mobile-header border-b border-border/20 bg-card/50 backdrop-blur-sm">
       {/* Left side - Logo and App Name */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <div
-          className="rounded-full bg-[#2b2b2f] flex items-center justify-center overflow-hidden shrink-0"
-          style={{ width: HEADER_ICON_SIZE, height: HEADER_ICON_SIZE }}
+          className="rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden shrink-0 shadow-lg"
+          style={{ width: HEADER_ICON_SIZE + 4, height: HEADER_ICON_SIZE + 4 }}
         >
           <svg
-            width={HEADER_ICON_SIZE - 4}
-            height={HEADER_ICON_SIZE - 4}
+            width={HEADER_ICON_SIZE - 2}
+            height={HEADER_ICON_SIZE - 2}
             viewBox="0 0 100 100"
             xmlns="http://www.w3.org/2000/svg"
           >
-            <g stroke="#888" strokeWidth="5" strokeLinecap="round">
+            <g stroke="white" strokeWidth="5" strokeLinecap="round">
               <line x1="50" y1="50" x2="75" y2="28" />
               <line x1="75" y1="28" x2="85" y2="42" />
               <line x1="50" y1="50" x2="28" y2="32" />
@@ -81,18 +81,23 @@ export function Header() {
               <line x1="50" y1="50" x2="70" y2="70" />
               <line x1="50" y1="50" x2="30" y2="70" />
             </g>
-            <circle cx="50" cy="50" r="10" fill="#2b2b2f" stroke="#aaa" strokeWidth="5" />
-            <circle cx="75" cy="28" r="6" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
-            <circle cx="85" cy="42" r="4" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
-            <circle cx="28" cy="32" r="6" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
-            <circle cx="18" cy="52" r="4" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
-            <circle cx="70" cy="70" r="5" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
-            <circle cx="30" cy="70" r="5" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
+            <circle cx="50" cy="50" r="10" fill="white" stroke="white" strokeWidth="2" />
+            <circle cx="75" cy="28" r="6" fill="white" stroke="white" strokeWidth="2" />
+            <circle cx="85" cy="42" r="4" fill="white" stroke="white" strokeWidth="2" />
+            <circle cx="28" cy="32" r="6" fill="white" stroke="white" strokeWidth="2" />
+            <circle cx="18" cy="52" r="4" fill="white" stroke="white" strokeWidth="2" />
+            <circle cx="70" cy="70" r="5" fill="white" stroke="white" strokeWidth="2" />
+            <circle cx="30" cy="70" r="5" fill="white" stroke="white" strokeWidth="2" />
           </svg>
         </div>
-        <span className="text-sm font-medium text-foreground/80 leading-none" style={{ marginLeft: "10px" }}>
-          Financial Graph
-        </span>
+        <div className="flex flex-col">
+          <span className="text-base font-bold text-foreground leading-none">
+            Financial Graph
+          </span>
+          <span className="text-xs text-muted-foreground mt-0.5 leading-none">
+            Corporate Intelligence
+          </span>
+        </div>
       </div>
 
       {/* Right side - User Menu */}
@@ -101,29 +106,31 @@ export function Header() {
           <button
             ref={buttonRef}
             onClick={toggleMenu}
-            className={`rounded-full transition-colors flex items-center justify-center ${
-              showUserMenu ? "bg-accent/50 ring-1 ring-accent/30" : "hover:bg-accent/30"
+            className={`rounded-xl transition-all duration-200 flex items-center justify-center shadow-sm ${
+              showUserMenu 
+                ? "bg-accent/60 ring-2 ring-primary/30 scale-95" 
+                : "hover:bg-accent/40 hover:scale-105"
             }`}
-            style={{ width: HEADER_ICON_SIZE, height: HEADER_ICON_SIZE }}
+            style={{ width: HEADER_ICON_SIZE + 8, height: HEADER_ICON_SIZE + 8 }}
           >
             {user.imageURL ? (
               <img
                 src={user.imageURL}
                 alt="Profile"
-                className="rounded-full object-cover"
-                style={{ width: HEADER_ICON_SIZE, height: HEADER_ICON_SIZE }}
+                className="rounded-lg object-cover"
+                style={{ width: HEADER_ICON_SIZE + 4, height: HEADER_ICON_SIZE + 4 }}
               />
             ) : (
               <svg
-                width={HEADER_ICON_SIZE - 10}
-                height={HEADER_ICON_SIZE - 10}
+                width={HEADER_ICON_SIZE - 6}
+                height={HEADER_ICON_SIZE - 6}
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="text-foreground/60"
+                className="text-foreground/70"
               >
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
@@ -140,13 +147,14 @@ export function Header() {
                   position: "fixed",
                   top: menuPosition.top,
                   right: menuPosition.right,
-                  background: "rgba(30, 30, 35, 0.98)",
-                  backdropFilter: "blur(8px)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  borderRadius: "6px",
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                  background: "rgba(20, 20, 25, 0.95)",
+                  backdropFilter: "blur(12px)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: "12px",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)",
                   zIndex: 9999,
-                  minWidth: "90px",
+                  minWidth: "120px",
+                  overflow: "hidden",
                 }}
               >
                 <button
@@ -154,22 +162,29 @@ export function Header() {
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: "8px",
+                    gap: "10px",
                     width: "100%",
-                    padding: "8px 12px",
-                    fontSize: "12px",
-                    color: "rgba(255,255,255,0.8)",
+                    padding: "12px 16px",
+                    fontSize: "13px",
+                    fontWeight: "500",
+                    color: "rgba(255,255,255,0.9)",
                     background: "none",
                     border: "none",
                     cursor: "pointer",
-                    transition: "background 0.15s",
+                    transition: "all 0.2s ease",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.1)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                    e.currentTarget.style.color = "white";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "none";
+                    e.currentTarget.style.color = "rgba(255,255,255,0.9)";
+                  }}
                 >
                   <svg
-                    width="12"
-                    height="12"
+                    width="14"
+                    height="14"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"

@@ -4,8 +4,7 @@
   "private": true,
   "workspaces": [
     "shared",
-    "backend",
-    "frontend"
+    "backend"
   ],
   "scripts": {
     "build:shared": "cd shared && bun run build",

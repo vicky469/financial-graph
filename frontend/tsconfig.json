@@ -5,7 +5,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@financial-graph/backend/*": ["../backend/src/*"]
+      "@financial-graph/shared": ["../shared"],
+      "@financial-graph/shared/*": ["../shared/*"]
     }
   }
 }

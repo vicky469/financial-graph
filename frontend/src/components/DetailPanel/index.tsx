@@ -9,7 +9,6 @@ interface DetailPanelProps {
   node: Node | { id: string; type: string; name?: string } | null;
   onClose: () => void;
   isPublic?: boolean;
-  isSubsidiary?: boolean;
   parentCompanyId?: string | null;
   hideTabs?: boolean; // New prop to hide tabs for mobile
 }
@@ -18,7 +17,6 @@ export function DetailPanel({
   node,
   onClose,
   isPublic,
-  isSubsidiary: _isSubsidiary,
   parentCompanyId,
   hideTabs = false,
 }: DetailPanelProps) {
@@ -35,7 +33,7 @@ export function DetailPanel({
     subsidiary,
     parentEdge,
     isLoading: loadingSubsidiary,
-  } = useSubsidiaryDetails(node?.type === "Subsidiary" ? node.id : null, parentCompanyId);
+  } = useSubsidiaryDetails(node?.type === "Subsidiary" ? node.id : null);
 
   // const { audits, isLoading: loadingAudits } = useCompanyAudits(
   //   node?.type === "Company" ? node.id : null

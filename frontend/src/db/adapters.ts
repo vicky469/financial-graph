@@ -2,7 +2,7 @@
 // into frontend node/edge format
 
 import type { Node, Edge } from "../types";
-import type { Company, ParentOfEdge } from "@financial-graph/shared";
+import type { Company, ParentOfEdge } from "financial-graph-shared";
 
 // Transform a backend company to a frontend node
 export function companyToNode(company: Company): Node {

@@ -1148,50 +1148,72 @@ function FeatureCard({
   return (
     <div
       style={{
-        padding: "32px",
+        padding: "40px",
         background: "rgba(255,255,255,0.02)",
-        borderRadius: "16px",
-        border: "1px solid rgba(255,255,255,0.06)",
-        transition: "all 0.2s ease",
+        borderRadius: "20px",
+        border: "1px solid rgba(255,255,255,0.08)",
+        transition: "all 0.3s ease",
+        cursor: "pointer",
+        position: "relative",
+        overflow: "hidden",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-        e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+        e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+        e.currentTarget.style.borderColor = "rgba(129, 140, 248, 0.3)";
+        e.currentTarget.style.transform = "translateY(-4px)";
+        e.currentTarget.style.boxShadow = "0 20px 40px rgba(0, 0, 0, 0.15)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "rgba(255,255,255,0.02)";
-        e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "none";
       }}
     >
+      {/* Subtle gradient overlay */}
       <div
         style={{
-          width: "48px",
-          height: "48px",
-          borderRadius: "12px",
-          background: "rgba(99, 102, 241, 0.1)",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "1px",
+          background: "linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.5), transparent)",
+        }}
+      />
+      
+      <div
+        style={{
+          width: "56px",
+          height: "56px",
+          borderRadius: "16px",
+          background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.1))",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: "20px",
+          marginBottom: "24px",
           color: "#818cf8",
+          boxShadow: "0 8px 24px rgba(99, 102, 241, 0.2)",
         }}
       >
         {icon}
       </div>
       <h3
         style={{
-          fontSize: "18px",
-          fontWeight: "600",
-          marginBottom: "12px",
+          fontSize: "20px",
+          fontWeight: "700",
+          marginBottom: "16px",
+          color: "rgba(255,255,255,0.95)",
         }}
       >
         {title}
       </h3>
       <p
         style={{
-          fontSize: "14px",
-          lineHeight: "1.6",
-          color: "rgba(255,255,255,0.5)",
+          fontSize: "15px",
+          lineHeight: "1.7",
+          color: "rgba(255,255,255,0.6)",
+          margin: 0,
         }}
       >
         {description}
@@ -1214,27 +1236,57 @@ function EntityCard({
   return (
     <div
       style={{
-        padding: "24px",
+        padding: "32px",
         background: "rgba(255,255,255,0.02)",
-        borderRadius: "12px",
-        border: "1px solid rgba(255,255,255,0.06)",
+        borderRadius: "16px",
+        border: "1px solid rgba(255,255,255,0.08)",
         borderTop: `3px solid ${color}`,
+        transition: "all 0.3s ease",
+        cursor: "pointer",
+        position: "relative",
+        overflow: "hidden",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = "0 12px 32px rgba(0, 0, 0, 0.1)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "none";
       }}
     >
+      {/* Subtle glow effect */}
       <div
         style={{
-          fontSize: "16px",
-          fontWeight: "600",
-          marginBottom: "4px",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "1px",
+          background: `linear-gradient(90deg, transparent, ${color}40, transparent)`,
+        }}
+      />
+      
+      <div
+        style={{
+          fontSize: "18px",
+          fontWeight: "700",
+          marginBottom: "6px",
+          color: "rgba(255,255,255,0.95)",
         }}
       >
         {title}
       </div>
       <div
         style={{
-          fontSize: "12px",
-          color: "rgba(255,255,255,0.4)",
-          marginBottom: "16px",
+          fontSize: "13px",
+          color: color,
+          marginBottom: "20px",
+          fontWeight: "600",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
         }}
       >
         {subtitle}
@@ -1250,12 +1302,27 @@ function EntityCard({
           <li
             key={i}
             style={{
-              fontSize: "13px",
-              color: "rgba(255,255,255,0.6)",
-              padding: "6px 0",
-              borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none",
+              fontSize: "14px",
+              color: "rgba(255,255,255,0.7)",
+              padding: "8px 0",
+              borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+              position: "relative",
+              paddingLeft: "16px",
             }}
           >
+            <span
+              style={{
+                position: "absolute",
+                left: "0",
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "4px",
+                height: "4px",
+                borderRadius: "50%",
+                background: color,
+                opacity: 0.6,
+              }}
+            />
             {item}
           </li>
         ))}
@@ -1310,40 +1377,60 @@ function QuestionCard({ question }: { question: string }) {
   return (
     <div
       style={{
-        padding: "24px",
+        padding: "32px",
         background: "rgba(255,255,255,0.02)",
-        borderRadius: "12px",
-        border: "1px solid rgba(255,255,255,0.06)",
+        borderRadius: "16px",
+        border: "1px solid rgba(255,255,255,0.08)",
         display: "flex",
         alignItems: "flex-start",
-        gap: "16px",
-        transition: "all 0.2s ease",
+        gap: "20px",
+        transition: "all 0.3s ease",
+        cursor: "pointer",
+        position: "relative",
+        overflow: "hidden",
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background = "rgba(255,255,255,0.04)";
         e.currentTarget.style.borderColor = "rgba(129, 140, 248, 0.3)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = "0 12px 32px rgba(0, 0, 0, 0.1)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "rgba(255,255,255,0.02)";
-        e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "none";
       }}
     >
+      {/* Subtle gradient line */}
       <div
         style={{
-          width: "32px",
-          height: "32px",
-          borderRadius: "8px",
-          background: "rgba(99, 102, 241, 0.1)",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "1px",
+          background: "linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.4), transparent)",
+        }}
+      />
+      
+      <div
+        style={{
+          width: "40px",
+          height: "40px",
+          borderRadius: "12px",
+          background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.1))",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
           color: "#818cf8",
+          boxShadow: "0 4px 16px rgba(99, 102, 241, 0.2)",
         }}
       >
         <svg
-          width="16"
-          height="16"
+          width="18"
+          height="18"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -1358,10 +1445,10 @@ function QuestionCard({ question }: { question: string }) {
       </div>
       <p
         style={{
-          fontSize: "15px",
-          fontWeight: "500",
-          lineHeight: "1.5",
-          color: "rgba(255,255,255,0.85)",
+          fontSize: "16px",
+          fontWeight: "600",
+          lineHeight: "1.6",
+          color: "rgba(255,255,255,0.9)",
           margin: 0,
         }}
       >

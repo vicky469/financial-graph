@@ -9,7 +9,9 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@financial-graph/shared": ["../shared"],
+      "@financial-graph/shared/*": ["../shared/*"]
     },
 
     /* Bundler mode */
