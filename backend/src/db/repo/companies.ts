@@ -1,10 +1,11 @@
 import { db } from "../client";
-import { 
-  CompanyType, 
-  CompanySchema, 
+import {
+  CompanyType,
+  CompanySchema,
   validate,
   ParentOfSource,
   generateCompanyId,
+  generateCompanyInfoId,
   generateParentOfId,
   type Company,
   type ParentOfEdge,
@@ -12,13 +13,13 @@ import {
 
 /**
  * Upsert a company
- * 
+ *
  * For PUBLIC/ISSUER companies:
  * - Uses identity.primaryCIK for ID generation
  * - Assumes one legal entity per CIK
  */
 export async function upsertCompany(
-  companyData: Partial<Company>
+  companyData: Partial<Company>,
 ): Promise<string> {
   // Ensure type is set for ID generation
   const companyType = companyData.type ?? CompanyType.PRIVATE;
@@ -37,14 +38,22 @@ export async function upsertCompany(
     type: companyType,
     jurisdiction_iso: companyData.jurisdiction_iso ?? undefined,
     jurisdiction_raw: companyData.jurisdiction_raw ?? undefined,
-    identity: companyData.identity ? {
-      primaryCIK: companyData.identity.primaryCIK,
-      tickers: companyData.identity.tickers,
-      exchanges: companyData.identity.exchanges,
-      sp500: companyData.identity.sp500,
-      lei: companyData.identity.lei,
-      duns: companyData.identity.duns,
-    } : undefined,
+    identity: companyData.identity
+      ? {
+          primaryCIK: companyData.identity.primaryCIK,
+          tickers: companyData.identity.tickers,
+          exchanges: companyData.identity.exchanges,
+          sp500: companyData.identity.sp500,
+          lei: companyData.identity.lei,
+          duns: companyData.identity.duns,
+          entityType: companyData.identity.entityType,
+          sic: companyData.identity.sic,
+          sicDescription: companyData.identity.sicDescription,
+          ein: companyData.identity.ein,
+          category: companyData.identity.category,
+          ownerOrg: companyData.identity.ownerOrg,
+        }
+      : undefined,
     updated_at: new Date().toISOString(),
   };
 
@@ -57,11 +66,10 @@ export async function upsertCompany(
   return id;
 }
 
-
 export async function linkParentChild(
   parentId: string,
   childId: string,
-  customProps: Partial<ParentOfEdge> = {}
+  customProps: Partial<ParentOfEdge> = {},
 ): Promise<string> {
   const established_date =
     customProps.established_date || new Date().toISOString();
@@ -87,7 +95,7 @@ export async function linkParentChild(
 
 /**
  * Get company ID by CIK using deterministic ID generation
- * 
+ *
  * @param cik - CIK string (will be normalized to 10 digits)
  * @returns UUID v5 company ID
  */
@@ -98,4 +106,32 @@ export function getCompanyIdByCik(cik: string): string {
     name: "placeholder", // Required by schema but not used for PUBLIC companies
     identity: { primaryCIK: normalizedCik },
   });
+}
+
+/**
+ * Upsert company info (1:1 link with company)
+ */
+export async function upsertCompanyInfo(
+  companyId: string,
+  infoData: {
+    fiscal_year_end?: string;
+    addresses?: any;
+    phone?: string;
+    former_names?: any;
+  },
+): Promise<string> {
+  const id = generateCompanyInfoId(companyId);
+
+  const node = {
+    id,
+    ...infoData,
+    updated_at: new Date().toISOString(),
+  };
+
+  await db.transact([
+    db.tx.company_info[id].update(node),
+    db.tx.company[companyId].link({ companyInfo: id }),
+  ]);
+
+  return id;
 }

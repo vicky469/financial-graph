@@ -27,14 +27,14 @@ export const useAllCompanies = () => {
       $: {
         where: {
           type: CompanyType.PUBLIC, // Only PUBLIC companies
-        }
+        },
       },
     },
   });
 
   const companies = useMemo(() => {
     if (!data?.company) return [];
-    
+
     return (data.company ?? [])
       .filter((c: any) => {
         // Filter out empty names
@@ -44,7 +44,7 @@ export const useAllCompanies = () => {
         id: c.id,
         name: c.name,
         type: "Company" as const,
-        ticker: c.identity?.tickers?.split(',')[0]?.trim() ?? null,
+        ticker: c.identity?.tickers?.split(",")[0]?.trim() ?? null,
         cik: c.identity?.primaryCIK ?? null,
         sp500: c.identity?.sp500 === true,
       }));
@@ -64,16 +64,16 @@ export const useAllCompanies = () => {
 // Cached version that returns cached data immediately if available
 export const useAllCompaniesCached = () => {
   const cacheTimestamp = companiesCache.timestamp;
-  const isCacheValid = companiesCache.data && (Date.now() - cacheTimestamp) < companiesCache.TTL;
-  
+  const isCacheValid = companiesCache.data && Date.now() - cacheTimestamp < companiesCache.TTL;
+
   // Always call the hook, but conditionally use the data
   const { companies: freshCompanies, isLoading } = useAllCompanies();
-  
+
   // If cache is valid, return cached data immediately
   if (isCacheValid) {
     return { companies: companiesCache.data!, isLoading: false };
   }
-  
+
   // Otherwise, return fresh data
   return { companies: freshCompanies, isLoading };
 };
@@ -116,15 +116,17 @@ export const useCompanyGraph = (companyId: string | null) => {
 
     // Add subsidiary edges
     if (company.subsidiaries) {
-      edges.push(...company.subsidiaries.map((edge: any) => ({
-        id: edge.id,
-        sourceId: companyId,
-        targetId: edge.subsidiaryCompany?.id,
-        label: "parent_of",
-        ownership: edge.ownership_percent,
-        updatedAt: Date.now(),
-        updatedBy: "system",
-      })));
+      edges.push(
+        ...company.subsidiaries.map((edge: any) => ({
+          id: edge.id,
+          sourceId: companyId,
+          targetId: edge.subsidiaryCompany?.id,
+          label: "parent_of",
+          ownership: edge.ownership_percent,
+          updatedAt: Date.now(),
+          updatedBy: "system",
+        }))
+      );
     }
   }
 
@@ -152,7 +154,7 @@ export const useCompanySubsidiaries = (companyId: string | null) => {
 
   const company = data?.company?.[0];
   const edges = company?.subsidiaries || [];
-  
+
   // Build company map from subsidiary edges
   const companyMap = new Map();
   if (company) {
@@ -178,45 +180,51 @@ export const useCompanySubsidiaries = (companyId: string | null) => {
       // Since we're querying from the parent company, all edges should have the parent as the source
       return edge.subsidiaryCompany?.id && !processedIds.has(edge.subsidiaryCompany.id);
     });
-    
-    return childEdges.map((edge: any) => {
-      const child = edge.subsidiaryCompany;
-      if (!child) return null;
 
-      return {
-        id: child.id,
-        name: child.name,
-        ownership_percent: edge.ownership_percent,
-        jurisdiction: child.jurisdiction_raw || child.jurisdiction_iso || "Unknown",
-        parentId: parentId,
-        parentName: company?.name,
-        children: [], // TODO: Implement recursive subsidiary querying for true multi-level
-        level: 1, // Direct subsidiaries are level 1
-      };
-    }).filter(Boolean);
+    return childEdges
+      .map((edge: any) => {
+        const child = edge.subsidiaryCompany;
+        if (!child) return null;
+
+        return {
+          id: child.id,
+          name: child.name,
+          ownership_percent: edge.ownership_percent,
+          jurisdiction: child.jurisdiction_raw || child.jurisdiction_iso || "Unknown",
+          parentId: parentId,
+          parentName: company?.name,
+          children: [], // TODO: Implement recursive subsidiary querying for true multi-level
+          level: 1, // Direct subsidiaries are level 1
+        };
+      })
+      .filter(Boolean);
   };
 
   const subsidiaryTree = companyId ? buildHierarchicalTree(companyId) : [];
 
   // Enhanced flat list with hierarchy information
-  const subsidiariesList = edges.map((edge: any) => {
-    const child = edge.subsidiaryCompany;
-    return child ? {
-      id: child.id,
-      name: child.name,
-      cik: child.identity?.primaryCIK,
-      jurisdiction: child.jurisdiction_raw || child.jurisdiction_iso || "Unknown",
-      ownership_percent: edge.ownership_percent,
-      parentCompanyId: companyId,
-      parentCompanyName: company?.name,
-      level: 1, // All are direct subsidiaries for now
-    } : null;
-  }).filter(Boolean);
+  const subsidiariesList = edges
+    .map((edge: any) => {
+      const child = edge.subsidiaryCompany;
+      return child
+        ? {
+            id: child.id,
+            name: child.name,
+            cik: child.identity?.primaryCIK,
+            jurisdiction: child.jurisdiction_raw || child.jurisdiction_iso || "Unknown",
+            ownership_percent: edge.ownership_percent,
+            parentCompanyId: companyId,
+            parentCompanyName: company?.name,
+            level: 1, // All are direct subsidiaries for now
+          }
+        : null;
+    })
+    .filter(Boolean);
 
-  return { 
-    subsidiaries: subsidiariesList, 
-    subsidiaryTree, 
-    isLoading 
+  return {
+    subsidiaries: subsidiariesList,
+    subsidiaryTree,
+    isLoading,
   };
 };
 
@@ -251,24 +259,29 @@ export const useCompanyHierarchy = (companyId: string | null) => {
 
   const company = data?.company?.[0];
   const directSubsidiaries = company?.subsidiaries || [];
-  
+
   // Build a multi-level hierarchy tree from nested subsidiary relationships
   const buildNestedHierarchy = (rootCompany: any, level = 0): any => {
     if (!rootCompany) return null;
 
     // Get subsidiaries at this level
-    const subsidiaryEdges = level === 0 ? directSubsidiaries : (rootCompany.subsidiaries || []);
-    
-    const children = subsidiaryEdges.map((edge: any) => {
-      const child = edge.subsidiaryCompany;
-      if (!child) return null;
+    const subsidiaryEdges = level === 0 ? directSubsidiaries : rootCompany.subsidiaries || [];
 
-      // Recursively build children
-      return buildNestedHierarchy({
-        ...child,
-        subsidiaries: child.subsidiaries || [],
-      }, level + 1);
-    }).filter(Boolean);
+    const children = subsidiaryEdges
+      .map((edge: any) => {
+        const child = edge.subsidiaryCompany;
+        if (!child) return null;
+
+        // Recursively build children
+        return buildNestedHierarchy(
+          {
+            ...child,
+            subsidiaries: child.subsidiaries || [],
+          },
+          level + 1
+        );
+      })
+      .filter(Boolean);
 
     return {
       id: rootCompany.id,
@@ -280,14 +293,12 @@ export const useCompanyHierarchy = (companyId: string | null) => {
     };
   };
 
-  const hierarchyTree = company
-    ? buildNestedHierarchy(company)
-    : null;
+  const hierarchyTree = company ? buildNestedHierarchy(company) : null;
 
   // Flatten the hierarchy for list view with proper indentation levels
   const flattenHierarchy = (node: any, result: any[] = []): any[] => {
     if (!node) return result;
-    
+
     result.push({
       id: node.id,
       name: node.name,
@@ -319,7 +330,10 @@ export const useCompanyHierarchy = (companyId: string | null) => {
 // Fetch brands for a company (disabled - brand entities are commented out in schema)
 export const useCompanyBrands = (_companyId: string | null) => {
   // Return empty brands since brand/owns entities are not active in schema
-  return { brands: [] as { id: string; name: string; status: string; category?: string }[], isLoading: false };
+  return {
+    brands: [] as { id: string; name: string; status: string; category?: string }[],
+    isLoading: false,
+  };
 };
 
 // Fetch SEC filings for a company (query through link)
@@ -371,6 +385,7 @@ export const useCompanyDetails = (companyId: string | null) => {
                 id: companyId,
               },
             },
+            companyInfo: {}, // fetch related info
           },
         }
       : null
@@ -384,7 +399,10 @@ export const useCompanyDetails = (companyId: string | null) => {
 };
 
 // Fetch subsidiary details including parent relationship - OPTIMIZED
-export const useSubsidiaryDetails = (subsidiaryId: string | null, parentCompanyId?: string | null) => {
+export const useSubsidiaryDetails = (
+  subsidiaryId: string | null,
+  parentCompanyId?: string | null
+) => {
   const { data, isLoading } = db.useQuery(
     subsidiaryId
       ? {
@@ -409,7 +427,7 @@ export const useSubsidiaryDetails = (subsidiaryId: string | null, parentCompanyI
 
   if (!subsidiary) return { subsidiary: null, parentEdge: null, isLoading };
 
-  return { 
+  return {
     subsidiary: {
       id: subsidiary.id,
       name: subsidiary.name,
@@ -422,11 +440,13 @@ export const useSubsidiaryDetails = (subsidiaryId: string | null, parentCompanyI
       updatedAt: subsidiary.updated_at,
       updatedBy: "system", // Default value
     },
-    parentEdge: parentEdge ? {
-      ownership_percent: parentEdge.ownership_percent,
-      parentCompany: parentEdge.parentCompany,
-    } : null,
-    isLoading 
+    parentEdge: parentEdge
+      ? {
+          ownership_percent: parentEdge.ownership_percent,
+          parentCompany: parentEdge.parentCompany,
+        }
+      : null,
+    isLoading,
   };
 };
 

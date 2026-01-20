@@ -1,15 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useCompanyHierarchy } from "../../db/queries";
 import { getJurisdictionColor } from "../../utils/jurisdictionColors";
 
 interface JurisdictionTreemapProps {
   companyId: string | null;
   onSubsidiaryClick?: (subsidiaryId: string) => void;
-}
-
-interface TreemapState {
-  mode: 'jurisdictions' | 'companies';
-  selectedJurisdiction?: string;
 }
 
 interface TreemapRect {
@@ -48,8 +43,6 @@ function squarify(
   const rects: TreemapRect[] = [];
   let currentX = x;
   let currentY = y;
-  let remainingWidth = width;
-  let remainingHeight = height;
 
   // Sort by scaled value descending for better layout
   const sorted = [...items].sort((a, b) => b.scaledValue - a.scaledValue);
@@ -61,12 +54,12 @@ function squarify(
     const ratio = item.scaledValue / totalValue;
 
     if (isHorizontal) {
-      const rectWidth = remainingWidth * ratio;
+      const rectWidth = width * ratio;
       rects.push({
         x: currentX,
-        y: currentY,
+        y: y,
         width: Math.max(rectWidth, 1),
-        height: remainingHeight,
+        height: height,
         jurisdiction: item.jurisdiction,
         count: item.count,
         scaledValue: item.scaledValue,
@@ -74,11 +67,11 @@ function squarify(
       });
       currentX += rectWidth;
     } else {
-      const rectHeight = remainingHeight * ratio;
+      const rectHeight = height * ratio;
       rects.push({
-        x: currentX,
+        x: x,
         y: currentY,
-        width: remainingWidth,
+        width: width,
         height: Math.max(rectHeight, 1),
         jurisdiction: item.jurisdiction,
         count: item.count,
@@ -92,162 +85,147 @@ function squarify(
   return rects;
 }
 
+// Layout constraints
+const CHART_MIN_WIDTH = 400;
+const CHART_MAX_WIDTH = 600;
+const CHART_HEIGHT = 300;
+
 export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: JurisdictionTreemapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  // Fixed dimensions for compact treemap
-  const treemapWidth = 520;
-  const treemapHeight = 320;
+  const [chartWidth, setChartWidth] = useState(CHART_MIN_WIDTH);
+  const [selectedJurisdiction, setSelectedJurisdiction] = useState<string | null>(null);
+
   const { flatHierarchy, isLoading } = useCompanyHierarchy(companyId);
 
-  // State for drill-down functionality
-  const [treemapState, setTreemapState] = useState<TreemapState>({ mode: 'jurisdictions' });
+  // Resize observer to adjust chart width based on container
+  useEffect(() => {
+    if (!containerRef.current) return;
 
-  // Group by jurisdiction and apply sqrt scaling - use all subsidiaries from hierarchy
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        const containerWidth = entry.contentRect.width;
+        // Calculate available width for chart (container - list - gap - padding)
+        const availableForChart = containerWidth - 220 - 32 - 48;
+        const newWidth = Math.max(CHART_MIN_WIDTH, Math.min(CHART_MAX_WIDTH, availableForChart));
+        setChartWidth(newWidth);
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  // Group by jurisdiction and apply sqrt scaling
   const { treemapData, companiesByJurisdiction } = useMemo(() => {
-    // Exclude the root company (level 0), only count subsidiaries
     const subsidiaries = flatHierarchy.filter((node) => node.level > 0);
 
     if (subsidiaries.length === 0) {
       return { treemapData: [], companiesByJurisdiction: {} };
     }
 
-    // Group by jurisdiction
     const groups: Record<string, number> = {};
     const companiesByJurisdiction: Record<string, any[]> = {};
 
     subsidiaries.forEach((sub) => {
       const jurisdiction = sub.jurisdiction || "Unknown";
       groups[jurisdiction] = (groups[jurisdiction] || 0) + 1;
-      
+
       if (!companiesByJurisdiction[jurisdiction]) {
         companiesByJurisdiction[jurisdiction] = [];
       }
       companiesByJurisdiction[jurisdiction].push(sub);
     });
 
-    // Convert to array with sqrt-scaled values for better visibility of small counts
     const entries = Object.entries(groups).map(([jurisdiction, count]) => ({
       jurisdiction,
       count,
-      // Use sqrt scaling so small values remain visible
-      // e.g., 400 -> 20, 1 -> 1 (ratio goes from 400:1 to 20:1)
       scaledValue: Math.sqrt(count),
-      color: getJurisdictionColor(jurisdiction), // Use predefined coloring for consistency
+      color: getJurisdictionColor(jurisdiction),
     }));
 
-    return {
-      treemapData: entries,
-      companiesByJurisdiction,
-    };
+    return { treemapData: entries, companiesByJurisdiction };
   }, [flatHierarchy]);
 
   // Calculate treemap layout
   const rects = useMemo(() => {
-    if (treemapState.mode === 'jurisdictions') {
-      // Show jurisdiction summary
-      if (treemapData.length === 0) return [];
-      return squarify(treemapData, 0, 0, treemapWidth, treemapHeight);
-    } else {
-      // Show companies in selected jurisdiction
-      const companies = companiesByJurisdiction[treemapState.selectedJurisdiction!] || [];
-      if (companies.length === 0) return [];
+    if (treemapData.length === 0) return [];
+    return squarify(treemapData, 0, 0, chartWidth, CHART_HEIGHT);
+  }, [treemapData, chartWidth]);
 
-      const companyData = companies.map((company) => ({
-        jurisdiction: company.name, // Use name as the label
-        count: 1, // Each company counts as 1
-        scaledValue: 1, // Equal size for all companies
-        color: getJurisdictionColor(treemapState.selectedJurisdiction!), // Same color as jurisdiction
-        companyId: company.id, // Store company ID for click handling
-      }));
-
-      return squarify(companyData, 0, 0, treemapWidth, treemapHeight);
+  // Get companies to display in list
+  const listItems = useMemo(() => {
+    if (selectedJurisdiction && companiesByJurisdiction[selectedJurisdiction]) {
+      return companiesByJurisdiction[selectedJurisdiction];
     }
-  }, [treemapData, treemapState, companiesByJurisdiction, treemapWidth, treemapHeight]);
-
-  // Handle clicks on treemap rectangles
-  const handleRectClick = (rect: TreemapRect) => {
-    if (treemapState.mode === 'jurisdictions') {
-      // Drill down to companies in this jurisdiction
-      setTreemapState({
-        mode: 'companies',
-        selectedJurisdiction: rect.jurisdiction,
-      });
-    } else {
-      // Click on a company - call the subsidiary click handler
-      const companyId = (rect as any).companyId;
-      if (companyId && onSubsidiaryClick) {
-        onSubsidiaryClick(companyId);
-      }
-    }
-  };
-
-  // Handle back navigation
-  const handleBackClick = () => {
-    setTreemapState({ mode: 'jurisdictions' });
-  };
+    return null;
+  }, [selectedJurisdiction, companiesByJurisdiction]);
 
   if (isLoading) {
     return (
-      <div ref={containerRef} className="p-6">
-        <div className="flex items-center justify-center" style={{ height: treemapHeight }}>
-          <div className="text-center">
-            <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Loading subsidiaries...</p>
+      <div ref={containerRef} style={{ padding: "24px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: CHART_HEIGHT }}>
+          <div style={{ textAlign: "center" }}>
+            <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" style={{ margin: "0 auto 12px" }} />
+            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)" }}>Loading subsidiaries...</p>
           </div>
         </div>
       </div>
     );
   }
 
-  if (!companyId) {
+  if (!companyId || treemapData.length === 0) {
     return (
-      <div ref={containerRef} className="p-6">
-        <div className="flex items-center justify-center text-muted-foreground/60" style={{ height: treemapHeight }}>
-          <p className="text-sm">Select a company to view subsidiary distribution</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (treemapData.length === 0) {
-    return (
-      <div ref={containerRef} className="p-6">
-        <div className="flex items-center justify-center text-muted-foreground/60" style={{ height: treemapHeight }}>
-          <p className="text-sm">No subsidiaries found</p>
+      <div ref={containerRef} style={{ padding: "24px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: CHART_HEIGHT, color: "rgba(255,255,255,0.4)" }}>
+          <p style={{ fontSize: "13px" }}>{!companyId ? "Select a company to view subsidiary distribution" : "No subsidiaries found"}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className="p-6">
+    <div ref={containerRef} style={{ padding: "24px" }}>
       {/* Header */}
-      <div className="mb-3" style={{ paddingLeft: "8px" }}>
-        <div className="flex items-center gap-3">
-          {treemapState.mode === 'companies' && (
-            <button
-              onClick={handleBackClick}
-              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              ← Back
-            </button>
-          )}
-          <h2 style={{ fontSize: "12px", fontWeight: "500", color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            {treemapState.mode === 'jurisdictions'
-              ? 'Subsidiaries by Jurisdiction'
-              : `Companies in ${treemapState.selectedJurisdiction}`}
-          </h2>
-        </div>
+      <div style={{ marginBottom: "12px", display: "flex", alignItems: "center", gap: "12px" }}>
+        {selectedJurisdiction && (
+          <button
+            onClick={() => setSelectedJurisdiction(null)}
+            style={{
+              fontSize: "12px",
+              color: "#60a5fa",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+            }}
+          >
+            ← Back
+          </button>
+        )}
+        <h2 style={{
+          fontSize: "11px",
+          fontWeight: "600",
+          color: "rgba(255,255,255,0.5)",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+        }}>
+          {selectedJurisdiction ? `Companies in ${selectedJurisdiction}` : "Subsidiaries by Jurisdiction"}
+        </h2>
       </div>
 
-      {/* Horizontal layout: Treemap + List */}
-      <div className="flex" style={{ height: treemapHeight, gap: 32 }}>
-        {/* Left: Treemap */}
-        <div className="flex-shrink-0" style={{ paddingLeft: "8px" }}>
+      {/* Main layout: Chart left, List right */}
+      <div style={{
+        display: "flex",
+        gap: "32px",
+        alignItems: "flex-start",
+      }}>
+        {/* Left: Chart (anchored to left) */}
+        <div style={{ flexShrink: 0 }}>
           <svg
-            width={treemapWidth}
-            height={treemapHeight}
-            className="rounded-lg overflow-hidden"
+            width={chartWidth}
+            height={CHART_HEIGHT}
+            style={{ borderRadius: "8px", overflow: "hidden", display: "block" }}
           >
             {rects.map((rect) => {
               const fontSize = Math.min(
@@ -257,6 +235,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
               );
               const showLabel = rect.width > 50 && rect.height > 35;
               const showCount = rect.width > 35 && rect.height > 22;
+              const isSelected = selectedJurisdiction === rect.jurisdiction;
 
               return (
                 <g key={rect.jurisdiction}>
@@ -266,11 +245,12 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                     width={rect.width}
                     height={rect.height}
                     fill={rect.color}
-                    stroke="rgba(0,0,0,0.3)"
-                    strokeWidth={1}
-                    className="cursor-pointer transition-opacity hover:opacity-80"
+                    stroke={isSelected ? "white" : "rgba(0,0,0,0.3)"}
+                    strokeWidth={isSelected ? 2 : 1}
+                    style={{ cursor: "pointer", transition: "opacity 0.15s" }}
+                    opacity={selectedJurisdiction && !isSelected ? 0.5 : 1}
                     rx={3}
-                    onClick={() => handleRectClick(rect)}
+                    onClick={() => setSelectedJurisdiction(rect.jurisdiction)}
                   />
 
                   {showLabel && (
@@ -282,12 +262,9 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                       fill="white"
                       fontSize={fontSize}
                       fontWeight="500"
-                      className="pointer-events-none select-none"
-                      style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}
+                      style={{ pointerEvents: "none", userSelect: "none", textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}
                     >
-                      {rect.jurisdiction.length > 15
-                        ? rect.jurisdiction.substring(0, 13) + "..."
-                        : rect.jurisdiction}
+                      {rect.jurisdiction.length > 15 ? rect.jurisdiction.substring(0, 13) + "..." : rect.jurisdiction}
                     </text>
                   )}
 
@@ -300,7 +277,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                       fill="rgba(255,255,255,0.9)"
                       fontSize={fontSize * 0.8}
                       fontWeight="600"
-                      className="pointer-events-none select-none"
+                      style={{ pointerEvents: "none", userSelect: "none" }}
                     >
                       {rect.count}
                     </text>
@@ -315,56 +292,106 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
           </svg>
         </div>
 
-        {/* Right: Scrollable compact list */}
-        <div className="flex-1 overflow-y-auto min-w-0" style={{ maxWidth: 280, paddingLeft: "8px", paddingRight: "16px" }}>
-          {treemapState.mode === 'jurisdictions' ? (
-            <div className="space-y-0">
+        {/* Right: List (anchored to right, scrollable) */}
+        <div style={{
+          flex: 1,
+          minWidth: "180px",
+          maxWidth: "280px",
+          maxHeight: CHART_HEIGHT,
+          overflowY: "auto",
+        }}>
+          {listItems ? (
+            // Show companies in selected jurisdiction
+            <div>
+              {listItems.map((company) => (
+                <div
+                  key={company.id}
+                  onClick={() => onSubsidiaryClick?.(company.id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "6px 8px",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                >
+                  <span style={{
+                    fontSize: "13px",
+                    color: "rgba(255,255,255,0.8)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}>
+                    {company.name}
+                  </span>
+                  <span style={{
+                    fontSize: "10px",
+                    color: "rgba(255,255,255,0.3)",
+                    marginLeft: "8px",
+                    flexShrink: 0,
+                  }}>
+                    L{company.level}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Show jurisdiction summary
+            <div>
               {treemapData
                 .sort((a, b) => b.count - a.count)
                 .map((item) => (
                   <div
                     key={item.jurisdiction}
-                    className="flex items-center justify-between py-0.5 px-1 hover:bg-accent/20 cursor-pointer transition-colors rounded"
-                    onClick={() =>
-                      setTreemapState({
-                        mode: 'companies',
-                        selectedJurisdiction: item.jurisdiction,
-                      })
-                    }
+                    onClick={() => setSelectedJurisdiction(item.jurisdiction)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "6px 8px",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                   >
-                    <div className="flex items-center gap-1.5 min-w-0">
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
                       <div
-                        className="w-2.5 h-2.5 rounded flex-shrink-0"
-                        style={{ backgroundColor: item.color }}
+                        style={{
+                          width: "10px",
+                          height: "10px",
+                          borderRadius: "2px",
+                          backgroundColor: item.color,
+                          flexShrink: 0,
+                        }}
                       />
-                      <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.75)" }} className="truncate">
+                      <span style={{
+                        fontSize: "13px",
+                        color: "rgba(255,255,255,0.8)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}>
                         {item.jurisdiction}
                       </span>
                     </div>
-                    <span style={{ fontSize: "11px", fontWeight: "500", color: "rgba(255,255,255,0.3)" }} className="ml-2 flex-shrink-0 tabular-nums">
+                    <span style={{
+                      fontSize: "12px",
+                      fontWeight: "500",
+                      color: "rgba(255,255,255,0.4)",
+                      marginLeft: "12px",
+                      flexShrink: 0,
+                      fontVariantNumeric: "tabular-nums",
+                    }}>
                       {item.count}
                     </span>
                   </div>
                 ))}
-            </div>
-          ) : (
-            <div className="space-y-0">
-              {companiesByJurisdiction[treemapState.selectedJurisdiction!]?.map(
-                (company) => (
-                  <div
-                    key={company.id}
-                    onClick={() => onSubsidiaryClick?.(company.id)}
-                    className="flex items-center justify-between py-0.5 px-1 hover:bg-accent/20 cursor-pointer transition-colors rounded"
-                  >
-                    <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.75)" }} className="truncate">
-                      {company.name}
-                    </span>
-                    <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.3)" }} className="ml-2 flex-shrink-0">
-                      L{company.level}
-                    </span>
-                  </div>
-                )
-              ) || []}
             </div>
           )}
         </div>

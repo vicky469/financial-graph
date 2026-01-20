@@ -7,6 +7,10 @@ import type { Company, ParentOfEdge } from "@financial-graph/shared";
 // Transform a backend company to a frontend node
 export function companyToNode(company: Company): Node {
   const updatedAt = new Date(company.updated_at).getTime();
+  const comp = company as any;
+  // Handle companyInfo which might be an object (has: 'one') or array depending on client behavior
+  const rawInfo = comp.companyInfo;
+  const companyInfo = Array.isArray(rawInfo) ? rawInfo[0] : rawInfo;
 
   return {
     id: company.id,
@@ -23,14 +27,24 @@ export function companyToNode(company: Company): Node {
     cik: company.identity?.primaryCIK,
     updatedAt,
     updatedBy: "system",
+    identity: company.identity,
+    companyInfo: companyInfo
+      ? {
+          fiscal_year_end: companyInfo.fiscal_year_end,
+          addresses: companyInfo.addresses,
+          phone: companyInfo.phone,
+          former_names: companyInfo.former_names,
+          updated_at: companyInfo.updated_at,
+        }
+      : undefined,
   };
 }
 
 // Transform a backend parent_of relationship to a frontend edge
 // Note: parentCompany and subsidiaryCompany must be populated via InstantDB links
 export function parentOfToEdge(
-  parentOf: ParentOfEdge & { 
-    parentCompany?: { id: string }; 
+  parentOf: ParentOfEdge & {
+    parentCompany?: { id: string };
     subsidiaryCompany?: { id: string };
   }
 ): Edge {
@@ -38,9 +52,7 @@ export function parentOfToEdge(
   const validFrom = parentOf.established_date
     ? new Date(parentOf.established_date).getTime()
     : undefined;
-  const validTo = parentOf.ended_date
-    ? new Date(parentOf.ended_date).getTime()
-    : undefined;
+  const validTo = parentOf.ended_date ? new Date(parentOf.ended_date).getTime() : undefined;
 
   if (!parentOf.parentCompany?.id || !parentOf.subsidiaryCompany?.id) {
     throw new Error("parentOfToEdge requires parentCompany and subsidiaryCompany to be populated");

@@ -1,9 +1,9 @@
 /**
  * Shared Database Types & Validation
- * 
+ *
  * InstantDB handles: type checking, required/optional, unique constraints
  * We handle: business logic validation that InstantDB can't express
- * 
+ *
  * Types vs Interfaces:
  * - `type` aliases are direct re-exports from InstantDB (InstaQLEntity)
  * - `interface` adds proper typing for enum/JSON fields that InstantDB types as number/any
@@ -26,7 +26,7 @@ export const CompanyType = {
   TRUST: 5,
 } as const;
 
-export type CompanyTypeValue = typeof CompanyType[keyof typeof CompanyType];
+export type CompanyTypeValue = (typeof CompanyType)[keyof typeof CompanyType];
 
 export const ParentOfSource = {
   MA_EVENT: 1,
@@ -36,7 +36,8 @@ export const ParentOfSource = {
   SEC_FILING: 5,
 } as const;
 
-export type ParentOfSourceValue = typeof ParentOfSource[keyof typeof ParentOfSource];
+export type ParentOfSourceValue =
+  (typeof ParentOfSource)[keyof typeof ParentOfSource];
 
 // ============================================================================
 // RAW TYPES (from InstantDB - don't use directly, use interfaces below)
@@ -48,7 +49,10 @@ type ParentOfEdgeRaw = InstaQLEntity<typeof schema, "parent_of">;
 // These are fine to use directly (no enum/JSON fields needing better typing)
 export type Filing = InstaQLEntity<typeof schema, "filing">;
 export type FilingAttachments = Record<string, string>;
-export type SubsidiaryEnrichment = InstaQLEntity<typeof schema, "subsidiary_enrichment">;
+export type SubsidiaryEnrichment = InstaQLEntity<
+  typeof schema,
+  "subsidiary_enrichment"
+>;
 export type Audit = InstaQLEntity<typeof schema, "audit">;
 // export type CompanyInfo = InstaQLEntity<typeof schema, "company_info">;
 // export type BusinessSegment = InstaQLEntity<typeof schema, "business_segment">;
@@ -68,16 +72,22 @@ export interface CompanyIdentity {
   sp500?: boolean;
   lei?: string;
   duns?: string;
+  entityType?: string;
+  sic?: string;
+  sicDescription?: string;
+  ein?: string;
+  category?: string;
+  ownerOrg?: string;
 }
 
 /** Company with properly typed `type` (enum) and `identity` (JSON) */
-export interface Company extends Omit<CompanyRaw, 'type' | 'identity'> {
+export interface Company extends Omit<CompanyRaw, "type" | "identity"> {
   type: CompanyTypeValue;
   identity?: CompanyIdentity;
 }
 
 /** ParentOfEdge with properly typed `source` (enum) */
-export interface ParentOfEdge extends Omit<ParentOfEdgeRaw, 'source'> {
+export interface ParentOfEdge extends Omit<ParentOfEdgeRaw, "source"> {
   source: ParentOfSourceValue;
 }
 
@@ -89,7 +99,7 @@ export interface FieldChange {
 }
 
 /** Audit with properly typed `fields_changed` (JSON array) */
-export interface AuditWithChanges extends Omit<Audit, 'fields_changed'> {
+export interface AuditWithChanges extends Omit<Audit, "fields_changed"> {
   fields_changed: FieldChange[];
 }
 
@@ -101,18 +111,20 @@ export const NonEmptyString = z.string().min(1);
 export const IntNumber = z.number().int();
 
 /** CIK: 1-10 digit numeric string, normalized to 10 digits with leading zeros */
-export const CIKString = z.string()
+export const CIKString = z
+  .string()
   .regex(/^\d{1,10}$/, "CIK must be 1-10 digits")
-  .transform((val) => val.trim().padStart(10, '0'));
+  .transform((val) => val.trim().padStart(10, "0"));
 
-/** 
+/**
  * Accession Number: SEC filing identifier
  * Format: XXXXXXXXXX-XX-XXXXXX (with dashes) or XXXXXXXXXXXXXXXXXX (without)
  * Normalized by removing dashes
  */
-export const AccessionNumberString = z.string()
+export const AccessionNumberString = z
+  .string()
   .min(1, "Accession number is required")
-  .transform((val) => val.replace(/-/g, ''));
+  .transform((val) => val.replace(/-/g, ""));
 
 /** Jurisdiction: rejects numbers/percentages (common parsing errors) */
 export const JurisdictionString = z.string().refine(
@@ -122,71 +134,67 @@ export const JurisdictionString = z.string().refine(
     if (/^\d+(\.\d+)?%$/.test(trimmed)) return false;
     return true;
   },
-  { message: "Jurisdiction cannot be a number or percentage" }
+  { message: "Jurisdiction cannot be a number or percentage" },
 );
 
 // ============================================================================
 // COMPANY VALIDATION (type-specific rules)
 // ============================================================================
 
-const PublicIssuerIdentitySchema = z.object({
-  primaryCIK: CIKString,
+const CompanyIdentitySchema = z.object({
+  primaryCIK: CIKString.optional(),
   ciks: z.string().optional(),
   tickers: z.string().optional(),
   exchanges: z.string().optional(),
   sp500: z.boolean().optional(),
   lei: z.string().length(20).optional(),
   duns: z.string().length(9).optional(),
+  entityType: z.string().optional(),
+  sic: z.string().optional(),
+  sicDescription: z.string().optional(),
+  ein: z.string().optional(),
+  category: z.string().optional(),
+  ownerOrg: z.string().optional(),
 });
 
-const PrivateUnknownIdentitySchema = z.object({
-  primaryCIK: z.string().optional(),
-  ciks: z.string().optional(),
-  tickers: z.string().optional(),
-  exchanges: z.string().optional(),
-  sp500: z.boolean().optional(),
-  lei: z.string().length(20).optional(),
-  duns: z.string().length(9).optional(),
-}).optional();
-
-/** PUBLIC company: requires primaryCIK */
+/** PUBLIC company: requires name, identity required */
 export const PublicCompanySchema = z.object({
   type: z.literal(CompanyType.PUBLIC),
   name: NonEmptyString,
-  identity: PublicIssuerIdentitySchema,
+  identity: CompanyIdentitySchema,
   jurisdiction_raw: z.string().optional(),
 });
 
-/** PRIVATE company: requires name + jurisdiction */
+/** PRIVATE company: requires name + jurisdiction, identity optional */
 export const PrivateCompanySchema = z.object({
   type: z.literal(CompanyType.PRIVATE),
   name: NonEmptyString,
   jurisdiction_raw: JurisdictionString,
-  identity: PrivateUnknownIdentitySchema,
+  identity: CompanyIdentitySchema.optional(),
 });
 
-/** ISSUER company: requires primaryCIK */
+/** ISSUER company: requires name, identity required */
 export const IssuerCompanySchema = z.object({
   type: z.literal(CompanyType.ISSUER),
   name: NonEmptyString,
-  identity: PublicIssuerIdentitySchema,
+  identity: CompanyIdentitySchema,
   jurisdiction_raw: z.string().optional(),
 });
 
-/** UNKNOWN company: requires name, jurisdiction optional */
+/** UNKNOWN company: requires name, jurisdiction optional, identity optional */
 export const UnknownCompanySchema = z.object({
   type: z.literal(CompanyType.UNKNOWN),
   name: NonEmptyString,
   jurisdiction_raw: JurisdictionString.optional(),
-  identity: PrivateUnknownIdentitySchema,
+  identity: CompanyIdentitySchema.optional(),
 });
 
-/** TRUST company: requires name, optional CIK */
+/** TRUST company: requires name, identity optional */
 export const TrustCompanySchema = z.object({
   type: z.literal(CompanyType.TRUST),
   name: NonEmptyString,
   jurisdiction_raw: z.string().optional(),
-  identity: PrivateUnknownIdentitySchema,
+  identity: CompanyIdentitySchema.optional(),
 });
 
 /** Company validation by type */
@@ -235,7 +243,9 @@ export const OwnsParamsSchema = z.object({
 // ============================================================================
 
 export function isPublicCompany(company: Company): boolean {
-  return company.type === CompanyType.PUBLIC || company.type === CompanyType.ISSUER;
+  return (
+    company.type === CompanyType.PUBLIC || company.type === CompanyType.ISSUER
+  );
 }
 
 export function isPrivateCompany(company: Company): boolean {
@@ -253,14 +263,18 @@ export function isFromSecFiling(edge: ParentOfEdge): boolean {
 export function validate<T>(
   schema: z.ZodSchema<T>,
   data: unknown,
-  schemaName?: string
+  schemaName?: string,
 ): T {
   try {
     return schema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errors = error.issues.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ");
-      throw new Error(`Validation failed${schemaName ? ` for ${schemaName}` : ""}: ${errors}`);
+      const errors = error.issues
+        .map((e) => `${e.path.join(".")}: ${e.message}`)
+        .join(", ");
+      throw new Error(
+        `Validation failed${schemaName ? ` for ${schemaName}` : ""}: ${errors}`,
+      );
     }
     throw error;
   }
@@ -268,7 +282,7 @@ export function validate<T>(
 
 export function safeValidate<T>(
   schema: z.ZodSchema<T>,
-  data: unknown
+  data: unknown,
 ): { success: true; data: T } | { success: false; error: z.ZodError } {
   const result = schema.safeParse(data);
   if (result.success) {

@@ -54,40 +54,27 @@ const _schema = i.schema({
       llmEnrichedAt: i.string().optional(),
       updated_at: i.string(),
     }),
-    // company_info: i.entity({
-    //   founded_date: i.string().optional(),
-    //   industry_sector: i.string().indexed().optional(),
-    //   sic_code: i.string().indexed().optional(),
-    //   created_at: i.string(),
-    //   updated_at: i.string(),
-    // }),
-    // business_segment: i.entity({
-    //   assets: i.number().optional(),
-    //   description: i.string(),
-    //   fiscal_quarter: i.number().optional(),
-    //   fiscal_year: i.number().indexed(),
-    //   is_reportable: i.boolean(),
-    //   operating_income: i.number().optional(),
-    //   revenue: i.number().optional(),
-    //   segment_name: i.string().indexed(),
-    //   segment_type: i.string().indexed(),
-    //   created_at: i.string(),
-    //   updated_at: i.string(),
-    // }),
-    // brand: i.entity({
-    //   category: i.string().indexed().optional(),
-    //   created_at: i.string(),
-    //   launch_date: i.string().optional(),
-    //   name: i.string().indexed(),
-    //   status: i.string().indexed(),
-    //   updated_at: i.string(),
-    // }),
-    // owns: i.entity({
-    //   acquired_date: i.string().optional(),
-    //   created_at: i.string(),
-    //   divested_date: i.string().indexed().optional(),
-    //   updated_at: i.string(),
-    // }),
+    company_info: i.entity({
+      fiscal_year_end: i.string().optional(),
+      addresses: i.json().optional(),
+      phone: i.string().optional(),
+      former_names: i.json().optional(),
+      updated_at: i.string(),
+    }),
+    brand: i.entity({
+      category: i.string().indexed().optional(),
+      created_at: i.string(),
+      launch_date: i.string().optional(),
+      name: i.string().indexed(),
+      status: i.string().indexed(),
+      updated_at: i.string(),
+    }),
+    owns: i.entity({
+      acquired_date: i.string().optional(),
+      created_at: i.string(),
+      divested_date: i.string().indexed().optional(),
+      updated_at: i.string(),
+    }),
 
     // Audit trail (optional - can be disabled via ENABLE_AUDIT_TRAIL=false)
     audit: i.entity({
@@ -181,31 +168,18 @@ const _schema = i.schema({
       },
     },
     // Company -> Company Info
-    // companyInfo: {
-    //   forward: {
-    //     on: "company",
-    //     has: "one",
-    //     label: "companyInfo",
-    //   },
-    //   reverse: {
-    //     on: "company_info",
-    //     has: "one",
-    //     label: "company",
-    //   },
-    // },
-    // // Company -> Business Segment
-    // businessSegment: {
-    //   forward: {
-    //     on: "company",
-    //     has: "many",
-    //     label: "businessSegments",
-    //   },
-    //   reverse: {
-    //     on: "business_segment",
-    //     has: "one",
-    //     label: "company",
-    //   },
-    // },
+    companyInfo: {
+      forward: {
+        on: "company",
+        has: "one",
+        label: "companyInfo",
+      },
+      reverse: {
+        on: "company_info",
+        has: "one",
+        label: "company",
+      },
+    },
     // // Company -> Brand (direct ownership link)
     // brandOwner: {
     //   forward: {

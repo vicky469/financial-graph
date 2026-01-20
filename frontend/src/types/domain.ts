@@ -1,4 +1,5 @@
 import { GICS } from "./sec";
+import type { CompanyIdentity } from "@financial-graph/shared";
 
 // Domain types for Financial Graph
 // These represent the core business entities
@@ -61,6 +62,14 @@ export interface Node extends BaseNode {
   sector?: GICS | null; // Primary GICS-style sector (Company only)
   segments?: string[]; // Item 1 business segments like Retail, Cloud (Company only)
   metadata?: NodeMetadata; // Meta & Quality fields for data provenance
+  identity?: CompanyIdentity;
+  companyInfo?: {
+    fiscal_year_end?: string;
+    addresses?: any;
+    phone?: string;
+    former_names?: any;
+    updated_at?: string;
+  };
 }
 
 export interface Edge {

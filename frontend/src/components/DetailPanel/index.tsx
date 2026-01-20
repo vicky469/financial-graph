@@ -1,36 +1,44 @@
 import { useState, useRef, useEffect } from "react";
 import { ExternalLink } from "lucide-react";
-import type { Node } from "../../types";
+import type { Node, PropertyValue } from "../../types";
+
 import { useCompanyDetails, /* useCompanyAudits, */ useSubsidiaryDetails } from "../../db/queries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 interface DetailPanelProps {
-  node: Node | { id: string; type: string } | null;
+  node: Node | { id: string; type: string; name?: string } | null;
   onClose: () => void;
   isPublic?: boolean;
   isSubsidiary?: boolean;
   parentCompanyId?: string | null;
 }
 
-export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidiary, parentCompanyId }: DetailPanelProps) {
+export function DetailPanel({
+  node,
+  onClose,
+  isPublic,
+  isSubsidiary: _isSubsidiary,
+  parentCompanyId,
+}: DetailPanelProps) {
   const [activeTab, setActiveTab] = useState<"info" /* | "audit" */>("info");
   const panelRef = useRef<HTMLDivElement>(null);
-  
+
   // Fetch company details if it's a company
   const { node: fullNode, isLoading: loadingCompany } = useCompanyDetails(
     node?.type === "Company" ? node.id : null
   );
-  
+
   // Fetch subsidiary details if it's a subsidiary
-  const { subsidiary, parentEdge, isLoading: loadingSubsidiary } = useSubsidiaryDetails(
-    node?.type === "Subsidiary" ? node.id : null,
-    parentCompanyId
-  );
-  
+  const {
+    subsidiary,
+    parentEdge,
+    isLoading: loadingSubsidiary,
+  } = useSubsidiaryDetails(node?.type === "Subsidiary" ? node.id : null, parentCompanyId);
+
   // const { audits, isLoading: loadingAudits } = useCompanyAudits(
   //   node?.type === "Company" ? node.id : null
   // );
-  
+
   const displayNode = fullNode || node;
   const isLoading = loadingCompany || loadingSubsidiary;
 
@@ -55,6 +63,10 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
   const isBrand = displayNode?.type === "Brand";
   const isSubsidiaryNode = node?.type === "Subsidiary";
 
+  const companyNode = isEntity ? (displayNode as Node) : null;
+  const brandNode = isBrand ? (displayNode as Node) : null;
+  const fullNodeData = displayNode as Node;
+
   // Handle subsidiary navigation to parent company
   const handleParentCompanyClick = () => {
     if (parentCompanyId) {
@@ -69,12 +81,10 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
       className="w-[340px] min-w-[340px] shrink-0 h-full bg-card border-l border-border/40 flex flex-col overflow-hidden"
     >
       {/* Header */}
-      <div className="p-5 border-b border-border/30">
-        <div className="flex items-center gap-2 mb-2 justify-end">
+      <div className="p-4 border-b border-border/30">
+        <div className="flex items-center gap-2 mb-1 justify-end">
           {isEntity && (
-            <Badge variant={isPublic ? "success" : "default"}>
-              {isPublic ? "PUB" : "PVT"}
-            </Badge>
+            <Badge variant={isPublic ? "success" : "default"}>{isPublic ? "PUB" : "PVT"}</Badge>
           )}
           {isBrand && <Badge variant="purple">BRD</Badge>}
           {isSubsidiaryNode && <Badge variant="muted">SUB</Badge>}
@@ -82,9 +92,35 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
             <span className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
           )}
         </div>
-        <h2 style={{ fontSize: "16px", fontWeight: "600", color: "rgba(255,255,255,0.95)", lineHeight: "1.4", wordBreak: "break-word", padding: "0 10px" }}>
-          {isSubsidiaryNode ? (subsidiary?.name || "Loading...") : (node?.name || "Unknown")}
+        <h2
+          style={{
+            fontSize: "15px",
+            fontWeight: "600",
+            color: "rgba(255,255,255,0.95)",
+            lineHeight: "1.3",
+            wordBreak: "break-word",
+            padding: "0 8px",
+          }}
+        >
+          {isSubsidiaryNode ? subsidiary?.name || "Loading..." : node?.name || "Unknown"}
         </h2>
+        {(fullNodeData?.updatedAt || (isSubsidiaryNode && subsidiary?.updatedAt)) && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "2px",
+              paddingRight: "2px",
+            }}
+          >
+            <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>
+              Updated:{" "}
+              {new Date(
+                fullNodeData?.updatedAt || subsidiary?.updatedAt || ""
+              ).toLocaleDateString()}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -93,25 +129,35 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
         onValueChange={(v) => setActiveTab(v as "info" /* | "audit" */)}
         className="flex-1 flex flex-col overflow-hidden min-w-0"
       >
-        <div style={{ width: '100%', boxSizing: 'border-box' }}>
-          <TabsList style={{ display: 'flex', width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px', borderRadius: '0', boxSizing: 'border-box' }}>
-          <TabsTrigger
-            value="info"
-            className="cursor-pointer select-none"
+        <div style={{ width: "100%", boxSizing: "border-box" }}>
+          <TabsList
             style={{
-              flex: 1,
-              backgroundColor: activeTab === 'info' ? 'rgba(255,255,255,0.2)' : 'transparent',
-              color: activeTab === 'info' ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.5)',
-              fontWeight: activeTab === 'info' ? '600' : '400',
-              borderRadius: '6px',
-              transition: 'all 0.2s ease',
-              padding: '12px 16px',
-              fontSize: '12px',
+              display: "flex",
+              width: "100%",
+              backgroundColor: "rgba(255,255,255,0.05)",
+              padding: "0",
+              borderRadius: "0",
+              boxSizing: "border-box",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
             }}
           >
-            {isSubsidiaryNode ? "Company Info" : "Company Info"}
-          </TabsTrigger>
-          {/* Audit tab commented out until we have audit data to show
+            <TabsTrigger
+              value="info"
+              className="cursor-pointer select-none"
+              style={{
+                flex: 1,
+                backgroundColor: activeTab === "info" ? "rgba(255,255,255,0.1)" : "transparent",
+                color: activeTab === "info" ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.5)",
+                fontWeight: activeTab === "info" ? "600" : "400",
+                transition: "all 0.2s ease",
+                padding: "8px 12px",
+                fontSize: "11px",
+                borderBottom: activeTab === "info" ? "2px solid #3b82f6" : "2px solid transparent",
+              }}
+            >
+              {isSubsidiaryNode ? "Company Info" : "Company Info"}
+            </TabsTrigger>
+            {/* Audit tab commented out until we have audit data to show
           <TabsTrigger 
             value="audit"
             className="cursor-pointer select-none"
@@ -128,7 +174,7 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
             Audit
           </TabsTrigger>
           */}
-        </TabsList>
+          </TabsList>
         </div>
 
         <TabsContent value="info" className="flex-1 overflow-y-auto mt-0">
@@ -136,17 +182,31 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
           {isSubsidiaryNode && subsidiary && (
             <>
               <Section title="Identity">
-                <FieldRow label="CIK" value={subsidiary.cik} mono />
-                <FieldRow label="Jurisdiction" value={subsidiary.jurisdiction} />
-                <FieldRow 
-                  label="Ownership %" 
-                  value={parentEdge?.ownership_percent ? `${parentEdge.ownership_percent}%` : "-"} 
-                />
-                
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "10px 16px",
+                  }}
+                >
+                  <FieldRow label="CIK" value={subsidiary.cik} mono />
+                  <FieldRow label="Jurisdiction" value={subsidiary.jurisdiction} />
+                  <FieldRow
+                    label="Ownership %"
+                    value={parentEdge?.ownership_percent ? `${parentEdge.ownership_percent}%` : "-"}
+                  />
+                </div>
+
                 {/* Parent Company Link */}
                 {parentEdge?.parentCompany && (
-                  <div style={{ marginBottom: "16px" }}>
-                    <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", marginBottom: "4px" }}>
+                  <div style={{ marginTop: "10px" }}>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "rgba(255,255,255,0.5)",
+                        marginBottom: "2px",
+                      }}
+                    >
                       Parent Company
                     </div>
                     <button
@@ -157,8 +217,9 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
                         border: "none",
                         padding: 0,
                         cursor: "pointer",
-                        fontSize: "12px",
+                        fontSize: "13px",
                         color: "#60a5fa",
+                        fontWeight: 500,
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = "#93c5fd")}
                       onMouseLeave={(e) => (e.currentTarget.style.color = "#60a5fa")}
@@ -169,138 +230,187 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
                   </div>
                 )}
               </Section>
+            </>
+          )}
+          {/* Company Information */}
+          {isEntity && companyNode && (
+            <>
+              <Section title="Identity">
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "10px 16px",
+                  }}
+                >
+                  <FieldRow label="CIK" value={companyNode.cik} mono />
+                  <FieldRow label="Entity Type" value={companyNode.identity?.entityType} capitalize />
 
-              {/* Metadata for subsidiaries */}
-              {subsidiary && (
-                <div style={{ padding: "20px" }}>
-                  <h3
+                  <div style={{ gridColumn: "span 2" }}>
+                    <TickerField
+                      tickers={companyNode.properties?.tickers as string | string[] | undefined}
+                    />
+                  </div>
+
+                  <FieldRow label="Jurisdiction" value={companyNode.jurisdiction} />
+                  <FieldRow label="Exchange" value={companyNode.properties?.exchange} />
+
+                  <FieldRow label="S&P 500" value={companyNode.identity?.sp500} />
+                  <FieldRow label="Owner Org" value={companyNode.identity?.ownerOrg} />
+
+                  <FieldRow label="SIC" value={companyNode.identity?.sic} mono />
+                  <FieldRow label="SIC Description" value={companyNode.identity?.sicDescription} />
+                </div>
+              </Section>
+
+              {companyNode.companyInfo && (
+                <Section title="Company Details" noBorder>
+                  <div
                     style={{
-                      fontSize: "11px",
-                      fontWeight: 500,
-                      color: "rgba(255,255,255,0.4)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      marginBottom: "12px",
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "10px 16px",
                     }}
                   >
-                    Metadata
-                  </h3>
-                  <div style={{ display: "flex", gap: "24px" }}>
-                    <div>
-                      <div
-                        style={{
-                          fontSize: "12px",
-                          color: "rgba(255,255,255,0.4)",
-                          marginBottom: "2px",
-                        }}
-                      >
-                        Updated At
+                    <FieldRow
+                      label="Fiscal Year End"
+                      value={companyNode.companyInfo.fiscal_year_end}
+                    />
+                    <FieldRow label="Phone" value={companyNode.companyInfo.phone} />
+
+                    {companyNode.companyInfo.addresses?.mailing && (
+                      <div style={{ gridColumn: "span 2" }}>
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            color: "rgba(255,255,255,0.5)",
+                            marginBottom: "2px",
+                          }}
+                        >
+                          Mailing Address
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "13px",
+                            color: "rgba(255,255,255,0.95)",
+                            lineHeight: "1.3",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {companyNode.companyInfo.addresses.mailing.city},{" "}
+                          {companyNode.companyInfo.addresses.mailing.stateOrCountry}
+                        </div>
                       </div>
-                      <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
-                        {subsidiary.updatedAt ? new Date(subsidiary.updatedAt).toLocaleDateString() : "—"}
-                      </div>
-                    </div>
-                    <div>
-                      <div
-                        style={{
-                          fontSize: "12px",
-                          color: "rgba(255,255,255,0.4)",
-                          marginBottom: "2px",
-                        }}
-                      >
-                        Updated By
-                      </div>
-                      <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
-                        {subsidiary.updatedBy || "—"}
-                      </div>
-                    </div>
+                    )}
+                    {companyNode.companyInfo.former_names &&
+                      Array.isArray(companyNode.companyInfo.former_names) &&
+                      companyNode.companyInfo.former_names.length > 0 && (
+                        <div style={{ gridColumn: "span 2" }}>
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              color: "rgba(255,255,255,0.5)",
+                              marginBottom: "4px",
+                            }}
+                          >
+                            Former Names
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            {companyNode.companyInfo.former_names.map((n: any, i: number) => {
+                              const formatDate = (d: string) => {
+                                if (!d || typeof d !== "string") return "";
+                                // Check if it matches ISO format to avoid parsing random strings
+                                if (!d.includes("T")) return d;
+
+                                try {
+                                  const date = new Date(d);
+                                  if (isNaN(date.getTime())) return d;
+
+                                  return date.toLocaleDateString("en-CA", {
+                                    timeZone: "America/New_York",
+                                    year: "numeric",
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                  });
+                                } catch (e) {
+                                  return d;
+                                }
+                              };
+
+                              const from = formatDate(n.from);
+                              const to = formatDate(n.to);
+
+                              return (
+                                <div key={i} style={{ display: "flex", flexDirection: "column" }}>
+                                  <div
+                                    style={{
+                                      fontSize: "13px",
+                                      lineHeight: "1.3",
+                                      color: "rgba(255,255,255,0.95)",
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    {n.name}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: "11px",
+                                      color: "rgba(255,255,255,0.5)",
+                                      marginTop: "1px",
+                                      fontFamily: "monospace",
+                                    }}
+                                  >
+                                    ({from} - {to})
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                   </div>
-                </div>
+                </Section>
               )}
             </>
           )}
 
-          {/* Company Information */}
-          {isEntity && displayNode && (
-            <>
-              <Section title="Identity">
-                <FieldRow label="CIK" value={displayNode.cik} mono />
-                <TickerField tickers={displayNode.properties?.tickers as string | undefined} />
-                <FieldRow label="Exchange" value={displayNode.properties?.exchange} />
-                <FieldRow label="Jurisdiction" value={displayNode.jurisdiction} />
-              </Section>
-            </>
-          )}
-
-          {isBrand && displayNode && (
+          {isBrand && brandNode && (
             <Section title="Brand Info">
-              <FieldRow label="Type" value={displayNode.properties?.brand_type} />
-              <FieldRow label="Sector" value={displayNode.properties?.sector} />
-              <FieldRow label="Industry" value={displayNode.properties?.industry} />
-              <FieldRow label="Owner" value={displayNode.properties?.entity_id} mono />
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "10px 16px",
+                }}
+              >
+                <FieldRow label="Type" value={brandNode.properties?.brand_type} />
+                <FieldRow label="Sector" value={brandNode.properties?.sector} />
+                <FieldRow label="Industry" value={brandNode.properties?.industry} />
+                <FieldRow label="Owner" value={brandNode.properties?.entity_id} mono />
+              </div>
             </Section>
           )}
 
-          {/* Metadata - compact two column layout, no bottom border */}
-          {displayNode && !isSubsidiaryNode && (
-            <div style={{ padding: "20px" }}>
-              <h3
+          {/* Data Quality */}
+          {fullNodeData?.metadata && (
+            <Section title="Data Quality">
+              <div
                 style={{
-                  fontSize: "11px",
-                  fontWeight: 500,
-                  color: "rgba(255,255,255,0.4)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  marginBottom: "12px",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "10px 16px",
                 }}
               >
-                Metadata
-              </h3>
-              <div style={{ display: "flex", gap: "24px" }}>
-                <div>
-                  <div
-                    style={{
-                      fontSize: "12px",
-                      color: "rgba(255,255,255,0.4)",
-                      marginBottom: "2px",
-                    }}
-                  >
-                    Updated At
-                  </div>
-                  <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
-                    {new Date(displayNode.updatedAt).toLocaleDateString()}
-                  </div>
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: "12px",
-                      color: "rgba(255,255,255,0.4)",
-                      marginBottom: "2px",
-                    }}
-                  >
-                    Updated By
-                  </div>
-                  <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
-                    {displayNode.updatedBy || "—"}
-                  </div>
-                </div>
+                <FieldRow label="Method" value={fullNodeData.metadata.parsingMethod} />
+                <FieldRow
+                  label="Confidence"
+                  value={
+                    fullNodeData.metadata.confidenceScore
+                      ? `${(fullNodeData.metadata.confidenceScore * 100).toFixed(0)}%`
+                      : undefined
+                  }
+                />
               </div>
-            </div>
-          )}
-
-          {/* Data Quality */}
-          {displayNode?.metadata && (
-            <Section title="Data Quality">
-              <FieldRow label="Method" value={displayNode.metadata.parsingMethod} />
-              <FieldRow
-                label="Confidence"
-                value={
-                  displayNode.metadata.confidenceScore
-                    ? `${(displayNode.metadata.confidenceScore * 100).toFixed(0)}%`
-                    : undefined
-                }
-              />
             </Section>
           )}
         </TabsContent>
@@ -354,17 +464,31 @@ export function DetailPanel({ node, onClose, isPublic, isSubsidiary: _isSubsidia
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+  noBorder = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  noBorder?: boolean;
+}) {
   return (
-    <div style={{ padding: "20px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+    <div
+      style={{
+        padding: "0 16px 12px 16px",
+        borderBottom: noBorder ? "none" : "1px solid rgba(255,255,255,0.1)",
+      }}
+    >
       <h3
         style={{
           fontSize: "11px",
-          fontWeight: 500,
-          color: "rgba(255,255,255,0.4)",
+          fontWeight: 600,
+          color: "rgba(255,255,255,0.5)",
           textTransform: "uppercase",
           letterSpacing: "0.05em",
-          marginBottom: "16px",
+          marginBottom: "10px",
+          marginTop: "12px",
         }}
       >
         {title}
@@ -378,24 +502,49 @@ function FieldRow({
   label,
   value,
   mono = false,
+  capitalize = false,
+  className = "",
 }: {
   label: string;
-  value?: string | number | boolean | null;
+  value?: PropertyValue;
   mono?: boolean;
+  capitalize?: boolean;
+  className?: string;
 }) {
   if (value === undefined || value === null || value === "") return null;
-  const display = typeof value === "boolean" ? (value ? "Yes" : "No") : String(value);
+
+  let display: string;
+  if (Array.isArray(value)) {
+    display = value.join(", ");
+  } else if (typeof value === "boolean") {
+    display = value ? "Yes" : "No";
+  } else {
+    display = String(value);
+  }
+
+  if (capitalize && display) {
+    display = display.charAt(0).toUpperCase() + display.slice(1);
+  }
 
   return (
-    <div style={{ marginBottom: "16px" }}>
-      <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", marginBottom: "4px" }}>
+    <div className={className}>
+      <div
+        style={{
+          fontSize: "11px",
+          color: "rgba(255,255,255,0.5)",
+          marginBottom: "2px",
+        }}
+      >
         {label}
       </div>
       <div
         style={{
           fontSize: "13px",
-          color: "rgba(255,255,255,0.9)",
+          color: "rgba(255,255,255,0.95)",
           fontFamily: mono ? "monospace" : "inherit",
+          wordBreak: "break-word",
+          lineHeight: "1.3",
+          fontWeight: 500,
         }}
       >
         {display}
@@ -427,11 +576,17 @@ function TickerField({ tickers }: { tickers?: string | string[] | null }) {
   ];
 
   return (
-    <div style={{ marginBottom: "16px" }}>
-      <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", marginBottom: "8px" }}>
+    <div>
+      <div
+        style={{
+          fontSize: "11px",
+          color: "rgba(255,255,255,0.5)",
+          marginBottom: "2px",
+        }}
+      >
         Tickers
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
         {list.map((ticker, index) => {
           const style = colorStyles[index % colorStyles.length];
           return (
@@ -439,10 +594,11 @@ function TickerField({ tickers }: { tickers?: string | string[] | null }) {
               key={ticker}
               style={{
                 display: "inline-block",
-                fontSize: "12px",
+                fontSize: "10px",
                 fontFamily: "monospace",
-                padding: "6px 10px",
-                borderRadius: "6px",
+                fontWeight: 600,
+                padding: "2px 6px",
+                borderRadius: "4px",
                 backgroundColor: style.bg,
                 color: style.color,
                 border: `1px solid ${style.border}`,
@@ -491,9 +647,9 @@ function Badge({
     <span
       style={{
         display: "inline-block",
-        fontSize: "11px",
+        fontSize: "10px",
         fontWeight: 600,
-        padding: "4px 10px",
+        padding: "3px 8px",
         borderRadius: "4px",
         ...styles[variant],
       }}
