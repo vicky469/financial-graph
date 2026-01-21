@@ -68,7 +68,7 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-24">
         {/* Company Structure */}
         <Section
           icon={<Building2 size={14} />}
@@ -170,18 +170,18 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
               style={{
                 borderRadius: "8px",
                 border: "1px solid rgba(255,255,255,0.08)",
-                overflow: "hidden",
-                minWidth: "100%",
+                overflowX: "auto",
+                WebkitOverflowScrolling: "touch",
               }}
             >
-              <Table>
+              <Table style={{ minWidth: "500px" }}>
                 <TableHeader>
                   <TableRow style={{ background: "rgba(255,255,255,0.03)" }}>
-                    <TableHead style={{...tableHeadStyle, width: "20%"}}>Filing Date</TableHead>
-                    <TableHead style={{...tableHeadStyle, width: "20%"}}>Period of Report</TableHead>
-                    <TableHead style={{...tableHeadStyle, width: "15%"}}>Type</TableHead>
-                    <TableHead style={{...tableHeadStyle, width: "20%"}}>Filing</TableHead>
-                    <TableHead style={{...tableHeadStyle, width: "25%"}}>Attachments</TableHead>
+                    <TableHead style={{...tableHeadStyle, minWidth: "80px"}}>Filing</TableHead>
+                    <TableHead style={{...tableHeadStyle, minWidth: "90px"}}>Period</TableHead>
+                    <TableHead style={{...tableHeadStyle, minWidth: "60px"}}>Type</TableHead>
+                    <TableHead style={{...tableHeadStyle, minWidth: "50px"}}>Link</TableHead>
+                    <TableHead style={{...tableHeadStyle, minWidth: "100px"}}>Attachments</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
