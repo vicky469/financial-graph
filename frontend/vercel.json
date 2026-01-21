@@ -1,6 +1,6 @@
 {
   "framework": "vite",
-  "buildCommand": "bun install --ignore-workspace && bun run build",
+  "buildCommand": "bun run build",
   "outputDirectory": "dist",
-  "installCommand": "bun install --ignore-workspace"
+  "installCommand": "bun install"
 }
