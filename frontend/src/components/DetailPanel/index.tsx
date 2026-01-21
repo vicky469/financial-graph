@@ -78,7 +78,7 @@ export function DetailPanel({
   return (
     <aside
       ref={panelRef}
-      className="detail-panel w-[340px] min-w-[340px] shrink-0 h-full bg-card border-l border-border/40 flex flex-col overflow-hidden"
+      className={`detail-panel w-[340px] min-w-[340px] shrink-0 h-full bg-card border-l border-border/40 flex flex-col ${hideTabs ? 'overflow-visible' : 'overflow-hidden'}`}
     >
       {/* Header - only show if not hiding tabs (desktop mode) */}
       {!hideTabs && (
@@ -128,7 +128,11 @@ export function DetailPanel({
       {/* Content */}
       {hideTabs ? (
         // Mobile version - show content directly without tabs
-        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}>
+        <div className="flex-1 overflow-y-auto px-0 mobile-detail-content" style={{ 
+          scrollbarWidth: "thin", 
+          scrollbarGutter: "stable",
+          WebkitOverflowScrolling: "touch" // Enable smooth scrolling on iOS
+        }}>
           {/* Subsidiary Information */}
           {isSubsidiaryNode && subsidiary && (
             <>

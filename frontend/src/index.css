@@ -705,6 +705,14 @@
     min-height: 48px !important;
   }
 
+  /* Mobile detail panel scrolling fix */
+  .mobile-detail-content {
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
   /* Make sidebar full width on mobile */
   .group\/sidebar {
     width: 100% !important;

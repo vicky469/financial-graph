@@ -191,7 +191,13 @@ function MobileCompanyView({
         {activeTab === "overview" && detailPanelNode && (
           <div 
             className="h-full overflow-y-auto"
-            style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
+            style={{ 
+              scrollbarWidth: "thin", 
+              scrollbarGutter: "stable",
+              WebkitOverflowScrolling: "touch", // Enable smooth scrolling on iOS
+              height: "100%",
+              maxHeight: "100%"
+            }}
           >
             <DetailPanel
               node={detailPanelNode}
