@@ -7,7 +7,8 @@ import { JurisdictionTreemap } from "./components/JurisdictionTreemap";
 import { SearchModal } from "./components/SearchModal";
 import { LandingPage } from "./components/LandingPage";
 import { useCompanyGraph } from "./db/queries";
-import { db, getSession, clearSession, setSession } from "./db/client";
+import { db } from "./db/client";
+import { InactivityTimeout } from "./components/InactivityTimeout";
 
 // Mobile Company View Component with Tabs
 function MobileCompanyView({
@@ -269,6 +270,11 @@ function AppContent() {
   // Derive selectedNodeId from URL param - no state needed
   const selectedNodeId = companyId || null;
 
+  // Reset subsidiary selection when company changes or navigating to main page
+  useEffect(() => {
+    setSelectedSubsidiaryId(null);
+  }, [selectedNodeId]);
+
   // Derive selectedGraphNodeId - open company panel by default when company is selected
   const selectedGraphNodeId = useMemo(() => {
     if (selectedSubsidiaryId) return null; // Close company panel when subsidiary is selected
@@ -315,13 +321,15 @@ function AppContent() {
   );
 
   // Get the detail panel node - either the selected company or subsidiary
+  // Only show if a company is actually selected (not on main page)
   const detailPanelNode = useMemo(() => {
+    if (!selectedNodeId) return null; // No company selected, no detail panel
     if (selectedSubsidiaryId) {
       // Create a node object for the subsidiary (we'll need to fetch its data)
       return { id: selectedSubsidiaryId, type: "Subsidiary" };
     }
     return selectedGraphNode;
-  }, [selectedGraphNode, selectedSubsidiaryId]);
+  }, [selectedNodeId, selectedGraphNode, selectedSubsidiaryId]);
 
   const isPublic = selectedGraphNode?.cik ? true : false;
 
@@ -447,55 +455,9 @@ function AuthenticatedApp() {
 
 function App() {
   const { isLoading, user, error } = db.useAuth();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Check session validity and handle automatic logout
-  useEffect(() => {
-    const checkSession = () => {
-      const session = getSession();
-      if (session) {
-        // Session is valid, user is authenticated
-        setIsAuthenticated(true);
-      } else {
-        // Session expired or doesn't exist
-        if (isAuthenticated) {
-          // User was authenticated but session expired
-          console.log("Session expired, signing out...");
-          db.auth.signOut();
-        }
-        setIsAuthenticated(false);
-      }
-    };
-
-    // Check session immediately
-    checkSession();
-
-    // Set up interval to check session every minute
-    const sessionCheckInterval = setInterval(checkSession, 60 * 1000);
-
-    return () => clearInterval(sessionCheckInterval);
-  }, [isAuthenticated]);
-
-  // Handle user authentication state changes
-  useEffect(() => {
-    const handleAuthChange = () => {
-      if (user && !isAuthenticated) {
-        // User is authenticated, update session
-        setSession({
-          id: user.id,
-          email: user.email || undefined,
-          imageURL: user.imageURL || undefined,
-        });
-        setIsAuthenticated(true);
-      } else if (!isLoading && !user && isAuthenticated) {
-        // User is not authenticated and not loading
-        clearSession();
-        setIsAuthenticated(false);
-      }
-    };
-
-    handleAuthChange();
-  }, [user, isLoading, isAuthenticated]);
+  
+  // Authentication is simply: do we have a user from InstantDB?
+  const isAuthenticated = !!user;
 
   // Toggle body class based on auth state
   useEffect(() => {
@@ -555,11 +517,18 @@ function App() {
 
   // Show landing page if not authenticated
   if (!isAuthenticated) {
-    return <LandingPage onAuth={() => setIsAuthenticated(true)} />;
+    // onAuth is called after successful Google login - auth state will
+    // automatically update via db.useAuth() hook when user signs in
+    return <LandingPage onAuth={() => {}} />;
   }
 
   // Show main app if authenticated
-  return <AuthenticatedApp />;
+  return (
+    <>
+      <InactivityTimeout user={user} />
+      <AuthenticatedApp />
+    </>
+  );
 }
 
 export default App;
