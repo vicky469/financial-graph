@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Safe area utility */
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
 @layer base {
   :root {
     /* Linear-inspired dark theme - minimal and professional */
@@ -616,6 +621,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .mobile-sidebar-drawer.open {
@@ -633,6 +639,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .mobile-detail-panel.open {
@@ -681,12 +688,14 @@
   /* Make body padding smaller on mobile */
   body.app-mode {
     padding: 0; /* Remove padding to eliminate black stripe */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     background: hsl(240 6% 6%); /* Simpler background for mobile */
   }
 
   body.app-mode #root {
     border-radius: 0; /* Remove border radius for full screen */
     box-shadow: none; /* Remove shadow on mobile */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* Make detail panel full width on mobile */

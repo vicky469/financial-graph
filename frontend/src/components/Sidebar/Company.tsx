@@ -68,7 +68,7 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className="flex-1 overflow-y-auto pb-safe">
         {/* Company Structure */}
         <Section
           icon={<Building2 size={14} />}
@@ -174,14 +174,14 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                 WebkitOverflowScrolling: "touch",
               }}
             >
-              <Table style={{ minWidth: "500px" }}>
+              <Table style={{ width: "100%" }}>
                 <TableHeader>
                   <TableRow style={{ background: "rgba(255,255,255,0.03)" }}>
-                    <TableHead style={{...tableHeadStyle, minWidth: "80px"}}>Filing</TableHead>
-                    <TableHead style={{...tableHeadStyle, minWidth: "90px"}}>Period</TableHead>
-                    <TableHead style={{...tableHeadStyle, minWidth: "60px"}}>Type</TableHead>
-                    <TableHead style={{...tableHeadStyle, minWidth: "50px"}}>Link</TableHead>
-                    <TableHead style={{...tableHeadStyle, minWidth: "100px"}}>Attachments</TableHead>
+                    <TableHead style={{...tableHeadStyle, padding: "4px 6px", width: "22%"}}>Filing</TableHead>
+                    <TableHead style={{...tableHeadStyle, padding: "4px 6px", width: "22%"}}>Period</TableHead>
+                    <TableHead style={{...tableHeadStyle, padding: "4px 6px", width: "15%"}}>Type</TableHead>
+                    <TableHead style={{...tableHeadStyle, padding: "4px 6px", width: "13%"}}>Link</TableHead>
+                    <TableHead style={{...tableHeadStyle, padding: "4px 6px", width: "28%"}}>Attachments</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -203,7 +203,7 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                           style={{
                             fontSize: "10px",
                             color: "rgba(255,255,255,0.6)",
-                            padding: "8px 10px",
+                            padding: "4px 6px",
                           }}
                         >
                           {filing.filingDate}
@@ -212,31 +212,32 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                           style={{
                             fontSize: "10px",
                             color: "rgba(255,255,255,0.6)",
-                            padding: "8px 10px",
+                            padding: "4px 6px",
                           }}
                         >
                           {filing.periodOfReport || (
                             <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
                           )}
                         </TableCell>
-                        <TableCell style={{ padding: "8px 10px" }}>
+                        <TableCell style={{ padding: "4px 6px" }}>
                           <span
                             style={{
                               fontSize: "9px",
                               fontWeight: 600,
                               color: "rgba(255,255,255,0.8)",
                               background: "rgba(99, 102, 241, 0.15)",
-                              padding: "3px 6px",
+                              padding: "2px 4px",
                               borderRadius: "3px",
+                              display: "inline-block",
                             }}
                           >
                             {filing.formType}
                           </span>
                         </TableCell>
-                        <TableCell style={{ padding: "8px 10px" }}>
+                        <TableCell style={{ padding: "4px 6px" }}>
                           <FilingLink url={filing.fileUrl} />
                         </TableCell>
-                        <TableCell style={{ padding: "8px 10px" }}>
+                        <TableCell style={{ padding: "4px 6px" }}>
                           {attachments.length > 0 ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                               {attachments.map(({ key, url }) => (
