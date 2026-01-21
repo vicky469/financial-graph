@@ -2,9 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Prevent iOS zoom on input focus - must be 16px+ */
-input, textarea, select {
-  font-size: 16px !important;
+/* Prevent iOS zoom on input focus - must be 16px+ on mobile only */
+@media (max-width: 767px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
 }
 
 /* Safe area utility */
