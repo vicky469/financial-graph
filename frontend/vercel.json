@@ -1,7 +1,6 @@
 {
-  "bunVersion": "1.x",
-  "installCommand": "bun install",
-  "buildCommand": "bun run build",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": null
 }

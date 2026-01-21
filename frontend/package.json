@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "bunx --bun tsc -b && bunx --bun vite build",
+    "build": "./node_modules/.bin/tsc -b && ./node_modules/.bin/vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
