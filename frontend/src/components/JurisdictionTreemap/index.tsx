@@ -409,7 +409,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                 >
                   <span
                     style={{
-                      fontSize: isMobile ? "14px" : "13px",
+                      fontSize:"12px",
                       color: "rgba(255,255,255,0.8)",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -469,7 +469,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                       />
                       <span
                         style={{
-                          fontSize: isMobile ? "14px" : "13px",
+                          fontSize: "12px",
                           color: "rgba(255,255,255,0.8)",
                           whiteSpace: "nowrap",
                           overflow: "hidden",
@@ -481,7 +481,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                     </div>
                     <span
                       style={{
-                        fontSize: "12px",
+                        fontSize: "11px",
                         fontWeight: "500",
                         color: "rgba(255,255,255,0.4)",
                         marginLeft: "12px",

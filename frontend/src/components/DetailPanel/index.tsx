@@ -168,7 +168,7 @@ export function DetailPanel({
                         border: "none",
                         padding: 0,
                         cursor: "pointer",
-                        fontSize: "13px",
+                        fontSize: "12px",
                         color: "#60a5fa",
                         fontWeight: 500,
                       }}
@@ -246,7 +246,7 @@ export function DetailPanel({
                         </div>
                         <div
                           style={{
-                            fontSize: "13px",
+                            fontSize: "12px",
                             color: "rgba(255,255,255,0.95)",
                             lineHeight: "1.3",
                             fontWeight: 500,
@@ -299,7 +299,7 @@ export function DetailPanel({
                                 <div key={i} style={{ display: "flex", flexDirection: "column" }}>
                                   <div
                                     style={{
-                                      fontSize: "13px",
+                                      fontSize: "12px",
                                       lineHeight: "1.3",
                                       color: "rgba(255,255,255,0.95)",
                                       fontWeight: 500,
@@ -451,7 +451,7 @@ export function DetailPanel({
                           border: "none",
                           padding: 0,
                           cursor: "pointer",
-                          fontSize: "13px",
+                          fontSize: "12px",
                           color: "#60a5fa",
                           fontWeight: 500,
                         }}
@@ -529,7 +529,7 @@ export function DetailPanel({
                           </div>
                           <div
                             style={{
-                              fontSize: "13px",
+                              fontSize: "12px",
                               color: "rgba(255,255,255,0.95)",
                               lineHeight: "1.3",
                               fontWeight: 500,
@@ -582,7 +582,7 @@ export function DetailPanel({
                                   <div key={i} style={{ display: "flex", flexDirection: "column" }}>
                                     <div
                                       style={{
-                                        fontSize: "13px",
+                                        fontSize: "12px",
                                         lineHeight: "1.3",
                                         color: "rgba(255,255,255,0.95)",
                                         fontWeight: 500,
@@ -734,7 +734,7 @@ function FieldRow({
       </div>
       <div
         style={{
-          fontSize: "13px",
+          fontSize: "12px",
           color: "rgba(255,255,255,0.95)",
           fontFamily: mono ? "monospace" : "inherit",
           wordBreak: "break-word",
