@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { db, clearSession } from "../../db/client";
+import { db } from "../../db/client";
 
 // Shared size for logo and profile button
 const HEADER_ICON_SIZE = 24; // Balanced size
@@ -45,7 +45,6 @@ export function Header() {
 
   const handleLogout = async () => {
     try {
-      clearSession();
       await db.auth.signOut();
       setShowUserMenu(false);
     } catch (error) {
