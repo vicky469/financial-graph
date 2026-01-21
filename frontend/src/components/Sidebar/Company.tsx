@@ -1,4 +1,5 @@
-import { ArrowLeft, ExternalLink, Building2, Sparkles, FileText } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, ExternalLink, Building2, Sparkles, FileText, ChevronDown } from "lucide-react";
 import type { Node } from "../../types";
 import { useCompanyHierarchy, useCompanyBrands, useCompanyFilings } from "../../db/queries";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
@@ -15,6 +16,7 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
   const { flatHierarchy, isLoading: loadingHierarchy } = useCompanyHierarchy(node.id);
   const { brands, isLoading: loadingBrands } = useCompanyBrands(node.id);
   const { filings, isLoading: loadingFilings } = useCompanyFilings(node.id);
+  const [structureCollapsed, setStructureCollapsed] = useState(false);
 
   return (
     <div className="flex flex-col h-full">
@@ -68,19 +70,21 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-safe">
+      <div className="flex-1 overflow-y-auto">
         {/* Company Structure */}
         <Section
           icon={<Building2 size={14} />}
           title="Structure"
           count={Math.max(0, flatHierarchy.length - 1)} // Subtract 1 to exclude the root company
           loading={loadingHierarchy}
+          collapsed={structureCollapsed}
+          onToggle={() => setStructureCollapsed(!structureCollapsed)}
         >
           {loadingHierarchy ? (
             <LoadingState />
           ) : (
-            <HierarchicalTree 
-              hierarchy={flatHierarchy} 
+            <HierarchicalTree
+              hierarchy={flatHierarchy}
               selectedNodeId={selectedSubsidiaryId}
               onNodeClick={(nodeId) => {
                 // Only handle subsidiary clicks, not the root company
@@ -93,17 +97,18 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
         </Section>
 
         {/* Brands */}
-        <Section
-          icon={<Sparkles size={14} />}
-          title="Brands"
-          count={brands.length}
-          loading={loadingBrands}
-        >
-          {loadingBrands ? (
-            <LoadingState />
-          ) : brands.length === 0 ? (
-            <EmptyState icon={<Sparkles size={20} />} text="No brands" />
-          ) : (
+        <div onClick={() => setStructureCollapsed(true)}>
+          <Section
+            icon={<Sparkles size={14} />}
+            title="Brands"
+            count={brands.length}
+            loading={loadingBrands}
+          >
+            {loadingBrands ? (
+              <LoadingState />
+            ) : brands.length === 0 ? (
+              <EmptyState icon={<Sparkles size={20} />} text="No brands" />
+            ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               {brands.map((brand) => (
                 <div
@@ -152,7 +157,8 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
               ))}
             </div>
           )}
-        </Section>
+          </Section>
+        </div>
 
         {/* SEC Filings */}
         <Section
@@ -160,6 +166,7 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
           title="SEC Filings"
           count={filings.length}
           loading={loadingFilings}
+          noBorder
         >
           {loadingFilings ? (
             <LoadingState />
@@ -267,21 +274,45 @@ function Section({
   count,
   loading,
   children,
+  collapsed,
+  onToggle,
+  onHeaderClick,
+  noBorder,
 }: {
   icon: React.ReactNode;
   title: string;
   count?: number;
   loading?: boolean;
   children: React.ReactNode;
+  collapsed?: boolean;
+  onToggle?: () => void;
+  onHeaderClick?: () => void;
+  noBorder?: boolean;
 }) {
+  const isCollapsible = onToggle !== undefined;
+
   return (
-    <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ borderBottom: noBorder ? "none" : "1px solid rgba(255,255,255,0.05)" }}>
       <div
+        onClick={() => {
+          if (onToggle) onToggle();
+          if (onHeaderClick) onHeaderClick();
+        }}
         style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
           padding: "14px 16px",
+          cursor: isCollapsible || onHeaderClick ? "pointer" : "default",
+          transition: "background 0.15s ease",
+        }}
+        onMouseEnter={(e) => {
+          if (isCollapsible || onHeaderClick) {
+            e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
         }}
       >
         <span style={{ color: "rgba(255,255,255,0.35)" }}>{icon}</span>
@@ -309,18 +340,30 @@ function Section({
             }}
           />
         ) : (
-          <span
-            style={{
-              fontSize: "11px",
-              color: "rgba(255,255,255,0.3)",
-              fontWeight: 500,
-            }}
-          >
-            {count}
-          </span>
+          <>
+            <span
+              style={{
+                fontSize: "11px",
+                color: "rgba(255,255,255,0.3)",
+                fontWeight: 500,
+              }}
+            >
+              {count}
+            </span>
+            {isCollapsible && (
+              <ChevronDown
+                size={14}
+                style={{
+                  color: "rgba(255,255,255,0.3)",
+                  transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s ease",
+                }}
+              />
+            )}
+          </>
         )}
       </div>
-      <div style={{ padding: "0 12px 16px" }}>{children}</div>
+      {!collapsed && <div style={{ padding: "0 12px 16px" }}>{children}</div>}
     </div>
   );
 }
