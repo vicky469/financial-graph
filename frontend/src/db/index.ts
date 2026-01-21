@@ -3,5 +3,4 @@
 
 export * from "./client";
 export * from "./queries";
-// Note: Schema is in @financial-graph/shared, used by backend only
 
