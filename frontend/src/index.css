@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent iOS zoom on input focus - must be 16px+ */
+input, textarea, select {
+  font-size: 16px !important;
+}
+
 /* Safe area utility */
 .pb-safe {
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
@@ -116,6 +121,10 @@
   background: linear-gradient(180deg, hsl(240 6% 6%) 0%, hsl(240 8% 4%) 100%);
   color: rgba(255, 255, 255, 0.9);
   overflow: auto;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
 }
 
 .landing-container {
