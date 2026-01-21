@@ -181,14 +181,14 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                 WebkitOverflowScrolling: "touch",
               }}
             >
-              <Table style={{ width: "100%" }}>
+              <Table style={{ width: "100%", tableLayout: "fixed" }}>
                 <TableHeader>
                   <TableRow style={{ background: "rgba(255,255,255,0.03)" }}>
-                    <TableHead style={{...tableHeadStyle, padding: "4px 6px", width: "22%"}}>Filing</TableHead>
-                    <TableHead style={{...tableHeadStyle, padding: "4px 6px", width: "22%"}}>Period</TableHead>
-                    <TableHead style={{...tableHeadStyle, padding: "4px 6px", width: "15%"}}>Type</TableHead>
-                    <TableHead style={{...tableHeadStyle, padding: "4px 6px", width: "13%"}}>Link</TableHead>
-                    <TableHead style={{...tableHeadStyle, padding: "4px 6px", width: "28%"}}>Attachments</TableHead>
+                    <TableHead style={{...tableHeadStyle, width: "20%"}}>Filing</TableHead>
+                    <TableHead style={{...tableHeadStyle, width: "20%"}}>Period</TableHead>
+                    <TableHead style={{...tableHeadStyle, width: "15%"}}>Type</TableHead>
+                    <TableHead style={{...tableHeadStyle, width: "15%"}}>Link</TableHead>
+                    <TableHead style={{...tableHeadStyle, width: "30%"}}>Attachments</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -206,27 +206,15 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                           transition: "background 0.15s ease",
                         }}
                       >
-                        <TableCell
-                          style={{
-                            fontSize: "12px",
-                            color: "rgba(255,255,255,0.6)",
-                            padding: "4px 6px",
-                          }}
-                        >
+                        <TableCell style={tableCellStyle}>
                           {filing.filingDate}
                         </TableCell>
-                        <TableCell
-                          style={{
-                            fontSize: "12px",
-                            color: "rgba(255,255,255,0.6)",
-                            padding: "4px 6px",
-                          }}
-                        >
+                        <TableCell style={tableCellStyle}>
                           {filing.periodOfReport || (
                             <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
                           )}
                         </TableCell>
-                        <TableCell style={{ padding: "4px 6px" }}>
+                        <TableCell style={tableCellStyle}>
                           <span
                             style={{
                               fontSize: "11px",
@@ -241,10 +229,10 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                             {filing.formType}
                           </span>
                         </TableCell>
-                        <TableCell style={{ padding: "4px 6px" }}>
+                        <TableCell style={tableCellStyle}>
                           <FilingLink url={filing.fileUrl} />
                         </TableCell>
-                        <TableCell style={{ padding: "4px 6px" }}>
+                        <TableCell style={tableCellStyle}>
                           {attachments.length > 0 ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                               {attachments.map(({ key, url }) => (
@@ -424,14 +412,21 @@ function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
   );
 }
 
-// Shared table head style
+// Shared table styles
 const tableHeadStyle: React.CSSProperties = {
-  fontSize: "9px",
+  fontSize: "11px",
   fontWeight: 500,
   color: "rgba(255,255,255,0.4)",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
-  padding: "8px 10px",
+  padding: "6px 8px",
+};
+
+const tableCellStyle: React.CSSProperties = {
+  fontSize: "12px",
+  color: "rgba(255,255,255,0.6)",
+  padding: "6px 8px",
+  whiteSpace: "nowrap",
 };
 
 // Filing link component
