@@ -92,7 +92,6 @@ function squarify(
 
 // Layout constraints
 const CHART_MIN_WIDTH = 280;
-const CHART_MAX_WIDTH = 600;
 const CHART_HEIGHT = 280;
 const MOBILE_BREAKPOINT = 768;
 
@@ -116,13 +115,16 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
         setIsMobile(mobile);
 
         if (mobile) {
-          // On mobile, chart takes full width minus padding
-          const newWidth = Math.max(CHART_MIN_WIDTH, containerWidth - 40);
+          // On mobile, chart takes full container width (padding already applied to container)
+          const newWidth = Math.max(CHART_MIN_WIDTH, containerWidth);
           setChartWidth(newWidth);
         } else {
-          // Calculate available width for chart (container - list - gap - padding)
-          const availableForChart = containerWidth - 220 - 32 - 48;
-          const newWidth = Math.max(CHART_MIN_WIDTH, Math.min(CHART_MAX_WIDTH, availableForChart));
+          // On desktop, calculate available width for chart (container width - list width - gap)
+          // List takes ~220px, gap is 24px
+          const listWidth = 220;
+          const gap = 24;
+          const availableForChart = containerWidth - listWidth - gap;
+          const newWidth = Math.max(CHART_MIN_WIDTH, availableForChart);
           setChartWidth(newWidth);
         }
       }
@@ -182,7 +184,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
 
   if (isLoading) {
     return (
-      <div ref={containerRef} style={{ padding: "24px" }}>
+      <div ref={containerRef} style={{ padding: "24px", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
         <div
           style={{
             display: "flex",
@@ -207,7 +209,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
 
   if (!companyId || treemapData.length === 0) {
     return (
-      <div ref={containerRef} style={{ padding: "24px" }}>
+      <div ref={containerRef} style={{ padding: "24px", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
         <div
           style={{
             display: "flex",
@@ -228,9 +230,9 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
   }
 
   return (
-    <div ref={containerRef} style={{ padding: isMobile ? "16px" : "24px" }}>
+    <div ref={containerRef} style={{ padding: isMobile ? "16px" : "24px", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
       {/* Header */}
-      <div style={{ marginBottom: "12px", display: "flex", alignItems: "center", gap: "12px" }}>
+      <div style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "12px" }}>
         {selectedJurisdiction && (
           <button
             onClick={() => setSelectedJurisdiction(null)}
@@ -274,16 +276,25 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
         style={{
           display: "flex",
           flexDirection: isMobile ? "column" : "row",
-          gap: isMobile ? "20px" : "32px",
+          gap: isMobile ? "12px" : "24px",
           alignItems: isMobile ? "stretch" : "flex-start",
+          width: "100%",
+          maxWidth: "100%",
         }}
       >
-        {/* Left: Chart (anchored to left) */}
-        <div style={{ flexShrink: 0, width: isMobile ? "100%" : "auto" }}>
+        {/* Left: Chart (takes remaining space on desktop, full width on mobile) */}
+        <div style={{ 
+          flexShrink: 0, 
+          width: isMobile ? "100%" : "auto",
+          flex: isMobile ? "0 0 auto" : "1 1 auto",
+          minWidth: 0,
+        }}>
           <svg
-            width={chartWidth}
+            width={isMobile ? "100%" : chartWidth}
             height={chartHeight}
-            style={{ borderRadius: "8px", overflow: "hidden", display: "block" }}
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            preserveAspectRatio="xMinYMin meet"
+            style={{ borderRadius: "8px", overflow: "hidden", display: "block", maxWidth: "100%", width: "100%" }}
           >
             {rects.map((rect) => {
               const fontSize = Math.min(
@@ -358,13 +369,13 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
           </svg>
         </div>
 
-        {/* Right: List (anchored to right, scrollable) */}
+        {/* Right: List (fixed width on desktop, scrollable) */}
         <div
           style={{
-            flex: 1,
-            minWidth: isMobile ? "auto" : "180px",
-            maxWidth: isMobile ? "none" : "280px",
-            maxHeight: isMobile ? "250px" : CHART_HEIGHT, // Taller scrolling area on mobile
+            flex: isMobile ? "1 1 auto" : "0 0 220px",
+            minWidth: isMobile ? "auto" : "220px",
+            maxWidth: isMobile ? "none" : "220px",
+            maxHeight: isMobile ? "250px" : CHART_HEIGHT,
             overflowY: "auto",
           }}
         >
@@ -398,7 +409,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                     borderRadius: "4px",
                     cursor: "pointer",
                     transition: "background 0.15s",
-                    borderBottom: isMobile ? "1px solid rgba(255,255,255,0.05)" : "none",
+                    borderBottom: isMobile ? "1px solid rgba(255,255,255,0.05)" : "1px solid transparent",
                   }}
                   onMouseEnter={(e) =>
                     !isMobile && (e.currentTarget.style.background = "rgba(255,255,255,0.05)")
@@ -448,7 +459,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                       borderRadius: "4px",
                       cursor: "pointer",
                       transition: "background 0.15s",
-                      borderBottom: isMobile ? "1px solid rgba(255,255,255,0.05)" : "none",
+                      borderBottom: isMobile ? "1px solid rgba(255,255,255,0.05)" : "1px solid transparent",
                     }}
                     onMouseEnter={(e) =>
                       !isMobile && (e.currentTarget.style.background = "rgba(255,255,255,0.05)")

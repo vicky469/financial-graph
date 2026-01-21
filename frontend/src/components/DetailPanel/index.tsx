@@ -396,7 +396,7 @@ export function DetailPanel({
                   color: activeTab === "info" ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.5)",
                   fontWeight: activeTab === "info" ? "600" : "400",
                   transition: "all 0.2s ease",
-                  padding: "8px 12px",
+                  padding: "10px 16px",
                   fontSize: "11px",
                   borderBottom: activeTab === "info" ? "2px solid #3b82f6" : "2px solid transparent",
                 }}
@@ -670,8 +670,8 @@ function Section({
   return (
     <div
       style={{
-        padding: "0 16px 12px 16px",
-        marginLeft: "8px",
+        padding: "0 16px 16px 16px",
+        marginLeft: "0px",
         borderBottom: noBorder ? "none" : "1px solid rgba(255,255,255,0.1)",
       }}
     >
@@ -682,8 +682,8 @@ function Section({
           color: "rgba(255,255,255,0.5)",
           textTransform: "uppercase",
           letterSpacing: "0.05em",
-          marginBottom: "10px",
-          marginTop: "12px",
+          marginBottom: "12px",
+          marginTop: "16px",
         }}
       >
         {title}
@@ -727,7 +727,7 @@ function FieldRow({
         style={{
           fontSize: "11px",
           color: "rgba(255,255,255,0.5)",
-          marginBottom: "2px",
+          marginBottom: "3px",
         }}
       >
         {label}
@@ -738,7 +738,7 @@ function FieldRow({
           color: "rgba(255,255,255,0.95)",
           fontFamily: mono ? "monospace" : "inherit",
           wordBreak: "break-word",
-          lineHeight: "1.3",
+          lineHeight: "1.4",
           fontWeight: 500,
         }}
       >

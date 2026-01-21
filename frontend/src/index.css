@@ -775,6 +775,13 @@ input, textarea, select {
     border-radius: 0; /* Remove border radius for full screen */
     box-shadow: none; /* Remove shadow on mobile */
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body.app-mode #root > * {
+    width: 100%;
+    max-width: 100%;
   }
 
   /* Make detail panel full width on mobile */
@@ -806,6 +813,18 @@ input, textarea, select {
     max-width: 100% !important;
     border-right: none !important;
   }
+
+  /* Ensure graph and treemap take full width on mobile */
+  .hide-on-desktop {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Remove any padding/margin that might cause the stripe */
+  .hide-on-desktop > * {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }
 
 /* Hide on desktop */
@@ -831,10 +850,10 @@ input, textarea, select {
     min-height: 36px !important;
   }
 
-  /* Better desktop spacing for main content */
+  /* Better desktop spacing for main content - no extra padding */
   .main-content {
-    padding: 24px;
-    gap: 24px;
+    padding: 0;
+    gap: 0;
   }
 
   /* Enhanced sidebar styling for desktop */

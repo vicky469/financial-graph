@@ -124,10 +124,11 @@ export function Sidebar({ onSelectNode, selectedNodeId, selectedSubsidiaryId, on
         </div>
       )}
 
-      {/* Collapse Toggle Button - Only show when company component is open (selectedNode) */}
+      {/* Collapse Toggle Button - Only show when company component is open (selectedNode), hide on mobile */}
       {selectedNode && (
         <button
           onClick={toggleCollapse}
+          className="hide-on-mobile"
           style={{
             position: "absolute",
             top: "50%",

@@ -56,7 +56,7 @@ function MobileCompanyView({
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-card">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-card" style={{ width: "100%", maxWidth: "100%" }}>
       {/* Back Button - improved spacing */}
       <div className="flex items-center px-4 py-4 border-b border-border/20 bg-card/50">
         <button 
@@ -187,7 +187,7 @@ function MobileCompanyView({
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden w-full" style={{ width: "100%", maxWidth: "100%" }}>
         {activeTab === "overview" && detailPanelNode && (
           <div 
             className="h-full overflow-y-auto"
@@ -227,8 +227,13 @@ function MobileCompanyView({
 
         {activeTab === "graph" && (
           <div 
-            className="h-full overflow-hidden bg-background"
-            style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
+            className="h-full w-full overflow-hidden bg-background"
+            style={{ 
+              scrollbarWidth: "thin", 
+              scrollbarGutter: "stable",
+              width: "100%",
+              maxWidth: "100%"
+            }}
           >
             {isLoading ? (
               <div className="flex items-center justify-center h-full text-muted-foreground animate-pulse">
@@ -322,13 +327,13 @@ function AppContent() {
   const isPublic = selectedGraphNode?.cik ? true : false;
 
   return (
-    <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans p-4">
+    <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans" style={{ width: "100%", maxWidth: "100%", padding: "0" }}>
       {/* Header */}
       <Header />
 
-      <div className="flex-1 flex overflow-hidden relative min-w-0" key={selectedNodeId}>
+      <div className="flex-1 flex overflow-hidden relative min-w-0" key={selectedNodeId} style={{ width: "100%", maxWidth: "100%" }}>
         {/* Mobile: Show company list full width when no company selected, hide when company selected */}
-        <div className="hide-on-desktop w-full">
+        <div className="hide-on-desktop w-full" style={{ width: "100%", maxWidth: "100%" }}>
           {!selectedNodeId ? (
             <Sidebar
               onSelectNode={handleSelectNode}
@@ -358,7 +363,7 @@ function AppContent() {
         </div>
 
         {/* Desktop: Show sidebar and main content side by side */}
-        <div className="hide-on-mobile flex w-full">
+        <div className="hide-on-mobile flex w-full" style={{ width: "100%", maxWidth: "100%" }}>
           <Sidebar
             onSelectNode={handleSelectNode}
             selectedNodeId={selectedNodeId}
@@ -368,7 +373,7 @@ function AppContent() {
             onFilterChange={setShowSP500Only}
           />
 
-          <main className="flex-1 min-w-0 relative bg-background flex flex-col overflow-hidden">
+          <main className="flex-1 min-w-0 relative bg-background flex flex-col overflow-hidden" style={{ width: "100%", maxWidth: "100%" }}>
             {!selectedNodeId ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground/60 gap-3 p-4">
                 <div className="w-16 h-16 rounded-full bg-accent/30 flex items-center justify-center">
