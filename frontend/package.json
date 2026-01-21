@@ -8,12 +8,12 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "./node_modules/.bin/tsc -b && ./node_modules/.bin/vite build",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
-    "financial-graph-shared": "^1.0.0",
+    "financial-graph-shared": "*",
     "@instantdb/admin": "^0.22.96",
     "@instantdb/react": "^0.22.96",
     "@radix-ui/react-scroll-area": "^1.2.10",

@@ -2,9 +2,14 @@
   "name": "financial-graph-monorepo",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "shared",
+    "frontend"
+  ],
   "scripts": {
-    "build:shared": "cd shared && bun run build",
-    "install:all": "bun install",
+    "build:shared": "cd shared && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:shared && npm run build:frontend",
     "dev:backend": "cd backend && bun run dev",
     "dev:frontend": "cd frontend && bun run dev"
   },
