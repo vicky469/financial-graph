@@ -201,16 +201,7 @@ input, textarea, select {
 }
 
 .bg-grid {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: 
-    linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
-  background-size: 50px 50px;
-  opacity: 0.5;
+  display: none;
 }
 
 .landing-page {
@@ -235,16 +226,7 @@ input, textarea, select {
   z-index: 0;
 }
 
-/* Fine grid pattern - like financial charts */
-.landing-page::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 100% 80px;
-  pointer-events: none;
-  z-index: 0;
-}
+/* Fine grid pattern - removed for cleaner look */
 
 .landing-page > * {
   position: relative;
@@ -398,7 +380,6 @@ input, textarea, select {
 
 /* Section Styles */
 .section-alt {
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
   background: rgba(255, 255, 255, 0.008);
 }
 
@@ -497,7 +478,6 @@ input, textarea, select {
 
 /* Footer */
 .landing-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
   padding: 32px 20px;
   text-align: center;
 }
