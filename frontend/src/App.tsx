@@ -322,13 +322,9 @@ function AppContent() {
   const isPublic = selectedGraphNode?.cik ? true : false;
 
   return (
-    <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans p-3">
+    <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans p-4">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <Header />
-        </div>
-      </div>
+      <Header />
 
       <div className="flex-1 flex overflow-hidden relative min-w-0" key={selectedNodeId}>
         {/* Mobile: Show company list full width when no company selected, hide when company selected */}

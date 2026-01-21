@@ -52,21 +52,6 @@ export function DetailPanel({
   const displayNode = fullNode || node;
   const isLoading = loadingCompany || loadingSubsidiary;
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(event.target as HTMLElement)) {
-        onClose();
-      }
-    };
-    const timeoutId = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-    }, 0);
-    return () => {
-      clearTimeout(timeoutId);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [onClose]);
-
   if (!node) return null;
 
   const isEntity = displayNode?.type === "Company";
@@ -85,6 +70,8 @@ export function DetailPanel({
     }
   };
 
+  const panelPadding = "16px";
+
   return (
     <aside
       ref={panelRef}
@@ -92,7 +79,7 @@ export function DetailPanel({
     >
       {/* Header - only show if not hiding tabs (desktop mode) */}
       {!hideTabs && (
-        <div className="px-4 pb-4 border-b border-border/30" style={{ paddingTop: "5px" }}>
+        <div style={{ padding: `5px ${panelPadding} 0 ${panelPadding}` }}>
           <div className="flex items-center gap-3 mb-3 justify-end">
             {isEntity && (
               <Badge variant={isPublic ? "success" : "default"}>{isPublic ? "PUB" : "PVT"}</Badge>
@@ -110,7 +97,6 @@ export function DetailPanel({
               color: "rgba(255,255,255,0.95)",
               lineHeight: "1.3",
               wordBreak: "break-word",
-              padding: "0 8px",
             }}
           >
             {isSubsidiaryNode ? subsidiary?.name || "Loading..." : node?.name || "Unknown"}
@@ -121,7 +107,7 @@ export function DetailPanel({
                 display: "flex",
                 justifyContent: "flex-end",
                 marginTop: "2px",
-                paddingRight: "2px",
+                paddingRight: "4px",
               }}
             >
               <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>
@@ -390,16 +376,15 @@ export function DetailPanel({
           onValueChange={(v) => setActiveTab(v as "info" /* | "audit" */)}
           className="flex-1 flex flex-col overflow-hidden min-w-0"
         >
-          <div style={{ width: "100%", boxSizing: "border-box" }}>
+          <div style={{ width: "100%", boxSizing: "border-box", padding: `0 ${panelPadding}` }}>
             <TabsList
               style={{
                 display: "flex",
                 width: "100%",
                 backgroundColor: "rgba(255,255,255,0.05)",
                 padding: "0",
-                borderRadius: "0",
+                borderRadius: "4px",
                 boxSizing: "border-box",
-                borderBottom: "1px solid rgba(255,255,255,0.1)",
               }}
             >
               <TabsTrigger
@@ -686,6 +671,7 @@ function Section({
     <div
       style={{
         padding: "0 16px 12px 16px",
+        marginLeft: "8px",
         borderBottom: noBorder ? "none" : "1px solid rgba(255,255,255,0.1)",
       }}
     >

@@ -58,20 +58,16 @@ input, textarea, select {
   /* App container styles - applied when authenticated */
   body.app-mode {
     height: 100vh;
-    padding: 16px;
     overflow: hidden;
-    background: linear-gradient(135deg, hsl(240 6% 4%) 0%, hsl(240 8% 6%) 100%);
+    background-color: hsl(var(--background));
   }
   body.app-mode #root {
     height: 100%;
     width: 100%;
     background-color: hsl(var(--background));
-    border-radius: 16px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(20px);
   }
   /* Landing page mode - allow scrolling */
   body.landing-mode {
