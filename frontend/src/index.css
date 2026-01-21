@@ -116,21 +116,159 @@ input, textarea, select {
 
 /* ==================== LANDING PAGE STYLES (Mobile First) ==================== */
 
+/* Animated background */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  33% {
+    transform: translateY(-20px) translateX(10px);
+  }
+  66% {
+    transform: translateY(10px) translateX(-10px);
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
 .landing-page {
   min-height: 100vh;
   background: linear-gradient(180deg, hsl(240 6% 6%) 0%, hsl(240 8% 4%) 100%);
   color: rgba(255, 255, 255, 0.9);
   overflow: auto;
+  position: relative;
+}
+
+.landing-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-shape {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.15;
+}
+
+.bg-shape-1 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.4) 0%, transparent 70%);
+  top: 10%;
+  left: 10%;
+  animation: float 20s ease-in-out infinite, pulse 8s ease-in-out infinite;
+}
+
+.bg-shape-2 {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%);
+  top: 50%;
+  right: 15%;
+  animation: float 25s ease-in-out infinite 5s, pulse 10s ease-in-out infinite 2s;
+}
+
+.bg-shape-3 {
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.3) 0%, transparent 70%);
+  bottom: 20%;
+  left: 20%;
+  animation: float 30s ease-in-out infinite 10s, pulse 12s ease-in-out infinite 4s;
+}
+
+.bg-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+  opacity: 0.5;
+}
+
+.landing-page {
+  min-height: 100vh;
+  background: hsl(240 6% 5%);
+  color: rgba(255, 255, 255, 0.92);
+  overflow: auto;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
+  position: relative;
+}
+
+/* Subtle radial gradient background */
+.landing-page::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(99, 102, 241, 0.06) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Fine grid pattern - like financial charts */
+.landing-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 100% 80px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Professional fade-in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .landing-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 48px 20px;
+  position: relative;
+  z-index: 1;
 }
 
 /* Hero Section */
@@ -143,7 +281,7 @@ input, textarea, select {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 48px;
+  margin-bottom: 20px;
 }
 
 .brand-icon {
@@ -171,22 +309,26 @@ input, textarea, select {
 
 .hero-text {
   order: 1;
+  animation: fadeIn 0.5s ease-out;
 }
 
 .hero-title {
   font-size: 32px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.15;
   letter-spacing: -0.03em;
   margin-bottom: 20px;
+  color: rgba(255, 255, 255, 0.95);
 }
 
+/* Subtle silver-to-white gradient - professional, not flashy */
 .hero-title-gradient {
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #c084fc 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(200, 200, 220, 0.9) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
 
 .hero-description {
   font-size: 16px;
@@ -256,8 +398,8 @@ input, textarea, select {
 
 /* Section Styles */
 .section-alt {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.01);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.008);
 }
 
 .section-header {
@@ -266,11 +408,11 @@ input, textarea, select {
 }
 
 .section-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #818cf8;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6366f1;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   margin-bottom: 12px;
 }
 
@@ -279,6 +421,7 @@ input, textarea, select {
   font-weight: 600;
   letter-spacing: -0.02em;
   margin-bottom: 12px;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .section-subtitle {
@@ -309,11 +452,11 @@ input, textarea, select {
 
 /* Relations Box */
 .relations-box {
-  margin-top: 32px;
+  margin-top: 24px;
   padding: 20px;
   background: rgba(255, 255, 255, 0.02);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .relations-content {
@@ -332,16 +475,17 @@ input, textarea, select {
 }
 
 .cta-title {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 26px;
+  font-weight: 600;
   letter-spacing: -0.02em;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .cta-subtitle {
-  font-size: 16px;
+  font-size: 15px;
   color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .cta-button-large {
@@ -353,14 +497,14 @@ input, textarea, select {
 
 /* Footer */
 .landing-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
   padding: 32px 20px;
   text-align: center;
 }
 
 .landing-footer p {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 /* ==================== TABLET BREAKPOINT (640px+) ==================== */
@@ -375,7 +519,7 @@ input, textarea, select {
   }
 
   .landing-brand {
-    margin-bottom: 60px;
+    margin-bottom: 20px;
   }
 
   .brand-icon {
@@ -432,14 +576,14 @@ input, textarea, select {
   }
 
   .cta-title {
-    font-size: 36px;
+    font-size: 32px;
   }
 }
 
 /* ==================== DESKTOP BREAKPOINT (1024px+) ==================== */
 @media (min-width: 1024px) {
   .landing-container {
-    padding: 100px 40px;
+    padding: 60px 80px;
   }
 
   .hero-section {
@@ -448,7 +592,7 @@ input, textarea, select {
   }
 
   .landing-brand {
-    margin-bottom: 100px;
+    margin-bottom: 20px;
   }
 
   .brand-icon {
@@ -479,18 +623,18 @@ input, textarea, select {
   }
 
   .hero-title {
-    font-size: 64px;
+    font-size: 68px;
     margin-bottom: 32px;
     line-height: 1.1;
-    font-weight: 800;
+    font-weight: 600;
   }
 
   .hero-description {
-    font-size: 20px;
+    font-size: 19px;
     margin-bottom: 48px;
     max-width: 520px;
     line-height: 1.6;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.6);
   }
 
   .hero-cta {
@@ -502,22 +646,24 @@ input, textarea, select {
   }
 
   .section-label {
-    font-size: 14px;
-    margin-bottom: 20px;
-    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 16px;
+    font-weight: 500;
+    color: #6366f1;
   }
 
   .section-title {
-    font-size: 40px;
-    margin-bottom: 20px;
-    font-weight: 700;
+    font-size: 36px;
+    margin-bottom: 16px;
+    font-weight: 600;
     line-height: 1.2;
+    color: rgba(255, 255, 255, 0.95);
   }
 
   .section-subtitle {
-    font-size: 18px;
+    font-size: 17px;
     line-height: 1.6;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.55);
   }
 
   .features-grid {
@@ -536,11 +682,11 @@ input, textarea, select {
   }
 
   .relations-box {
-    margin-top: 64px;
-    padding: 48px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    margin-top: 48px;
+    padding: 40px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
   }
 
   .relations-content {
@@ -553,10 +699,11 @@ input, textarea, select {
   }
 
   .cta-title {
-    font-size: 48px;
-    margin-bottom: 32px;
-    font-weight: 800;
-    line-height: 1.1;
+    font-size: 42px;
+    margin-bottom: 28px;
+    font-weight: 600;
+    line-height: 1.15;
+    color: rgba(255, 255, 255, 0.95);
   }
 
   .cta-subtitle {

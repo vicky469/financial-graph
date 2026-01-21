@@ -146,7 +146,7 @@ function TreeNode({
         {node.ownership_percent !== null && (
           <span
             style={{
-              fontSize: "11px",
+              fontSize: "13px",
               color: "rgba(255,255,255,0.4)",
               fontFamily: "monospace",
               flexShrink: 0,

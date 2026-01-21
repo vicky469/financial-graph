@@ -146,7 +146,7 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                   {brand.category && (
                     <span
                       style={{
-                        fontSize: "11px",
+                        fontSize: "13px",
                         color: "rgba(255,255,255,0.35)",
                       }}
                     >
@@ -208,7 +208,7 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                       >
                         <TableCell
                           style={{
-                            fontSize: "10px",
+                            fontSize: "12px",
                             color: "rgba(255,255,255,0.6)",
                             padding: "4px 6px",
                           }}
@@ -217,7 +217,7 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                         </TableCell>
                         <TableCell
                           style={{
-                            fontSize: "10px",
+                            fontSize: "12px",
                             color: "rgba(255,255,255,0.6)",
                             padding: "4px 6px",
                           }}
@@ -229,11 +229,11 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                         <TableCell style={{ padding: "4px 6px" }}>
                           <span
                             style={{
-                              fontSize: "9px",
+                              fontSize: "11px",
                               fontWeight: 600,
                               color: "rgba(255,255,255,0.8)",
                               background: "rgba(99, 102, 241, 0.15)",
-                              padding: "2px 4px",
+                              padding: "3px 6px",
                               borderRadius: "3px",
                               display: "inline-block",
                             }}
@@ -448,7 +448,7 @@ function FilingLink({ url, label = "View" }: { url: string; label?: string }) {
         display: "inline-flex",
         alignItems: "center",
         gap: "3px",
-        fontSize: "10px",
+        fontSize: "12px",
         color: "#818cf8",
         textDecoration: "none",
         transition: "color 0.15s ease",
@@ -457,7 +457,7 @@ function FilingLink({ url, label = "View" }: { url: string; label?: string }) {
       onMouseLeave={(e) => (e.currentTarget.style.color = "#818cf8")}
     >
       {label}
-      <ExternalLink size={9} />
+      <ExternalLink size={11} />
     </a>
   );
 }

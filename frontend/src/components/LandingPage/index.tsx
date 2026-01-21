@@ -53,26 +53,52 @@ export function LandingPage({ onAuth }: LandingPageProps) {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <div className="landing-page">
+      {/* Animated Background */}
+      <div className="landing-background">
+        <div className="bg-grid"></div>
+        <div className="bg-shape bg-shape-1"></div>
+        <div className="bg-shape bg-shape-2"></div>
+        <div className="bg-shape bg-shape-3"></div>
+      </div>
+      
       {/* Hero Section */}
-      <div className="landing-container hero-section">
+      <div className="landing-container hero-section" style={{ position: 'relative', zIndex: 1 }}>
         {/* Logo / Brand */}
         <div className="landing-brand">
-          <div className="brand-icon">
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 2v4m0 12v4M2 12h4m12 0h4" />
-              <path d="m4.93 4.93 2.83 2.83m8.48 8.48 2.83 2.83m-2.83-14.14 2.83 2.83M4.93 19.07l2.83-2.83" />
-            </svg>
-          </div>
+          <svg
+            width="40"
+            height="40"
+            viewBox="0 0 100 100"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ flexShrink: 0 }}
+          >
+            {/* Connection lines with gradient */}
+            <defs>
+              <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#818cf8" />
+                <stop offset="100%" stopColor="#a78bfa" />
+              </linearGradient>
+            </defs>
+            
+            {/* Lines connecting nodes */}
+            <g stroke="url(#lineGradient)" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.6">
+              <line x1="50" y1="50" x2="75" y2="28" />
+              <line x1="75" y1="28" x2="85" y2="42" />
+              <line x1="50" y1="50" x2="28" y2="32" />
+              <line x1="28" y1="32" x2="18" y2="52" />
+              <line x1="50" y1="50" x2="70" y2="70" />
+              <line x1="50" y1="50" x2="30" y2="70" />
+            </g>
+            
+            {/* Nodes with gradient fills */}
+            <circle cx="50" cy="50" r="7" fill="#818cf8" stroke="#a78bfa" strokeWidth="2" />
+            <circle cx="75" cy="28" r="5" fill="#a78bfa" stroke="#c4b5fd" strokeWidth="1.5" />
+            <circle cx="85" cy="42" r="3.5" fill="#c4b5fd" stroke="#e0e7ff" strokeWidth="1" />
+            <circle cx="28" cy="32" r="5" fill="#a78bfa" stroke="#c4b5fd" strokeWidth="1.5" />
+            <circle cx="18" cy="52" r="3.5" fill="#c4b5fd" stroke="#e0e7ff" strokeWidth="1" />
+            <circle cx="70" cy="70" r="4" fill="#a78bfa" stroke="#c4b5fd" strokeWidth="1.5" />
+            <circle cx="30" cy="70" r="4" fill="#a78bfa" stroke="#c4b5fd" strokeWidth="1.5" />
+          </svg>
           <span className="brand-name">Financial Graph</span>
         </div>
 
@@ -80,6 +106,7 @@ export function LandingPage({ onAuth }: LandingPageProps) {
         <div className="hero-grid">
           {/* Left: Text Content */}
           <div className="hero-text">
+
             <h1 className="hero-title">
               Understand how
               <br />
@@ -98,7 +125,7 @@ export function LandingPage({ onAuth }: LandingPageProps) {
                   height: "300px",
                   width: "100%",
                   maxWidth: "400px",
-                  margin: "0 auto 32px auto",
+                  margin: "-16px auto 24px auto",
                 }}
               >
                 <GraphVisualization />
@@ -1148,69 +1175,56 @@ function FeatureCard({
   return (
     <div
       style={{
-        padding: "40px",
+        padding: "32px",
         background: "rgba(255,255,255,0.02)",
-        borderRadius: "20px",
-        border: "1px solid rgba(255,255,255,0.08)",
-        transition: "all 0.3s ease",
+        borderRadius: "12px",
+        border: "1px solid rgba(255,255,255,0.06)",
+        transition: "all 0.2s ease",
         cursor: "pointer",
         position: "relative",
         overflow: "hidden",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-        e.currentTarget.style.borderColor = "rgba(129, 140, 248, 0.3)";
+        e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
         e.currentTarget.style.transform = "translateY(-4px)";
-        e.currentTarget.style.boxShadow = "0 20px 40px rgba(0, 0, 0, 0.15)";
+        e.currentTarget.style.boxShadow = "0 12px 40px rgba(0, 0, 0, 0.15)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "rgba(255,255,255,0.02)";
-        e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
         e.currentTarget.style.transform = "translateY(0)";
         e.currentTarget.style.boxShadow = "none";
       }}
     >
-      {/* Subtle gradient overlay */}
       <div
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "1px",
-          background: "linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.5), transparent)",
-        }}
-      />
-      
-      <div
-        style={{
-          width: "56px",
-          height: "56px",
-          borderRadius: "16px",
-          background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.1))",
+          width: "48px",
+          height: "48px",
+          borderRadius: "10px",
+          background: "rgba(99, 102, 241, 0.1)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: "24px",
-          color: "#818cf8",
-          boxShadow: "0 8px 24px rgba(99, 102, 241, 0.2)",
+          marginBottom: "20px",
+          color: "#6366f1",
         }}
       >
         {icon}
       </div>
       <h3
         style={{
-          fontSize: "20px",
-          fontWeight: "700",
-          marginBottom: "16px",
-          color: "rgba(255,255,255,0.95)",
+          fontSize: "18px",
+          fontWeight: "600",
+          marginBottom: "12px",
+          color: "rgba(255,255,255,0.92)",
         }}
       >
         {title}
       </h3>
       <p
         style={{
-          fontSize: "15px",
+          fontSize: "14px",
           lineHeight: "1.7",
           color: "rgba(255,255,255,0.6)",
           margin: 0,
@@ -1236,12 +1250,12 @@ function EntityCard({
   return (
     <div
       style={{
-        padding: "32px",
+        padding: "24px",
         background: "rgba(255,255,255,0.02)",
-        borderRadius: "16px",
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderTop: `3px solid ${color}`,
-        transition: "all 0.3s ease",
+        borderRadius: "12px",
+        border: "1px solid rgba(255,255,255,0.06)",
+        borderTop: `2px solid ${color}`,
+        transition: "all 0.2s ease",
         cursor: "pointer",
         position: "relative",
         overflow: "hidden",
@@ -1249,7 +1263,7 @@ function EntityCard({
       onMouseEnter={(e) => {
         e.currentTarget.style.background = "rgba(255,255,255,0.04)";
         e.currentTarget.style.transform = "translateY(-2px)";
-        e.currentTarget.style.boxShadow = "0 12px 32px rgba(0, 0, 0, 0.1)";
+        e.currentTarget.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.12)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "rgba(255,255,255,0.02)";
@@ -1257,36 +1271,24 @@ function EntityCard({
         e.currentTarget.style.boxShadow = "none";
       }}
     >
-      {/* Subtle glow effect */}
       <div
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "1px",
-          background: `linear-gradient(90deg, transparent, ${color}40, transparent)`,
-        }}
-      />
-      
-      <div
-        style={{
-          fontSize: "18px",
-          fontWeight: "700",
-          marginBottom: "6px",
-          color: "rgba(255,255,255,0.95)",
+          fontSize: "16px",
+          fontWeight: "600",
+          marginBottom: "4px",
+          color: "rgba(255,255,255,0.92)",
         }}
       >
         {title}
       </div>
       <div
         style={{
-          fontSize: "13px",
+          fontSize: "12px",
           color: color,
-          marginBottom: "20px",
-          fontWeight: "600",
+          marginBottom: "16px",
+          fontWeight: "500",
           textTransform: "uppercase",
-          letterSpacing: "0.05em",
+          letterSpacing: "0.04em",
         }}
       >
         {subtitle}
@@ -1302,12 +1304,12 @@ function EntityCard({
           <li
             key={i}
             style={{
-              fontSize: "14px",
-              color: "rgba(255,255,255,0.7)",
-              padding: "8px 0",
-              borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+              fontSize: "13px",
+              color: "rgba(255,255,255,0.6)",
+              padding: "6px 0",
+              borderTop: i > 0 ? "1px solid rgba(255,255,255,0.05)" : "none",
               position: "relative",
-              paddingLeft: "16px",
+              paddingLeft: "14px",
             }}
           >
             <span
@@ -1316,11 +1318,11 @@ function EntityCard({
                 left: "0",
                 top: "50%",
                 transform: "translateY(-50%)",
-                width: "4px",
-                height: "4px",
+                width: "3px",
+                height: "3px",
                 borderRadius: "50%",
                 background: color,
-                opacity: 0.6,
+                opacity: 0.5,
               }}
             />
             {item}
@@ -1337,34 +1339,35 @@ function GraphRelation({ from, relation, to }: { from: string; relation: string;
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "12px",
+        gap: "10px",
       }}
     >
       <span
         style={{
-          fontSize: "14px",
+          fontSize: "13px",
           fontWeight: "500",
-          color: "rgba(255,255,255,0.8)",
+          color: "rgba(255,255,255,0.75)",
         }}
       >
         {from}
       </span>
       <span
         style={{
-          fontSize: "12px",
-          color: "#818cf8",
-          padding: "4px 12px",
-          background: "rgba(99, 102, 241, 0.1)",
-          borderRadius: "20px",
+          fontSize: "11px",
+          color: "#6366f1",
+          padding: "3px 10px",
+          background: "rgba(99, 102, 241, 0.08)",
+          borderRadius: "4px",
+          fontWeight: "500",
         }}
       >
         {relation}
       </span>
       <span
         style={{
-          fontSize: "14px",
+          fontSize: "13px",
           fontWeight: "500",
-          color: "rgba(255,255,255,0.8)",
+          color: "rgba(255,255,255,0.75)",
         }}
       >
         {to}
@@ -1377,60 +1380,47 @@ function QuestionCard({ question }: { question: string }) {
   return (
     <div
       style={{
-        padding: "32px",
+        padding: "24px",
         background: "rgba(255,255,255,0.02)",
-        borderRadius: "16px",
-        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: "12px",
+        border: "1px solid rgba(255,255,255,0.06)",
         display: "flex",
         alignItems: "flex-start",
-        gap: "20px",
-        transition: "all 0.3s ease",
+        gap: "16px",
+        transition: "all 0.2s ease",
         cursor: "pointer",
         position: "relative",
         overflow: "hidden",
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-        e.currentTarget.style.borderColor = "rgba(129, 140, 248, 0.3)";
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
         e.currentTarget.style.transform = "translateY(-2px)";
-        e.currentTarget.style.boxShadow = "0 12px 32px rgba(0, 0, 0, 0.1)";
+        e.currentTarget.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.1)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "rgba(255,255,255,0.02)";
-        e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
         e.currentTarget.style.transform = "translateY(0)";
         e.currentTarget.style.boxShadow = "none";
       }}
     >
-      {/* Subtle gradient line */}
       <div
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "1px",
-          background: "linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.4), transparent)",
-        }}
-      />
-      
-      <div
-        style={{
-          width: "40px",
-          height: "40px",
-          borderRadius: "12px",
-          background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.1))",
+          width: "36px",
+          height: "36px",
+          borderRadius: "8px",
+          background: "rgba(99, 102, 241, 0.1)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
-          color: "#818cf8",
-          boxShadow: "0 4px 16px rgba(99, 102, 241, 0.2)",
+          color: "#6366f1",
         }}
       >
         <svg
-          width="18"
-          height="18"
+          width="16"
+          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -1445,10 +1435,10 @@ function QuestionCard({ question }: { question: string }) {
       </div>
       <p
         style={{
-          fontSize: "16px",
-          fontWeight: "600",
-          lineHeight: "1.6",
-          color: "rgba(255,255,255,0.9)",
+          fontSize: "15px",
+          fontWeight: "500",
+          lineHeight: "1.5",
+          color: "rgba(255,255,255,0.85)",
           margin: 0,
         }}
       >

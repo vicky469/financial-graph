@@ -95,7 +95,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
             border: "1px solid rgba(255,255,255,0.08)",
             background: showSP500Only ? "rgba(99, 102, 241, 0.15)" : "rgba(255,255,255,0.03)",
             color: showSP500Only ? "rgba(99, 102, 241, 0.9)" : "rgba(255,255,255,0.6)",
-            fontSize: "11px",
+            fontSize: "13px",
             fontWeight: "500",
             cursor: "pointer",
             transition: "all 0.15s ease",
@@ -131,7 +131,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
       >
         <span
           style={{
-            fontSize: "11px",
+            fontSize: "13px",
             fontWeight: 500,
             color: "rgba(255,255,255,0.35)",
             textTransform: "uppercase",
@@ -142,7 +142,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
         </span>
         <span
           style={{
-            fontSize: "11px",
+            fontSize: "13px",
             fontWeight: 500,
             color: "rgba(255,255,255,0.25)",
           }}
