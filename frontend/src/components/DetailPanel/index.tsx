@@ -5,6 +5,16 @@ import type { Node, PropertyValue } from "../../types";
 import { useCompanyDetails, /* useCompanyAudits, */ useSubsidiaryDetails } from "../../db/queries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
+// Helper function to format fiscal year end from MMDD to MM/DD
+function formatFiscalYearEnd(fiscalYearEnd?: string): string | undefined {
+  if (!fiscalYearEnd || fiscalYearEnd.length !== 4) return fiscalYearEnd;
+  
+  const month = fiscalYearEnd.substring(0, 2);
+  const day = fiscalYearEnd.substring(2, 4);
+  
+  return `${month}/${day}`;
+}
+
 interface DetailPanelProps {
   node: Node | { id: string; type: string; name?: string } | null;
   onClose: () => void;
@@ -233,7 +243,7 @@ export function DetailPanel({
                   >
                     <FieldRow
                       label="Fiscal Year End"
-                      value={companyNode.companyInfo.fiscal_year_end}
+                      value={formatFiscalYearEnd(companyNode.companyInfo.fiscal_year_end)}
                     />
                     <FieldRow label="Phone" value={companyNode.companyInfo.phone} />
 
@@ -517,7 +527,7 @@ export function DetailPanel({
                     >
                       <FieldRow
                         label="Fiscal Year End"
-                        value={companyNode.companyInfo.fiscal_year_end}
+                        value={formatFiscalYearEnd(companyNode.companyInfo.fiscal_year_end)}
                       />
                       <FieldRow label="Phone" value={companyNode.companyInfo.phone} />
 

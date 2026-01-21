@@ -348,7 +348,7 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
                 background: "transparent",
                 border: "none",
                 outline: "none",
-                fontSize: "14px",
+                fontSize: "16px", // Prevent iOS zoom on focus
                 color: "rgba(255, 255, 255, 0.9)",
                 width: "100%",
                 fontFamily: searchType === "accession" ? "monospace" : "inherit",

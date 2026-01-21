@@ -705,13 +705,11 @@
     border-left: none !important;
   }
 
-  /* Mobile header spacing */
+  /* Mobile header spacing - compact like desktop */
   .mobile-header {
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-    padding-top: 8px !important;
-    padding-bottom: 8px !important;
-    min-height: 48px !important;
+    padding: 4px 16px !important;
+    min-height: 36px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
 
   /* Mobile detail panel scrolling fix */

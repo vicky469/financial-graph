@@ -55,7 +55,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
           />
           <input
             type="text"
-            placeholder={showSP500Only ? "Search SP500 companies..." : "Search public companies..."}
+            placeholder={showSP500Only ? "Search S&P 500 companies..." : "Search public companies..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -116,7 +116,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
           }}
         >
           <Filter size={12} />
-          {showSP500Only ? "SP500 Only" : "All Public"}
+          {showSP500Only ? "S&P 500" : "All Public"}
         </button>
       </div>
 
@@ -138,7 +138,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
             letterSpacing: "0.04em",
           }}
         >
-          {showSP500Only ? "SP500" : "Companies"}
+          {showSP500Only ? "S&P 500" : "Companies"}
         </span>
         <span
           style={{
