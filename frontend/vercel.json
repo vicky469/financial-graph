@@ -1,9 +1,6 @@
 {
-  "buildCommand": "./build.sh",
+  "bunVersion": "1.x",
+  "buildCommand": "bun run build",
   "outputDirectory": "dist",
-  "installCommand": "bun install",
-  "framework": null,
-  "env": {
-    "ENABLE_EXPERIMENTAL_COREPACK": "0"
-  }
+  "framework": null
 }
