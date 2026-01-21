@@ -265,7 +265,7 @@ function AppContent() {
 
   const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState<string | null>(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [showSP500Only, setShowSP500Only] = useState(true); // Persistent filter state at App level
+  const [showSP500Only, setShowSP500Only] = useState(false); // Start with all companies visible
 
   // Derive selectedNodeId from URL param - no state needed
   const selectedNodeId = companyId || null;
