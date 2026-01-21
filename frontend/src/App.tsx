@@ -201,7 +201,6 @@ function MobileCompanyView({
           >
             <DetailPanel
               node={detailPanelNode}
-              onClose={() => {}} // Empty function to prevent auto-closing
               isPublic={isPublic}
               parentCompanyId={parentCompanyId}
               hideTabs={true} // Hide the DetailPanel's internal tabs for mobile
@@ -425,9 +424,6 @@ function AppContent() {
           <div className="hide-on-mobile">
             <DetailPanel
               node={detailPanelNode}
-              onClose={() => {
-                setSelectedSubsidiaryId(null);
-              }}
               isPublic={isPublic}
               parentCompanyId={selectedSubsidiaryId ? selectedNodeId : null}
             />

@@ -17,7 +17,6 @@ function formatFiscalYearEnd(fiscalYearEnd?: string): string | undefined {
 
 interface DetailPanelProps {
   node: Node | { id: string; type: string; name?: string } | null;
-  onClose: () => void;
   isPublic?: boolean;
   parentCompanyId?: string | null;
   hideTabs?: boolean; // New prop to hide tabs for mobile
@@ -25,7 +24,6 @@ interface DetailPanelProps {
 
 export function DetailPanel({
   node,
-  onClose,
   isPublic,
   parentCompanyId,
   hideTabs = false,
