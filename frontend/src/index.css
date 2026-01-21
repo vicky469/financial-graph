@@ -116,94 +116,6 @@ input, textarea, select {
 
 /* ==================== LANDING PAGE STYLES (Mobile First) ==================== */
 
-/* Animated background */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0) translateX(0);
-  }
-  33% {
-    transform: translateY(-20px) translateX(10px);
-  }
-  66% {
-    transform: translateY(10px) translateX(-10px);
-  }
-}
-
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0.6;
-  }
-}
-
-.landing-page {
-  min-height: 100vh;
-  background: linear-gradient(180deg, hsl(240 6% 6%) 0%, hsl(240 8% 4%) 100%);
-  color: rgba(255, 255, 255, 0.9);
-  overflow: auto;
-  position: relative;
-}
-
-.landing-background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.bg-shape {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.15;
-}
-
-.bg-shape-1 {
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.4) 0%, transparent 70%);
-  top: 10%;
-  left: 10%;
-  animation: float 20s ease-in-out infinite, pulse 8s ease-in-out infinite;
-}
-
-.bg-shape-2 {
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%);
-  top: 50%;
-  right: 15%;
-  animation: float 25s ease-in-out infinite 5s, pulse 10s ease-in-out infinite 2s;
-}
-
-.bg-shape-3 {
-  width: 350px;
-  height: 350px;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.3) 0%, transparent 70%);
-  bottom: 20%;
-  left: 20%;
-  animation: float 30s ease-in-out infinite 10s, pulse 12s ease-in-out infinite 4s;
-}
-
-.bg-grid {
-  display: none;
-}
-
 .landing-page {
   min-height: 100vh;
   background: hsl(240 6% 5%);
@@ -376,6 +288,39 @@ input, textarea, select {
   position: relative;
   height: 300px;
   display: none;
+  overflow: hidden;
+}
+
+/* Google Login Styles */
+.google-login-wrapper {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.google-login-wrapper:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.google-login-wrapper iframe {
+  border-radius: 12px !important;
+}
+
+.error-message {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Section Styles */
@@ -528,6 +473,7 @@ input, textarea, select {
   .hero-graph {
     display: block;
     height: 350px;
+    overflow: hidden;
   }
 
   .section-title {
@@ -600,6 +546,7 @@ input, textarea, select {
   .hero-graph {
     order: 2;
     height: 520px;
+    overflow: hidden;
   }
 
   .hero-title {
