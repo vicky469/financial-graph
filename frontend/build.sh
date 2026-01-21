@@ -1,3 +1,3 @@
 #!/bin/bash
 echo "Running build with bun..."
-bun run build
+bunx tsc -b && bunx vite build
