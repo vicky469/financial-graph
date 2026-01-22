@@ -1,6 +1,6 @@
 import { useState, memo, useMemo } from "react";
 import { Search, Filter } from "lucide-react";
-import { useAllCompaniesCached } from "../../db/queries";
+import { useAllCompanies } from "../../db/queries";
 
 interface CompanyListProps {
   onSelectNode: (id: string) => void;
@@ -10,7 +10,7 @@ interface CompanyListProps {
 
 export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500Only, onFilterChange }: CompanyListProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const { companies: allCompanies, isLoading } = useAllCompaniesCached();
+  const { companies: allCompanies, isLoading } = useAllCompanies();
 
   const companies = useMemo(() => {
     let filtered = allCompanies;
@@ -191,53 +191,56 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
           </div>
         ) : (
           <div style={{ paddingBottom: "16px" }}>
-            {companies.map((company) => (
-              <button
-                key={company.id}
-                onClick={() => onSelectNode(company.id)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "10px 12px",
-                  borderRadius: "6px",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  transition: "background 0.15s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                }}
-              >
-                <div
+            {companies.map((company) => {
+              return (
+                <button
+                  key={company.id}
+                  onClick={() => onSelectNode(company.id)}
                   style={{
-                    width: "6px",
-                    height: "6px",
-                    borderRadius: "50%",
-                    flexShrink: 0,
-                    backgroundColor: company.sp500 ? "#34d399" : company.cik ? "#60a5fa" : "rgba(255,255,255,0.2)",
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "10px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid transparent",
+                    background: "transparent",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "all 0.15s ease",
                   }}
-                />
-                <span
-                  style={{
-                    fontSize: "13px",
-                    color: "rgba(255,255,255,0.75)",
-                    textTransform: "capitalize",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
                   }}
                 >
-                  {company.name.toLowerCase()}
-                </span>
-              </button>
-            ))}
+                  <div
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      flexShrink: 0,
+                      backgroundColor: company.sp500 ? "#34d399" : company.cik ? "#60a5fa" : "rgba(255,255,255,0.2)",
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: "13px",
+                      color: "rgba(255,255,255,0.75)",
+                      textTransform: "capitalize",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      fontWeight: "400",
+                    }}
+                  >
+                    {company.name.toLowerCase()}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

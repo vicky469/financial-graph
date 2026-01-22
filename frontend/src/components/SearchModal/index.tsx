@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Search, Loader2, Building2, FileText } from "lucide-react";
 import { Modal } from "../ui/modal";
-import { useAllCompaniesCached } from "../../db/queries";
+import { useAllCompanies } from "../../db/queries";
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -28,8 +28,8 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Get all companies with heavy caching
-  const { companies: allCompanies } = useAllCompaniesCached();
+  // Get all companies
+  const { companies: allCompanies } = useAllCompanies();
 
   // Filter companies based on search query
   const filteredCompanies = useMemo(() => {

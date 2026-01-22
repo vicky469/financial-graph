@@ -1,18 +1,19 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import { CompanyList } from "./CompanyList";
 import { Company } from "./Company";
-import { useCompanyGraph } from "../../db/queries";
+import type { CompanyDetail } from "../../types/domain";
 
 interface SidebarProps {
   onSelectNode: (id: string | null) => void;
   selectedNodeId: string | null;
   selectedSubsidiaryId: string | null;
-  onSubsidiaryClick?: (subsidiaryId: string) => void;
+  onSubsidiaryClick?: (subsidiaryId: string | null) => void;
   showSP500Only: boolean;
   onFilterChange: (showSP500Only: boolean) => void;
+  selectedNode?: CompanyDetail | null;
 }
 
-export function Sidebar({ onSelectNode, selectedNodeId, selectedSubsidiaryId, onSubsidiaryClick, showSP500Only, onFilterChange }: SidebarProps) {
+export function Sidebar({ onSelectNode, selectedSubsidiaryId, onSubsidiaryClick, showSP500Only, onFilterChange, selectedNode }: SidebarProps) {
   const MIN_WIDTH = 280;
   const MAX_WIDTH = 420;
   const DEFAULT_LIST_WIDTH = MIN_WIDTH;
@@ -21,12 +22,6 @@ export function Sidebar({ onSelectNode, selectedNodeId, selectedSubsidiaryId, on
   const [width, setWidth] = useState(DEFAULT_LIST_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-
-  const { nodes } = useCompanyGraph(selectedNodeId);
-  const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedNodeId),
-    [nodes, selectedNodeId]
-  );
 
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -106,7 +101,7 @@ export function Sidebar({ onSelectNode, selectedNodeId, selectedSubsidiaryId, on
           />
         ) : (
           <CompanyList 
-            onSelectNode={onSelectNode} 
+            onSelectNode={onSelectNode}
             showSP500Only={showSP500Only}
             onFilterChange={onFilterChange}
           />

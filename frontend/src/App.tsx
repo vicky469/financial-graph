@@ -6,9 +6,112 @@ import { DetailPanel } from "./components/DetailPanel";
 import { JurisdictionTreemap } from "./components/JurisdictionTreemap";
 import { SearchModal } from "./components/SearchModal";
 import { LandingPage } from "./components/LandingPage";
-import { useCompanyGraph } from "./db/queries";
+import { useCompanyDetail } from "./db/queries";
 import { db } from "./db/client";
 import { InactivityTimeout } from "./components/InactivityTimeout";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { CompanyType } from "financial-graph-shared";
+import type { CompanyDetail } from "./types/domain";
+
+// Desktop Main Content Component
+function DesktopMainContent({
+  selectedNodeId,
+  handleSelectSubsidiary,
+}: {
+  selectedNodeId: string;
+  handleSelectSubsidiary: (subsidiaryId: string | null) => void;
+}) {
+  const [isTreemapExpanded, setIsTreemapExpanded] = useState(true);
+
+  return (
+    <div className="flex-1 overflow-hidden flex flex-col" style={{ width: "100%", maxWidth: "100%" }}>
+      {/* Collapseable Treemap Section - Desktop */}
+      <div className="hide-on-mobile" style={{ flexShrink: 0, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 24px",
+            cursor: "pointer",
+            background: "rgba(255,255,255,0.02)",
+            transition: "background 0.15s",
+          }}
+          onClick={() => setIsTreemapExpanded(!isTreemapExpanded)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+          }}
+        >
+          <h3
+            style={{
+              fontSize: "12px",
+              fontWeight: "600",
+              color: "rgba(255,255,255,0.7)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Jurisdiction Distribution
+          </h3>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="rgba(255,255,255,0.5)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              transform: isTreemapExpanded ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s ease",
+            }}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        {isTreemapExpanded && (
+          <div style={{ background: "hsl(240 6% 6%)" }}>
+            <JurisdictionTreemap
+              companyId={selectedNodeId}
+              onSubsidiaryClick={handleSelectSubsidiary}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Treemap Section - Mobile only */}
+      <div className="hide-on-desktop" style={{ flexShrink: 0 }}>
+        <JurisdictionTreemap
+          companyId={selectedNodeId}
+          onSubsidiaryClick={handleSelectSubsidiary}
+        />
+      </div>
+      
+      {/* Empty Graph Panel - Desktop */}
+      <div className="hide-on-mobile" style={{ 
+        flex: 1,
+        minHeight: 0,
+        width: "100%",
+        background: "hsl(240 6% 4%)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }}>
+        <div style={{
+          color: "rgba(255,255,255,0.3)",
+          fontSize: "13px",
+          textAlign: "center"
+        }}>
+          {/* Empty panel - content to be added */}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Mobile Company View Component with Tabs
 function MobileCompanyView({
@@ -28,27 +131,27 @@ function MobileCompanyView({
 }: {
   selectedNodeId: string;
   selectedSubsidiaryId: string | null;
-  onSubsidiaryClick: (subsidiaryId: string) => void;
+  onSubsidiaryClick: (subsidiaryId: string | null) => void;
   isLoading: boolean;
   showSearchModal: boolean;
   setShowSearchModal: (show: boolean) => void;
   handleSelectNode: (nodeId: string | null) => void;
-  detailPanelNode: { id: string; type: string; name?: string } | null;
-  isPublic: boolean;
+  detailPanelNode: CompanyDetail | { id: string; isSubsidiary: boolean; name?: string } | null;
+  isPublic: boolean | undefined;
   parentCompanyId: string | null;
   setSelectedSubsidiaryId: (id: string | null) => void;
   showSP500Only: boolean;
   onFilterChange: (show: boolean) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"overview" | "structure" | "graph">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "structure" | "jurisdiction">("overview");
 
   // Fetch company details to get the full node data for header
-  const { nodes } = useCompanyGraph(selectedNodeId);
-  const displayNode = nodes.find((n) => n.id === selectedNodeId) || detailPanelNode;
+  const { company: companyNode } = useCompanyDetail(selectedNodeId, false);
+  const displayNode = companyNode || detailPanelNode;
 
   const handleBackClick = () => {
     if (selectedSubsidiaryId) {
-      // If viewing a subsidiary, go back to company
+      // If viewing a subsidiary, go back to parent company
       setSelectedSubsidiaryId(null);
     } else {
       // If viewing a company, go back to main view
@@ -141,8 +244,10 @@ function MobileCompanyView({
               transition: "all 0.2s ease",
               padding: "8px 12px",
               fontSize: "11px",
+              borderTop: "none",
+              borderLeft: "none",
+              borderRight: "none",
               borderBottom: activeTab === "overview" ? "2px solid #3b82f6" : "2px solid transparent",
-              border: "none",
               cursor: "pointer",
             }}
           >
@@ -159,30 +264,34 @@ function MobileCompanyView({
               transition: "all 0.2s ease",
               padding: "8px 12px",
               fontSize: "11px",
+              borderTop: "none",
+              borderLeft: "none",
+              borderRight: "none",
               borderBottom: activeTab === "structure" ? "2px solid #3b82f6" : "2px solid transparent",
-              border: "none",
               cursor: "pointer",
             }}
           >
             Structure
           </button>
           <button
-            onClick={() => setActiveTab("graph")}
+            onClick={() => setActiveTab("jurisdiction")}
             className="cursor-pointer select-none"
             style={{
               flex: 1,
-              backgroundColor: activeTab === "graph" ? "rgba(255,255,255,0.1)" : "transparent",
-              color: activeTab === "graph" ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.5)",
-              fontWeight: activeTab === "graph" ? "600" : "400",
+              backgroundColor: activeTab === "jurisdiction" ? "rgba(255,255,255,0.1)" : "transparent",
+              color: activeTab === "jurisdiction" ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.5)",
+              fontWeight: activeTab === "jurisdiction" ? "600" : "400",
               transition: "all 0.2s ease",
               padding: "8px 12px",
               fontSize: "11px",
-              borderBottom: activeTab === "graph" ? "2px solid #3b82f6" : "2px solid transparent",
-              border: "none",
+              borderTop: "none",
+              borderLeft: "none",
+              borderRight: "none",
+              borderBottom: activeTab === "jurisdiction" ? "2px solid #3b82f6" : "2px solid transparent",
               cursor: "pointer",
             }}
           >
-            Graph
+            Jurisdiction
           </button>
         </div>
       </div>
@@ -221,11 +330,12 @@ function MobileCompanyView({
               onSubsidiaryClick={onSubsidiaryClick}
               showSP500Only={showSP500Only}
               onFilterChange={onFilterChange}
+              selectedNode={companyNode}
             />
           </div>
         )}
 
-        {activeTab === "graph" && (
+        {activeTab === "jurisdiction" && (
           <div 
             className="h-full w-full overflow-hidden bg-background"
             style={{ 
@@ -275,12 +385,6 @@ function AppContent() {
     setSelectedSubsidiaryId(null);
   }, [selectedNodeId]);
 
-  // Derive selectedGraphNodeId - open company panel by default when company is selected
-  const selectedGraphNodeId = useMemo(() => {
-    if (selectedSubsidiaryId) return null; // Close company panel when subsidiary is selected
-    return selectedNodeId; // Open company panel when company is selected
-  }, [selectedNodeId, selectedSubsidiaryId]);
-
   // Keyboard shortcut for search modal (Cmd+Shift+F or Ctrl+Shift+F)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -308,30 +412,27 @@ function AppContent() {
     }
   };
 
-  // Handle subsidiary selection from treemap
-  const handleSelectSubsidiary = (subsidiaryId: string) => {
+  // Handle subsidiary selection from treemap (just updates detail panel, no URL change)
+  const handleSelectSubsidiary = (subsidiaryId: string | null) => {
     setSelectedSubsidiaryId(subsidiaryId);
   };
 
-  const { nodes, isLoading } = useCompanyGraph(selectedNodeId);
-
-  const selectedGraphNode = useMemo(
-    () => nodes.find((n) => n.id === selectedGraphNodeId) ?? null,
-    [nodes, selectedGraphNodeId]
-  );
+  const { company: companyNode, isLoading } = useCompanyDetail(selectedNodeId, false);
 
   // Get the detail panel node - either the selected company or subsidiary
-  // Only show if a company is actually selected (not on main page)
   const detailPanelNode = useMemo(() => {
     if (!selectedNodeId) return null; // No company selected, no detail panel
+    
     if (selectedSubsidiaryId) {
-      // Create a node object for the subsidiary (we'll need to fetch its data)
-      return { id: selectedSubsidiaryId, type: "Subsidiary" };
+      // For subsidiaries, pass a minimal object with isSubsidiary flag
+      return { id: selectedSubsidiaryId, isSubsidiary: true };
     }
-    return selectedGraphNode;
-  }, [selectedNodeId, selectedGraphNode, selectedSubsidiaryId]);
+    
+    // Show parent company
+    return companyNode || null;
+  }, [selectedNodeId, selectedSubsidiaryId, companyNode]);
 
-  const isPublic = selectedGraphNode?.cik ? true : false;
+  const isPublic = companyNode && (companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER) ? true : undefined;
 
   return (
     <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans" style={{ width: "100%", maxWidth: "100%", padding: "0" }}>
@@ -349,6 +450,7 @@ function AppContent() {
               onSubsidiaryClick={handleSelectSubsidiary}
               showSP500Only={showSP500Only}
               onFilterChange={setShowSP500Only}
+              selectedNode={companyNode}
             />
           ) : (
             <MobileCompanyView
@@ -378,6 +480,7 @@ function AppContent() {
             onSubsidiaryClick={handleSelectSubsidiary}
             showSP500Only={showSP500Only}
             onFilterChange={setShowSP500Only}
+            selectedNode={companyNode}
           />
 
           <main className="flex-1 min-w-0 relative bg-background flex flex-col overflow-hidden" style={{ width: "100%", maxWidth: "100%" }}>
@@ -412,9 +515,9 @@ function AppContent() {
                 Loading Data...
               </div>
             ) : (
-              <JurisdictionTreemap
-                companyId={selectedNodeId}
-                onSubsidiaryClick={handleSelectSubsidiary}
+              <DesktopMainContent
+                selectedNodeId={selectedNodeId}
+                handleSelectSubsidiary={handleSelectSubsidiary}
               />
             )}
 
@@ -524,10 +627,10 @@ function App() {
 
   // Show main app if authenticated
   return (
-    <>
+    <ErrorBoundary>
       <InactivityTimeout user={user} />
       <AuthenticatedApp />
-    </>
+    </ErrorBoundary>
   );
 }
 

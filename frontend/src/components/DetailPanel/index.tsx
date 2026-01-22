@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
 import { ExternalLink } from "lucide-react";
-import type { Node, PropertyValue } from "../../types";
+import type { CompanyDetail, PropertyValue } from "../../types/domain";
+import { CompanyType } from "financial-graph-shared";
 
-import { useCompanyDetails, /* useCompanyAudits, */ useSubsidiaryDetails } from "../../db/queries";
+import { useCompanyDetail } from "../../db/queries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 // Helper function to format fiscal year end from MMDD to MM/DD
@@ -16,7 +17,7 @@ function formatFiscalYearEnd(fiscalYearEnd?: string): string | undefined {
 }
 
 interface DetailPanelProps {
-  node: Node | { id: string; type: string; name?: string } | null;
+  node: CompanyDetail | { id: string; isSubsidiary: boolean; name?: string } | null;
   isPublic?: boolean;
   parentCompanyId?: string | null;
   hideTabs?: boolean; // New prop to hide tabs for mobile
@@ -24,41 +25,34 @@ interface DetailPanelProps {
 
 export function DetailPanel({
   node,
-  isPublic,
+  isPublic: _isPublic, // Unused but kept for API compatibility
   parentCompanyId,
   hideTabs = false,
 }: DetailPanelProps) {
   const [activeTab, setActiveTab] = useState<"info" /* | "audit" */>("info");
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Fetch company details if it's a company
-  const { node: fullNode, isLoading: loadingCompany } = useCompanyDetails(
-    node?.type === "Company" ? node.id : null
-  );
-
+  // Check if this is a subsidiary (either from the flag or if it's not a full CompanyDetail)
+  const isSubsidiaryNode = node && 'isSubsidiary' in node ? node.isSubsidiary : false;
+  
   // Fetch subsidiary details if it's a subsidiary
   const {
-    subsidiary,
+    company: subsidiary,
     parentEdge,
     isLoading: loadingSubsidiary,
-  } = useSubsidiaryDetails(node?.type === "Subsidiary" ? node.id : null);
+  } = useCompanyDetail(isSubsidiaryNode && node ? node.id : null, true);
 
-  // const { audits, isLoading: loadingAudits } = useCompanyAudits(
-  //   node?.type === "Company" ? node.id : null
-  // );
-
-  const displayNode = fullNode || node;
-  const isLoading = loadingCompany || loadingSubsidiary;
+  // For Company nodes, the full data is already passed in via the node prop
+  const displayNode = node;
+  const isLoading = loadingSubsidiary;
 
   if (!node) return null;
 
-  const isEntity = displayNode?.type === "Company";
-  const isBrand = displayNode?.type === "Brand";
-  const isSubsidiaryNode = node?.type === "Subsidiary";
+  // Check if this is a full company entity (has type field from shared Company)
+  const isEntity = displayNode && 'type' in displayNode && typeof displayNode.type === 'number';
 
-  const companyNode = isEntity ? (displayNode as Node) : null;
-  const brandNode = isBrand ? (displayNode as Node) : null;
-  const fullNodeData = displayNode as Node;
+  const companyNode = isEntity ? (displayNode as CompanyDetail) : null;
+  const fullNodeData = displayNode;
 
   // Handle subsidiary navigation to parent company
   const handleParentCompanyClick = () => {
@@ -79,10 +73,11 @@ export function DetailPanel({
       {!hideTabs && (
         <div style={{ padding: `5px ${panelPadding} 0 ${panelPadding}` }}>
           <div className="flex items-center gap-3 mb-3 justify-end">
-            {isEntity && (
-              <Badge variant={isPublic ? "success" : "default"}>{isPublic ? "PUB" : "PVT"}</Badge>
+            {isEntity && companyNode && (
+              <Badge variant={companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER ? "success" : "default"}>
+                {companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER ? "PUB" : "PVT"}
+              </Badge>
             )}
-            {isBrand && <Badge variant="purple">BRD</Badge>}
             {isSubsidiaryNode && <Badge variant="muted">SUB</Badge>}
             {isLoading && (
               <span className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -99,7 +94,7 @@ export function DetailPanel({
           >
             {isSubsidiaryNode ? subsidiary?.name || "Loading..." : node?.name || "Unknown"}
           </h2>
-          {(fullNodeData?.updatedAt || (isSubsidiaryNode && subsidiary?.updatedAt)) && (
+          {(fullNodeData && 'updated_at' in fullNodeData && fullNodeData.updated_at) || (isSubsidiaryNode && subsidiary?.updated_at) ? (
             <div
               style={{
                 display: "flex",
@@ -111,11 +106,11 @@ export function DetailPanel({
               <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>
                 Updated:{" "}
                 {new Date(
-                  fullNodeData?.updatedAt || subsidiary?.updatedAt || ""
+                  (fullNodeData && 'updated_at' in fullNodeData ? fullNodeData.updated_at : null) || subsidiary?.updated_at || ""
                 ).toLocaleDateString()}
               </span>
             </div>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -201,12 +196,12 @@ export function DetailPanel({
 
                   <div style={{ gridColumn: "span 2" }}>
                     <TickerField
-                      tickers={companyNode.properties?.tickers as string | string[] | undefined}
+                      tickers={companyNode.identity?.tickers}
                     />
                   </div>
 
                   <FieldRow label="Jurisdiction" value={companyNode.jurisdiction} />
-                  <FieldRow label="Exchange" value={companyNode.properties?.exchange} />
+                  <FieldRow label="Exchange" value={companyNode.identity?.exchanges} />
 
                   <FieldRow label="S&P 500" value={companyNode.identity?.sp500} />
                   <FieldRow label="Owner Org" value={companyNode.identity?.ownerOrg} />
@@ -327,45 +322,7 @@ export function DetailPanel({
             </>
           )}
 
-          {isBrand && brandNode && (
-            <Section title="Brand Info">
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "10px 16px",
-                }}
-              >
-                <FieldRow label="Type" value={brandNode.properties?.brand_type} />
-                <FieldRow label="Sector" value={brandNode.properties?.sector} />
-                <FieldRow label="Industry" value={brandNode.properties?.industry} />
-                <FieldRow label="Owner" value={brandNode.properties?.entity_id} mono />
-              </div>
-            </Section>
-          )}
-
-          {/* Data Quality */}
-          {fullNodeData?.metadata && (
-            <Section title="Data Quality">
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "10px 16px",
-                }}
-              >
-                <FieldRow label="Method" value={fullNodeData.metadata.parsingMethod} />
-                <FieldRow
-                  label="Confidence"
-                  value={
-                    fullNodeData.metadata.confidenceScore
-                      ? `${(fullNodeData.metadata.confidenceScore * 100).toFixed(0)}%`
-                      : undefined
-                  }
-                />
-              </div>
-            </Section>
-          )}
+          {/* Data Quality - Removed: metadata field no longer exists */}
         </div>
       ) : (
         // Desktop version - show with tabs
@@ -484,12 +441,12 @@ export function DetailPanel({
 
                     <div style={{ gridColumn: "span 2" }}>
                       <TickerField
-                        tickers={companyNode.properties?.tickers as string | string[] | undefined}
+                        tickers={companyNode.identity?.tickers}
                       />
                     </div>
 
                     <FieldRow label="Jurisdiction" value={companyNode.jurisdiction} />
-                    <FieldRow label="Exchange" value={companyNode.properties?.exchange} />
+                    <FieldRow label="Exchange" value={companyNode.identity?.exchanges} />
 
                     <FieldRow label="S&P 500" value={companyNode.identity?.sp500} />
                     <FieldRow label="Owner Org" value={companyNode.identity?.ownerOrg} />
@@ -610,45 +567,9 @@ export function DetailPanel({
               </>
             )}
 
-            {isBrand && brandNode && (
-              <Section title="Brand Info">
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "10px 16px",
-                  }}
-                >
-                  <FieldRow label="Type" value={brandNode.properties?.brand_type} />
-                  <FieldRow label="Sector" value={brandNode.properties?.sector} />
-                  <FieldRow label="Industry" value={brandNode.properties?.industry} />
-                  <FieldRow label="Owner" value={brandNode.properties?.entity_id} mono />
-                </div>
-              </Section>
-            )}
 
-            {/* Data Quality */}
-            {fullNodeData?.metadata && (
-              <Section title="Data Quality">
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "10px 16px",
-                  }}
-                >
-                  <FieldRow label="Method" value={fullNodeData.metadata.parsingMethod} />
-                  <FieldRow
-                    label="Confidence"
-                    value={
-                      fullNodeData.metadata.confidenceScore
-                        ? `${(fullNodeData.metadata.confidenceScore * 100).toFixed(0)}%`
-                        : undefined
-                    }
-                  />
-                </div>
-                </Section>
-              )}
+
+            {/* Data Quality - Removed: metadata field no longer exists */}
             </TabsContent>
           </Tabs>
         )}

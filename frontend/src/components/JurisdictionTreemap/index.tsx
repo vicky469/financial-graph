@@ -143,7 +143,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
     }
 
     const groups: Record<string, number> = {};
-    const companiesByJurisdiction: Record<string, any[]> = {};
+    const companiesByJurisdiction: Record<string, Array<{ id: string; name: string; level: number; jurisdiction?: string }>> = {};
 
     subsidiaries.forEach((sub) => {
       const jurisdiction = sub.jurisdiction || "Unknown";

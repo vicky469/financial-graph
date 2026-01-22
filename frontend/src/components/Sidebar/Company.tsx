@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { ArrowLeft, ExternalLink, Building2, Sparkles, FileText, ChevronDown } from "lucide-react";
-import type { Node } from "../../types";
+import type { CompanyDetail } from "../../types/domain";
 import { useCompanyHierarchy, useCompanyBrands, useCompanyFilings } from "../../db/queries";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { HierarchicalTree } from "../HierarchicalTree";
 
 interface CompanyProps {
-  node: Node;
+  node: CompanyDetail;
   onBack: () => void;
   selectedSubsidiaryId?: string | null;
   onSubsidiaryClick?: (subsidiaryId: string) => void;
@@ -85,10 +85,13 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
           ) : (
             <HierarchicalTree
               hierarchy={flatHierarchy}
-              selectedNodeId={selectedSubsidiaryId}
+              selectedNodeId={selectedSubsidiaryId || node.id}
               onNodeClick={(nodeId) => {
-                // Only handle subsidiary clicks, not the root company
-                if (nodeId !== node.id && onSubsidiaryClick) {
+                // Clicking the root company clears subsidiary selection
+                if (nodeId === node.id) {
+                  onSubsidiaryClick?.(null);
+                } else if (onSubsidiaryClick) {
+                  // Clicking a subsidiary selects it
                   onSubsidiaryClick(nodeId);
                 }
               }}

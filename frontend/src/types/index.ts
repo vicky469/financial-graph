@@ -2,5 +2,3 @@
 // Import types from this file for convenience
 
 export * from "./domain";
-export * from "./components";
-export * from "./audit";

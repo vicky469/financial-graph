@@ -1,24 +1,9 @@
 // Shared Query Hooks
 
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import { db } from "./client";
-import { companyToNode } from "./adapters";
-import type { Node } from "../types";
+import { companyToDetail } from "./adapters";
 import { CompanyType, type Company } from "financial-graph-shared";
-
-// Simple in-memory cache for companies
-const companiesCache = {
-  data: null as Array<{
-    id: string;
-    name: string;
-    type: "Company";
-    ticker: string | null;
-    cik: string | null;
-    sp500: boolean;
-  }> | null,
-  timestamp: 0,
-  TTL: 5 * 60 * 1000, // 5 minutes cache
-};
 
 // Load all public companies (lightweight - just id, name, type, sp500 flag)
 export const useAllCompanies = () => {
@@ -50,36 +35,12 @@ export const useAllCompanies = () => {
       }));
   }, [data?.company]);
 
-  // Cache all public companies when loaded
-  useEffect(() => {
-    if (companies.length > 0) {
-      companiesCache.data = companies;
-      companiesCache.timestamp = Date.now();
-    }
-  }, [companies]);
-
   return { companies, isLoading };
 };
 
-// Cached version that returns cached data immediately if available
-export const useAllCompaniesCached = () => {
-  const cacheTimestamp = companiesCache.timestamp;
-  const isCacheValid = companiesCache.data && Date.now() - cacheTimestamp < companiesCache.TTL;
-
-  // Always call the hook, but conditionally use the data
-  const { companies: freshCompanies, isLoading } = useAllCompanies();
-
-  // If cache is valid, return cached data immediately
-  if (isCacheValid) {
-    return { companies: companiesCache.data!, isLoading: false };
-  }
-
-  // Otherwise, return fresh data
-  return { companies: freshCompanies, isLoading };
-};
-
-// Load only edges needed for a specific company
-export const useCompanyGraph = (companyId: string | null) => {
+// Load company details - works for both public companies and subsidiaries
+// Returns CompanyDetail with all relations
+export const useCompanyDetail = (companyId: string | null, isSubsidiary: boolean = false) => {
   const { data, isLoading } = db.useQuery(
     companyId
       ? {
@@ -89,146 +50,47 @@ export const useCompanyGraph = (companyId: string | null) => {
                 id: companyId,
               },
             },
-            subsidiaries: {}, // Use the link to get parent_of edges where this company is the parent
-          },
-        }
-      : null
-  );
-
-  const nodes: Node[] = [];
-  const edges: any[] = [];
-
-  if (data?.company?.[0]) {
-    const company = data.company[0];
-    nodes.push({
-      id: company.id,
-      name: company.name,
-      type: "Company",
-      properties: {
-        ...(company.identity?.tickers && {
-          tickers: company.identity.tickers,
-        }),
-      },
-      cik: company.identity?.primaryCIK,
-      updatedAt: Date.now(),
-      updatedBy: "system",
-    });
-
-    // Add subsidiary edges
-    if (company.subsidiaries) {
-      edges.push(
-        ...company.subsidiaries.map((edge: any) => ({
-          id: edge.id,
-          sourceId: companyId,
-          targetId: edge.subsidiaryCompany?.id,
-          label: "parent_of",
-          ownership: edge.ownership_percent,
-          updatedAt: Date.now(),
-          updatedBy: "system",
-        }))
-      );
-    }
-  }
-
-  return { nodes, edges, isLoading };
-};
-
-// Fetch subsidiaries for a company with hierarchical structure
-export const useCompanySubsidiaries = (companyId: string | null) => {
-  const { data, isLoading } = db.useQuery(
-    companyId
-      ? {
-          company: {
-            $: {
-              where: {
-                id: companyId,
+            companyInfo: {}, // Fetch company info for detail panel
+            // For subsidiaries, also fetch parent relationship
+            ...(isSubsidiary && {
+              parents: {
+                parentCompany: {},
               },
-            },
-            subsidiaries: {
-              subsidiaryCompany: {}, // Get the actual subsidiary company data
-            },
+            }),
           },
         }
       : null
   );
 
   const company = data?.company?.[0];
-  const edges = company?.subsidiaries || [];
-
-  // Build company map from subsidiary edges
-  const companyMap = new Map();
-  if (company) {
-    companyMap.set(company.id, company);
+  
+  if (!company) {
+    return { 
+      company: null, 
+      parentEdge: null, 
+      isLoading 
+    };
   }
-  edges.forEach((edge: any) => {
-    if (edge.subsidiaryCompany) {
-      companyMap.set(edge.subsidiaryCompany.id, edge.subsidiaryCompany);
-    }
-  });
 
-  // Build hierarchical tree structure based on actual parent-child relationships
-  const buildHierarchicalTree = (parentId: string, processedIds = new Set()): any[] => {
-    // Prevent infinite loops
-    if (processedIds.has(parentId)) {
-      return [];
-    }
-    processedIds.add(parentId);
+  // Convert to CompanyDetail with convenience fields
+  const companyDetail = companyToDetail(company as Company & { companyInfo?: unknown });
 
-    // Find all direct children of this parent
-    const childEdges = edges.filter((edge: any) => {
-      // Check if this edge represents a parent-child relationship where parentId is the parent
-      // Since we're querying from the parent company, all edges should have the parent as the source
-      return edge.subsidiaryCompany?.id && !processedIds.has(edge.subsidiaryCompany.id);
-    });
+  // For subsidiaries, extract parent relationship
+  const parentEdge = isSubsidiary && company.parents?.[0]
+    ? {
+        ownership_percent: company.parents[0].ownership_percent,
+        parentCompany: company.parents[0].parentCompany,
+      }
+    : null;
 
-    return childEdges
-      .map((edge: any) => {
-        const child = edge.subsidiaryCompany;
-        if (!child) return null;
-
-        return {
-          id: child.id,
-          name: child.name,
-          ownership_percent: edge.ownership_percent,
-          jurisdiction: child.jurisdiction_raw || child.jurisdiction_iso || "Unknown",
-          parentId: parentId,
-          parentName: company?.name,
-          children: [], // TODO: Implement recursive subsidiary querying for true multi-level
-          level: 1, // Direct subsidiaries are level 1
-        };
-      })
-      .filter(Boolean);
-  };
-
-  const subsidiaryTree = companyId ? buildHierarchicalTree(companyId) : [];
-
-  // Enhanced flat list with hierarchy information
-  const subsidiariesList = edges
-    .map((edge: any) => {
-      const child = edge.subsidiaryCompany;
-      return child
-        ? {
-            id: child.id,
-            name: child.name,
-            cik: child.identity?.primaryCIK,
-            jurisdiction: child.jurisdiction_raw || child.jurisdiction_iso || "Unknown",
-            ownership_percent: edge.ownership_percent,
-            parentCompanyId: companyId,
-            parentCompanyName: company?.name,
-            level: 1, // All are direct subsidiaries for now
-          }
-        : null;
-    })
-    .filter(Boolean);
-
-  return {
-    subsidiaries: subsidiariesList,
-    subsidiaryTree,
-    isLoading,
+  return { 
+    company: companyDetail,
+    parentEdge,
+    isLoading 
   };
 };
 
-// New query to get full hierarchical structure by recursively fetching subsidiary relationships
+// Fetch full hierarchical structure by recursively fetching subsidiary relationships
 export const useCompanyHierarchy = (companyId: string | null) => {
   const { data, isLoading } = db.useQuery(
     companyId
@@ -372,119 +234,4 @@ export const useCompanyFilings = (companyId: string | null) => {
     });
 
   return { filings, isLoading };
-};
-
-// Fetch full details for a specific company when needed
-export const useCompanyDetails = (companyId: string | null) => {
-  const { data, isLoading } = db.useQuery(
-    companyId
-      ? {
-          company: {
-            $: {
-              where: {
-                id: companyId,
-              },
-            },
-            companyInfo: {}, // fetch related info
-          },
-        }
-      : null
-  );
-
-  const company = data?.company?.[0];
-  if (!company) return { node: null, isLoading };
-
-  const node = companyToNode(company as unknown as Company);
-  return { node, isLoading };
-};
-
-// Fetch subsidiary details including parent relationship - OPTIMIZED
-export const useSubsidiaryDetails = (
-  subsidiaryId: string | null
-) => {
-  const { data, isLoading } = db.useQuery(
-    subsidiaryId
-      ? {
-          company: {
-            $: {
-              where: {
-                id: subsidiaryId,
-              },
-            },
-            // Use the reverse link to get parent relationships directly
-            parents: {
-              parentCompany: {},
-            },
-          },
-        }
-      : null
-  );
-
-  const subsidiary = data?.company?.[0];
-  // Get the first parent relationship (there should typically be only one)
-  const parentEdge = subsidiary?.parents?.[0];
-
-  if (!subsidiary) return { subsidiary: null, parentEdge: null, isLoading };
-
-  return {
-    subsidiary: {
-      id: subsidiary.id,
-      name: subsidiary.name,
-      jurisdiction: subsidiary.jurisdiction_raw || subsidiary.jurisdiction_iso || "Unknown",
-      type: subsidiary.type,
-      // Add all the company fields that we show for public companies
-      cik: subsidiary.identity?.primaryCIK,
-      identity: subsidiary.identity,
-      aliases: subsidiary.aliases,
-      updatedAt: subsidiary.updated_at,
-      updatedBy: "system", // Default value
-    },
-    parentEdge: parentEdge
-      ? {
-          ownership_percent: parentEdge.ownership_percent,
-          parentCompany: parentEdge.parentCompany,
-        }
-      : null,
-    isLoading,
-  };
-};
-
-// Fetch audit trail for a company (limited to recent records for performance)
-export const useCompanyAudits = (entityId: string | null) => {
-  const { data, isLoading } = db.useQuery(
-    entityId
-      ? {
-          audit: {
-            $: {
-              where: {
-                entity_type: "company",
-                entity_id: entityId,
-              },
-              order: {
-                changed_at: "desc",
-              },
-              limit: 50, // Limit to 50 most recent audit records for performance
-            },
-          },
-        }
-      : null
-  );
-
-  const audits = (data?.audit ?? []).map((a: any) => ({
-    id: a.id,
-    entity_type: a.entity_type,
-    entity_id: a.entity_id,
-    operation: a.operation as "CREATE" | "UPDATE" | "DELETE",
-    changed_by: a.changed_by as "heuristic" | "llm" | "human",
-    changed_at: a.changed_at,
-    source_id: a.source_id,
-    fields_changed: a.fields_changed as Array<{
-      field: string;
-      old_value: unknown;
-      new_value: unknown;
-    }>,
-    expires_at: a.expires_at,
-  }));
-
-  return { audits, isLoading };
 };

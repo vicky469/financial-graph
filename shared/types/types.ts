@@ -24,6 +24,7 @@ export const CompanyType = {
   ISSUER: 3,
   UNKNOWN: 4,
   TRUST: 5,
+  SUBSIDIARY:6
 } as const;
 
 export type CompanyTypeValue = (typeof CompanyType)[keyof typeof CompanyType];
