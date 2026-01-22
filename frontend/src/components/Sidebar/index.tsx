@@ -4,16 +4,33 @@ import { Company } from "./Company";
 import type { CompanyDetail } from "../../types/domain";
 
 interface SidebarProps {
-  onSelectNode: (id: string | null) => void;
-  selectedNodeId: string | null;
+  onSelectCompany: (id: string | null) => void;
+  selectedCompanyId: string | null;
   selectedSubsidiaryId: string | null;
   onSubsidiaryClick?: (subsidiaryId: string | null) => void;
-  showSP500Only: boolean;
-  onFilterChange: (showSP500Only: boolean) => void;
-  selectedNode?: CompanyDetail | null;
+  selectedCompany?: CompanyDetail | null;
+  companyFilters: {
+    showSP500Only: boolean;
+    categories: string[];
+    ownerOrgs: string[];
+    entityTypes: string[];
+  };
+  onFiltersChange: (filters: {
+    showSP500Only: boolean;
+    categories: string[];
+    ownerOrgs: string[];
+    entityTypes: string[];
+  }) => void;
 }
 
-export function Sidebar({ onSelectNode, selectedSubsidiaryId, onSubsidiaryClick, showSP500Only, onFilterChange, selectedNode }: SidebarProps) {
+export function Sidebar({ 
+  onSelectCompany, 
+  selectedSubsidiaryId, 
+  onSubsidiaryClick, 
+  selectedCompany,
+  companyFilters,
+  onFiltersChange,
+}: SidebarProps) {
   const MIN_WIDTH = 320;
   const MAX_WIDTH = 500;
   const DEFAULT_LIST_WIDTH = 320;
@@ -26,7 +43,7 @@ export function Sidebar({ onSelectNode, selectedSubsidiaryId, onSubsidiaryClick,
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
-    if (selectedNode) {
+    if (selectedCompany) {
       if (width < DEFAULT_COMPANY_WIDTH && !isCollapsed) {
         setWidth(DEFAULT_COMPANY_WIDTH);
       }
@@ -36,7 +53,7 @@ export function Sidebar({ onSelectNode, selectedSubsidiaryId, onSubsidiaryClick,
         setWidth(DEFAULT_LIST_WIDTH);
       }
     }
-  }, [selectedNode, isCollapsed, width]);
+  }, [selectedCompany, isCollapsed, width]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isCollapsed) return;
@@ -92,18 +109,18 @@ export function Sidebar({ onSelectNode, selectedSubsidiaryId, onSubsidiaryClick,
           isCollapsed ? "opacity-0 invisible" : "opacity-100 visible"
         } transition-opacity duration-200`}
       >
-        {selectedNode ? (
+        {selectedCompany ? (
           <Company 
-            node={selectedNode} 
-            onBack={() => onSelectNode(null)} 
+            node={selectedCompany} 
+            onBack={() => onSelectCompany(null)} 
             selectedSubsidiaryId={selectedSubsidiaryId}
             onSubsidiaryClick={onSubsidiaryClick}
           />
         ) : (
           <CompanyList 
-            onSelectNode={onSelectNode}
-            showSP500Only={showSP500Only}
-            onFilterChange={onFilterChange}
+            onSelectCompany={onSelectCompany}
+            companyFilters={companyFilters}
+            onFiltersChange={onFiltersChange}
           />
         )}
       </div>
@@ -119,8 +136,8 @@ export function Sidebar({ onSelectNode, selectedSubsidiaryId, onSubsidiaryClick,
         </div>
       )}
 
-      {/* Collapse Toggle Button - Only show when company component is open (selectedNode), hide on mobile */}
-      {selectedNode && (
+      {/* Collapse Toggle Button - Only show when company component is open (selectedCompany), hide on mobile */}
+      {selectedCompany && (
         <button
           onClick={toggleCollapse}
           className="hide-on-mobile"

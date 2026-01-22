@@ -13,7 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "financial-graph-shared": "*",
+    "financial-graph-shared": "file:../shared",
     "@instantdb/admin": "^0.22.96",
     "@instantdb/react": "^0.22.96",
     "@radix-ui/react-scroll-area": "^1.2.10",

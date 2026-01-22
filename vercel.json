@@ -1,9 +1,10 @@
 {
-  "buildCommand": "npm install && npm run build",
-  "installCommand": "npm install",
+  "buildCommand": "cd shared && npm install && npm run build && cd ../frontend && npm install && npm run build",
+  "installCommand": "echo 'Skipping root install'",
   "outputDirectory": "frontend/dist",
   "framework": null,
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./frontend ./shared"
 }

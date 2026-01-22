@@ -1,5 +1,14 @@
-# Ignore backend
+# Ignore backend completely
 backend/
+
+# Ignore tools
+tools/
+
+# Ignore logs directories
+logs/
+
+# Ignore node_modules (will be installed fresh)
+node_modules/
 
 # Ignore local development files
 .env.local
@@ -23,3 +32,12 @@ bun-error.log*
 docs/
 *.md
 !README.md
+
+# Ignore IDE files
+.vscode/
+.idea/
+.DS_Store
+
+# Ignore git
+.git/
+.gitignore

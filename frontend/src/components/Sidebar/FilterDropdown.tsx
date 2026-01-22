@@ -6,7 +6,6 @@ interface FilterDropdownProps {
   options: readonly string[];
   selectedValues: string[];
   onChange: (values: string[]) => void;
-  placeholder?: string;
 }
 
 export function FilterDropdown({
@@ -14,7 +13,6 @@ export function FilterDropdown({
   options,
   selectedValues,
   onChange,
-  placeholder = "Select...",
 }: FilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);

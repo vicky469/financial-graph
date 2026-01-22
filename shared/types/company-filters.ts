@@ -4,34 +4,52 @@
  */
 
 /**
- * Company Categories (SEC Filer Status)
- * Raw values from database may contain <br> tags
+ * Company Category Definition
  */
-export const COMPANY_CATEGORIES = {
-  // Empty/leading br tag
-  "<br>Emerging growth company": "Emerging growth company",
+interface CategoryDefinition {
+  rank: number;
+  raw: string;
+  display: string;
+}
+
+/**
+ * Company Categories (SEC Filer Status)
+ * Ranked by company size and market significance (1 = largest/most important)
+ */
+const CATEGORY_DEFINITIONS: CategoryDefinition[] = [
+  // Tier 1: Largest, most established public companies (2,311 companies)
+  { rank: 1, raw: "Large accelerated filer", display: "Large accelerated filer" },
+  { rank: 2, raw: "Large Accelerated<br>Well Known Seasoned Issuer", display: "Large Accelerated Well Known Seasoned Issuer" },
+  { rank: 3, raw: "Large Accelerated", display: "Large Accelerated" },
+  { rank: 4, raw: "Large accelerated filer<br>Smaller reporting company", display: "Large accelerated filer Smaller reporting company" },
   
-  // Accelerated filer variations
-  "Accelerated filer": "Accelerated filer",
-  "Accelerated filer<br>Emerging growth company": "Accelerated filer Emerging growth company",
-  "Accelerated filer<br>Smaller reporting company": "Accelerated filer Smaller reporting company",
-  "Accelerated filer<br>Smaller reporting company<br>Emerging growth company": "Accelerated filer Smaller reporting company Emerging growth company",
+  // Tier 2: Mid-sized public companies (837 companies)
+  { rank: 5, raw: "Accelerated filer", display: "Accelerated filer" },
+  { rank: 6, raw: "Accelerated filer<br>Emerging growth company", display: "Accelerated filer Emerging growth company" },
+  { rank: 7, raw: "Accelerated filer<br>Smaller reporting company", display: "Accelerated filer Smaller reporting company" },
+  { rank: 8, raw: "Accelerated filer<br>Smaller reporting company<br>Emerging growth company", display: "Accelerated filer Smaller reporting company Emerging growth company" },
   
-  // Large accelerated filer variations
-  "Large Accelerated": "Large Accelerated",
-  "Large Accelerated<br>Well Known Seasoned Issuer": "Large Accelerated Well Known Seasoned Issuer",
-  "Large accelerated filer": "Large accelerated filer",
-  "Large accelerated filer<br>Smaller reporting company": "Large accelerated filer Smaller reporting company",
+  // Tier 3: Smaller public companies (2,676 companies)
+  { rank: 9, raw: "Non-accelerated filer", display: "Non-accelerated filer" },
+  { rank: 10, raw: "Non-accelerated filer<br>Emerging growth company", display: "Non-accelerated filer Emerging growth company" },
+  { rank: 11, raw: "Non-accelerated filer<br>Smaller reporting company", display: "Non-accelerated filer Smaller reporting company" },
+  { rank: 12, raw: "Non-accelerated filer<br>Smaller reporting company<br>Emerging growth company", display: "Non-accelerated filer Smaller reporting company Emerging growth company" },
   
-  // Non-accelerated filer variations
-  "Non-accelerated filer": "Non-accelerated filer",
-  "Non-accelerated filer<br>Emerging growth company": "Non-accelerated filer Emerging growth company",
-  "Non-accelerated filer<br>Smaller reporting company": "Non-accelerated filer Smaller reporting company",
-  "Non-accelerated filer<br>Smaller reporting company<br>Emerging growth company": "Non-accelerated filer Smaller reporting company Emerging growth company",
-  
-  // Smaller reporting company
-  "Smaller reporting company": "Smaller reporting company",
-} as const;
+  // Tier 4: Smallest reporting companies (926 companies)
+  { rank: 13, raw: "Smaller reporting company", display: "Smaller reporting company" },
+  { rank: 14, raw: "<br>Emerging growth company", display: "Emerging growth company" },
+];
+
+/**
+ * Build lookup maps from definitions
+ */
+const CATEGORY_RANK = Object.fromEntries(
+  CATEGORY_DEFINITIONS.map(def => [def.display, def.rank])
+);
+
+export const COMPANY_CATEGORIES = Object.fromEntries(
+  CATEGORY_DEFINITIONS.map(def => [def.raw, def.display])
+) as Record<string, string>;
 
 /**
  * Owner Organizations (SEC Division/Office)
@@ -103,11 +121,18 @@ export function getCleanCategory(rawCategory: string | undefined | null): string
 }
 
 /**
- * Get all unique clean category values
- * @returns Array of clean category values
+ * Get all unique clean category values sorted by importance
+ * @returns Array of clean category values in ranked order
  */
 export function getAllCleanCategories(): string[] {
-  return Array.from(new Set(Object.values(COMPANY_CATEGORIES))).sort();
+  const uniqueCategories = Array.from(new Set(Object.values(COMPANY_CATEGORIES)));
+  
+  // Sort by rank (lower number = higher importance)
+  return uniqueCategories.sort((a, b) => {
+    const rankA = CATEGORY_RANK[a] ?? 999;
+    const rankB = CATEGORY_RANK[b] ?? 999;
+    return rankA - rankB;
+  });
 }
 
 /**

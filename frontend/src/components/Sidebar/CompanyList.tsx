@@ -6,16 +6,27 @@ import { FilterChips } from "./FilterChips";
 import { getAllCleanCategories, getAllOwnerOrgs, getAllEntityTypes, getCleanCategory } from "financial-graph-shared";
 
 interface CompanyListProps {
-  onSelectNode: (id: string) => void;
-  showSP500Only: boolean;
-  onFilterChange: (showSP500Only: boolean) => void;
+  onSelectCompany: (id: string) => void;
+  companyFilters: {
+    showSP500Only: boolean;
+    categories: string[];
+    ownerOrgs: string[];
+    entityTypes: string[];
+  };
+  onFiltersChange: (filters: {
+    showSP500Only: boolean;
+    categories: string[];
+    ownerOrgs: string[];
+    entityTypes: string[];
+  }) => void;
 }
 
-export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500Only, onFilterChange }: CompanyListProps) {
+export const CompanyList = memo(function CompanyList({ 
+  onSelectCompany, 
+  companyFilters,
+  onFiltersChange,
+}: CompanyListProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedOwnerOrgs, setSelectedOwnerOrgs] = useState<string[]>([]);
-  const [selectedEntityTypes, setSelectedEntityTypes] = useState<string[]>([]);
   
   const { companies: allCompanies, isLoading } = useAllCompanies();
 
@@ -28,29 +39,29 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
     let filtered = allCompanies;
     
     // Apply SP500 filter if enabled
-    if (showSP500Only) {
+    if (companyFilters.showSP500Only) {
       filtered = filtered.filter((c) => c.sp500);
     }
     
     // Apply category filter
-    if (selectedCategories.length > 0) {
+    if (companyFilters.categories.length > 0) {
       filtered = filtered.filter((c) => {
         const cleanCategory = getCleanCategory(c.category);
-        return cleanCategory && selectedCategories.includes(cleanCategory);
+        return cleanCategory && companyFilters.categories.includes(cleanCategory);
       });
     }
     
     // Apply owner org filter
-    if (selectedOwnerOrgs.length > 0) {
+    if (companyFilters.ownerOrgs.length > 0) {
       filtered = filtered.filter((c) => {
-        return c.ownerOrg && selectedOwnerOrgs.includes(c.ownerOrg);
+        return c.ownerOrg && companyFilters.ownerOrgs.includes(c.ownerOrg);
       });
     }
     
     // Apply entity type filter
-    if (selectedEntityTypes.length > 0) {
+    if (companyFilters.entityTypes.length > 0) {
       filtered = filtered.filter((c) => {
-        return c.entityType && selectedEntityTypes.includes(c.entityType);
+        return c.entityType && companyFilters.entityTypes.includes(c.entityType);
       });
     }
     
@@ -65,12 +76,15 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
     }
     
     return filtered;
-  }, [allCompanies, searchQuery, showSP500Only, selectedCategories, selectedOwnerOrgs, selectedEntityTypes]);
+  }, [allCompanies, searchQuery, companyFilters]);
 
   const handleClearAllFilters = () => {
-    setSelectedCategories([]);
-    setSelectedOwnerOrgs([]);
-    setSelectedEntityTypes([]);
+    onFiltersChange({
+      ...companyFilters,
+      categories: [],
+      ownerOrgs: [],
+      entityTypes: [],
+    });
   };
 
   return (
@@ -95,7 +109,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
           />
           <input
             type="text"
-            placeholder={showSP500Only ? "Search S&P 500 companies..." : "Search public companies..."}
+            placeholder={companyFilters.showSP500Only ? "Search S&P 500 companies..." : "Search public companies..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -126,7 +140,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
       <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: "8px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
           <button
-            onClick={() => onFilterChange(!showSP500Only)}
+            onClick={() => onFiltersChange({ ...companyFilters, showSP500Only: !companyFilters.showSP500Only })}
             style={{
               display: "flex",
               alignItems: "center",
@@ -135,35 +149,35 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
               padding: "6px 10px",
               borderRadius: "6px",
               border: "1px solid rgba(255,255,255,0.08)",
-              background: showSP500Only ? "rgba(99, 102, 241, 0.15)" : "rgba(255,255,255,0.03)",
-              color: showSP500Only ? "rgba(99, 102, 241, 0.9)" : "rgba(255,255,255,0.6)",
+              background: companyFilters.showSP500Only ? "rgba(99, 102, 241, 0.15)" : "rgba(255,255,255,0.03)",
+              color: companyFilters.showSP500Only ? "rgba(99, 102, 241, 0.9)" : "rgba(255,255,255,0.6)",
               fontSize: "12px",
               fontWeight: "500",
               cursor: "pointer",
               transition: "all 0.15s ease",
             }}
             onMouseEnter={(e) => {
-              if (!showSP500Only) {
+              if (!companyFilters.showSP500Only) {
                 e.currentTarget.style.background = "rgba(255,255,255,0.08)";
                 e.currentTarget.style.color = "rgba(255,255,255,0.8)";
               }
             }}
             onMouseLeave={(e) => {
-              if (!showSP500Only) {
+              if (!companyFilters.showSP500Only) {
                 e.currentTarget.style.background = "rgba(255,255,255,0.03)";
                 e.currentTarget.style.color = "rgba(255,255,255,0.6)";
               }
             }}
           >
             <Filter size={12} />
-            {showSP500Only ? "S&P 500" : "All Public"}
+            {companyFilters.showSP500Only ? "S&P 500" : "All Public"}
           </button>
 
           <FilterDropdown
             label="Category"
             options={categoryOptions}
-            selectedValues={selectedCategories}
-            onChange={setSelectedCategories}
+            selectedValues={companyFilters.categories}
+            onChange={(categories) => onFiltersChange({ ...companyFilters, categories })}
           />
         </div>
 
@@ -171,15 +185,15 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
           <FilterDropdown
             label="Owner Org"
             options={ownerOrgOptions}
-            selectedValues={selectedOwnerOrgs}
-            onChange={setSelectedOwnerOrgs}
+            selectedValues={companyFilters.ownerOrgs}
+            onChange={(ownerOrgs) => onFiltersChange({ ...companyFilters, ownerOrgs })}
           />
 
           <FilterDropdown
             label="Entity Type"
             options={entityTypeOptions}
-            selectedValues={selectedEntityTypes}
-            onChange={setSelectedEntityTypes}
+            selectedValues={companyFilters.entityTypes}
+            onChange={(entityTypes) => onFiltersChange({ ...companyFilters, entityTypes })}
           />
         </div>
       </div>
@@ -187,13 +201,13 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
       {/* Active Filter Chips */}
       <FilterChips
         filters={{
-          categories: selectedCategories,
-          ownerOrgs: selectedOwnerOrgs,
-          entityTypes: selectedEntityTypes,
+          categories: companyFilters.categories,
+          ownerOrgs: companyFilters.ownerOrgs,
+          entityTypes: companyFilters.entityTypes,
         }}
-        onRemoveCategory={(value) => setSelectedCategories(selectedCategories.filter((v) => v !== value))}
-        onRemoveOwnerOrg={(value) => setSelectedOwnerOrgs(selectedOwnerOrgs.filter((v) => v !== value))}
-        onRemoveEntityType={(value) => setSelectedEntityTypes(selectedEntityTypes.filter((v) => v !== value))}
+        onRemoveCategory={(value) => onFiltersChange({ ...companyFilters, categories: companyFilters.categories.filter((v) => v !== value) })}
+        onRemoveOwnerOrg={(value) => onFiltersChange({ ...companyFilters, ownerOrgs: companyFilters.ownerOrgs.filter((v) => v !== value) })}
+        onRemoveEntityType={(value) => onFiltersChange({ ...companyFilters, entityTypes: companyFilters.entityTypes.filter((v) => v !== value) })}
         onClearAll={handleClearAllFilters}
       />
 
@@ -215,7 +229,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
             letterSpacing: "0.04em",
           }}
         >
-          {showSP500Only ? "S&P 500" : "Companies"}
+          {companyFilters.showSP500Only ? "S&P 500" : "Companies"}
         </span>
         <span
           style={{
@@ -272,7 +286,7 @@ export const CompanyList = memo(function CompanyList({ onSelectNode, showSP500On
               return (
                 <button
                   key={company.id}
-                  onClick={() => onSelectNode(company.id)}
+                  onClick={() => onSelectCompany(company.id)}
                   style={{
                     width: "100%",
                     display: "flex",
