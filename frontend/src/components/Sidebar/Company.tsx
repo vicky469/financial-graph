@@ -9,7 +9,7 @@ interface CompanyProps {
   node: CompanyDetail;
   onBack: () => void;
   selectedSubsidiaryId?: string | null;
-  onSubsidiaryClick?: (subsidiaryId: string) => void;
+  onSubsidiaryClick?: (subsidiaryId: string | null) => void;
 }
 
 export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick }: CompanyProps) {
@@ -89,10 +89,14 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
               onNodeClick={(nodeId) => {
                 // Clicking the root company clears subsidiary selection
                 if (nodeId === node.id) {
-                  onSubsidiaryClick?.(null);
-                } else if (onSubsidiaryClick) {
+                  if (onSubsidiaryClick) {
+                    onSubsidiaryClick(null);
+                  }
+                } else {
                   // Clicking a subsidiary selects it
-                  onSubsidiaryClick(nodeId);
+                  if (onSubsidiaryClick) {
+                    onSubsidiaryClick(nodeId);
+                  }
                 }
               }}
             />

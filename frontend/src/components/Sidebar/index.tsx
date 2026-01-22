@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { CompanyList } from "./CompanyList";
 import { Company } from "./Company";
 import type { CompanyDetail } from "../../types/domain";
