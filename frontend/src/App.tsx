@@ -162,9 +162,9 @@ function MobileCompanyView({
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-card" style={{ width: "100%", maxWidth: "100%" }}>
       {/* Back Button - improved spacing */}
-      <div className="flex items-center px-4 py-4 border-b border-border/20 bg-card/50">
+      <div className="flex items-center px-4 py-2 border-b border-border/20 bg-card/50">
         <button 
-          className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-all rounded-md"
+          className="flex items-center gap-2 px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-all rounded-md"
           onClick={handleBackClick}
           style={{
             fontSize: "12px",
@@ -200,12 +200,7 @@ function MobileCompanyView({
       </div>
 
       {/* Header with company name, badges, and updated date - clean mobile styling */}
-      <div className="px-4 pb-4 border-b border-border/30" style={{ paddingTop: "5px" }}>
-        <div className="flex items-center gap-3 mb-3 justify-end">
-          {isLoading && (
-            <span className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-          )}
-        </div>
+      <div className="px-4 py-2 border-b border-border/30">
         <h2
           style={{
             fontSize: "15px",
@@ -213,7 +208,6 @@ function MobileCompanyView({
             color: "rgba(255,255,255,0.95)",
             lineHeight: "1.3",
             wordBreak: "break-word",
-            padding: "0 8px",
           }}
         >
           {displayNode?.name || "Unknown"}

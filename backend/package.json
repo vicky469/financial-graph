@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "^10.2.0",
-    "@financial-graph/shared": "workspace:*",
+    "@financial-graph/shared": "file:../shared",
     "@instantdb/admin": "^0.22.96",
     "@instantdb/core": "^0.22.96",
     "cheerio": "^1.1.2",

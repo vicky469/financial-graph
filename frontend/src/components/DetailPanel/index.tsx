@@ -23,6 +23,313 @@ interface DetailPanelProps {
   hideTabs?: boolean; // New prop to hide tabs for mobile
 }
 
+// Extracted common content component
+function DetailContent({
+  isSubsidiaryNode,
+  subsidiary,
+  parentEdge,
+  companyNode,
+  handleParentCompanyClick,
+}: {
+  isSubsidiaryNode: boolean;
+  subsidiary: any;
+  parentEdge: any;
+  companyNode: CompanyDetail | null;
+  handleParentCompanyClick: () => void;
+}) {
+  return (
+    <>
+      {/* Subsidiary Information */}
+      {isSubsidiaryNode && subsidiary && (
+        <>
+          <Section title="Identity">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "10px 16px",
+              }}
+            >
+              <FieldRow label="CIK" value={subsidiary.cik} mono />
+              <FieldRow label="Jurisdiction" value={subsidiary.jurisdiction} />
+              <FieldRow
+                label="Ownership %"
+                value={parentEdge?.ownership_percent ? `${parentEdge.ownership_percent}%` : "-"}
+              />
+            </div>
+
+            {/* Parent Company Link */}
+            {parentEdge?.parentCompany && (
+              <div style={{ marginTop: "10px" }}>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "rgba(255,255,255,0.5)",
+                    marginBottom: "2px",
+                  }}
+                >
+                  Parent Company
+                </div>
+                <button
+                  onClick={handleParentCompanyClick}
+                  className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    color: "#60a5fa",
+                    fontWeight: 500,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#93c5fd")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#60a5fa")}
+                >
+                  {parentEdge.parentCompany.name}
+                  <ExternalLink size={12} />
+                </button>
+              </div>
+            )}
+          </Section>
+        </>
+      )}
+      
+      {/* Company Information */}
+      {companyNode && (
+        <>
+          <Section title="Identity">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "10px 16px",
+              }}
+            >
+              <FieldRow label="CIK" value={companyNode.cik} mono />
+              <FieldRow
+                label="Entity Type"
+                value={companyNode.identity?.entityType}
+                capitalize
+              />
+
+              <TickerField
+                tickers={companyNode.identity?.tickers}
+              />
+              <FieldRow label="Exchange" value={companyNode.identity?.exchanges} />
+
+              <FieldRow label="S&P 500" value={companyNode.identity?.sp500} />
+            </div>
+          </Section>
+
+          <Section title="Classification">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "10px 16px",
+              }}
+            >
+              <FieldRow label="SIC" value={companyNode.identity?.sic} mono />
+              <FieldRow label="Owner Org" value={companyNode.identity?.ownerOrg} />
+              
+              <div style={{ gridColumn: "span 2" }}>
+                <FieldRow label="SIC Description" value={companyNode.identity?.sicDescription} />
+              </div>
+              
+              <FieldRow label="Category" value={companyNode.identity?.category} />
+              <FieldRow label="Jurisdiction" value={companyNode.jurisdiction} />
+            </div>
+          </Section>
+
+          <Section title="Tax & Legal">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "10px 16px",
+              }}
+            >
+              <FieldRow label="EIN" value={companyNode.identity?.ein} mono />
+            </div>
+          </Section>
+
+          {companyNode.companyInfo && (
+            <Section title="Company Details" noBorder>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "10px 16px",
+                }}
+              >
+                <FieldRow
+                  label="Fiscal Year End"
+                  value={formatFiscalYearEnd(companyNode.companyInfo.fiscal_year_end)}
+                />
+                <FieldRow label="Phone" value={companyNode.companyInfo.phone} />
+
+                {companyNode.companyInfo.addresses?.mailing && (
+                  <div style={{ gridColumn: "span 2" }}>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "rgba(255,255,255,0.5)",
+                        marginBottom: "4px",
+                        fontWeight: 500,
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      Mailing Address
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: "rgba(255,255,255,0.9)",
+                        lineHeight: "1.5",
+                        fontWeight: 400,
+                        fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+                      }}
+                    >
+                      {companyNode.companyInfo.addresses.mailing.street1}
+                      {companyNode.companyInfo.addresses.mailing.street2 && (
+                        <><br />{companyNode.companyInfo.addresses.mailing.street2}</>
+                      )}
+                      <br />
+                      {companyNode.companyInfo.addresses.mailing.city}, {companyNode.companyInfo.addresses.mailing.stateOrCountry} {companyNode.companyInfo.addresses.mailing.zipCode}
+                    </div>
+                  </div>
+                )}
+
+                {companyNode.companyInfo.addresses?.business && (
+                  <div style={{ gridColumn: "span 2" }}>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "rgba(255,255,255,0.5)",
+                        marginBottom: "4px",
+                        fontWeight: 500,
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      Business Address
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: "rgba(255,255,255,0.9)",
+                        lineHeight: "1.5",
+                        fontWeight: 400,
+                        fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+                      }}
+                    >
+                      {(() => {
+                        const mailing = companyNode.companyInfo.addresses.mailing;
+                        const business = companyNode.companyInfo.addresses.business;
+                        
+                        // Check if addresses are the same
+                        if (mailing && 
+                            business.street1 === mailing.street1 &&
+                            business.street2 === mailing.street2 &&
+                            business.city === mailing.city &&
+                            business.stateOrCountry === mailing.stateOrCountry &&
+                            business.zipCode === mailing.zipCode) {
+                          return <span style={{ fontStyle: "italic", color: "rgba(255,255,255,0.6)" }}>Same as mailing address</span>;
+                        }
+                        
+                        return (
+                          <>
+                            {business.street1}
+                            {business.street2 && (
+                              <><br />{business.street2}</>
+                            )}
+                            <br />
+                            {business.city}, {business.stateOrCountry} {business.zipCode}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+                
+                {companyNode.companyInfo.former_names &&
+                  Array.isArray(companyNode.companyInfo.former_names) &&
+                  companyNode.companyInfo.former_names.length > 0 && (
+                    <div style={{ gridColumn: "span 2" }}>
+                      <div
+                        style={{
+                          fontSize: "11px",
+                          color: "rgba(255,255,255,0.5)",
+                          marginBottom: "4px",
+                          fontWeight: 500,
+                          letterSpacing: "0.02em",
+                        }}
+                      >
+                        Former Names
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        {companyNode.companyInfo.former_names.map((n: any, i: number) => {
+                          const formatDate = (d: string) => {
+                            if (!d || typeof d !== "string") return "";
+                            // Check if it matches ISO format to avoid parsing random strings
+                            if (!d.includes("T")) return d;
+
+                            try {
+                              const date = new Date(d);
+                              if (isNaN(date.getTime())) return d;
+
+                              return date.toLocaleDateString("en-CA", {
+                                timeZone: "America/New_York",
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                              });
+                            } catch (e) {
+                              return d;
+                            }
+                          };
+
+                          const from = formatDate(n.from);
+                          const to = formatDate(n.to);
+
+                          return (
+                            <div key={i} style={{ display: "flex", flexDirection: "column" }}>
+                              <div
+                                style={{
+                                  fontSize: "12px",
+                                  lineHeight: "1.4",
+                                  color: "rgba(255,255,255,0.9)",
+                                  fontWeight: 400,
+                                  fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+                                }}
+                              >
+                                {n.name}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "11px",
+                                  color: "rgba(255,255,255,0.5)",
+                                  marginTop: "1px",
+                                  fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+                                  fontWeight: 400,
+                                }}
+                              >
+                                ({from} - {to})
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+              </div>
+            </Section>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
 export function DetailPanel({
   node,
   isPublic: _isPublic, // Unused but kept for API compatibility
@@ -71,8 +378,8 @@ export function DetailPanel({
     >
       {/* Header - only show if not hiding tabs (desktop mode) */}
       {!hideTabs && (
-        <div style={{ padding: `5px ${panelPadding} 0 ${panelPadding}` }}>
-          <div className="flex items-center gap-3 mb-3 justify-end">
+        <div style={{ padding: `8px ${panelPadding} 0 ${panelPadding}` }}>
+          <div className="flex items-center gap-2 mb-1 justify-end">
             {isEntity && companyNode && (
               <Badge variant={companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER ? "success" : "default"}>
                 {companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER ? "PUB" : "PVT"}
@@ -90,6 +397,7 @@ export function DetailPanel({
               color: "rgba(255,255,255,0.95)",
               lineHeight: "1.3",
               wordBreak: "break-word",
+              marginBottom: "0",
             }}
           >
             {isSubsidiaryNode ? subsidiary?.name || "Loading..." : node?.name || "Unknown"}
@@ -101,6 +409,7 @@ export function DetailPanel({
                 justifyContent: "flex-end",
                 marginTop: "2px",
                 paddingRight: "4px",
+                marginBottom: "0",
               }}
             >
               <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>
@@ -122,207 +431,13 @@ export function DetailPanel({
           scrollbarGutter: "stable",
           WebkitOverflowScrolling: "touch" // Enable smooth scrolling on iOS
         }}>
-          {/* Subsidiary Information */}
-          {isSubsidiaryNode && subsidiary && (
-            <>
-              <Section title="Identity">
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "10px 16px",
-                  }}
-                >
-                  <FieldRow label="CIK" value={subsidiary.cik} mono />
-                  <FieldRow label="Jurisdiction" value={subsidiary.jurisdiction} />
-                  <FieldRow
-                    label="Ownership %"
-                    value={parentEdge?.ownership_percent ? `${parentEdge.ownership_percent}%` : "-"}
-                  />
-                </div>
-
-                {/* Parent Company Link */}
-                {parentEdge?.parentCompany && (
-                  <div style={{ marginTop: "10px" }}>
-                    <div
-                      style={{
-                        fontSize: "11px",
-                        color: "rgba(255,255,255,0.5)",
-                        marginBottom: "2px",
-                      }}
-                    >
-                      Parent Company
-                    </div>
-                    <button
-                      onClick={handleParentCompanyClick}
-                      className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        color: "#60a5fa",
-                        fontWeight: 500,
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = "#93c5fd")}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = "#60a5fa")}
-                    >
-                      {parentEdge.parentCompany.name}
-                      <ExternalLink size={12} />
-                    </button>
-                  </div>
-                )}
-              </Section>
-            </>
-          )}
-          {/* Company Information */}
-          {isEntity && companyNode && (
-            <>
-              <Section title="Identity">
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "10px 16px",
-                  }}
-                >
-                  <FieldRow label="CIK" value={companyNode.cik} mono />
-                  <FieldRow
-                    label="Entity Type"
-                    value={companyNode.identity?.entityType}
-                    capitalize
-                  />
-
-                  <div style={{ gridColumn: "span 2" }}>
-                    <TickerField
-                      tickers={companyNode.identity?.tickers}
-                    />
-                  </div>
-
-                  <FieldRow label="Jurisdiction" value={companyNode.jurisdiction} />
-                  <FieldRow label="Exchange" value={companyNode.identity?.exchanges} />
-
-                  <FieldRow label="S&P 500" value={companyNode.identity?.sp500} />
-                  <FieldRow label="Owner Org" value={companyNode.identity?.ownerOrg} />
-
-                  <FieldRow label="SIC" value={companyNode.identity?.sic} mono />
-                  <FieldRow label="SIC Description" value={companyNode.identity?.sicDescription} />
-                </div>
-              </Section>
-
-              {companyNode.companyInfo && (
-                <Section title="Company Details" noBorder>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "10px 16px",
-                    }}
-                  >
-                    <FieldRow
-                      label="Fiscal Year End"
-                      value={formatFiscalYearEnd(companyNode.companyInfo.fiscal_year_end)}
-                    />
-                    <FieldRow label="Phone" value={companyNode.companyInfo.phone} />
-
-                    {companyNode.companyInfo.addresses?.mailing && (
-                      <div style={{ gridColumn: "span 2" }}>
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            color: "rgba(255,255,255,0.5)",
-                            marginBottom: "2px",
-                          }}
-                        >
-                          Mailing Address
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "12px",
-                            color: "rgba(255,255,255,0.95)",
-                            lineHeight: "1.3",
-                            fontWeight: 500,
-                          }}
-                        >
-                          {companyNode.companyInfo.addresses.mailing.city},{" "}
-                          {companyNode.companyInfo.addresses.mailing.stateOrCountry}
-                        </div>
-                      </div>
-                    )}
-                    {companyNode.companyInfo.former_names &&
-                      Array.isArray(companyNode.companyInfo.former_names) &&
-                      companyNode.companyInfo.former_names.length > 0 && (
-                        <div style={{ gridColumn: "span 2" }}>
-                          <div
-                            style={{
-                              fontSize: "11px",
-                              color: "rgba(255,255,255,0.5)",
-                              marginBottom: "4px",
-                            }}
-                          >
-                            Former Names
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            {companyNode.companyInfo.former_names.map((n: any, i: number) => {
-                              const formatDate = (d: string) => {
-                                if (!d || typeof d !== "string") return "";
-                                // Check if it matches ISO format to avoid parsing random strings
-                                if (!d.includes("T")) return d;
-
-                                try {
-                                  const date = new Date(d);
-                                  if (isNaN(date.getTime())) return d;
-
-                                  return date.toLocaleDateString("en-CA", {
-                                    timeZone: "America/New_York",
-                                    year: "numeric",
-                                    month: "2-digit",
-                                    day: "2-digit",
-                                  });
-                                } catch (e) {
-                                  return d;
-                                }
-                              };
-
-                              const from = formatDate(n.from);
-                              const to = formatDate(n.to);
-
-                              return (
-                                <div key={i} style={{ display: "flex", flexDirection: "column" }}>
-                                  <div
-                                    style={{
-                                      fontSize: "12px",
-                                      lineHeight: "1.3",
-                                      color: "rgba(255,255,255,0.95)",
-                                      fontWeight: 500,
-                                    }}
-                                  >
-                                    {n.name}
-                                  </div>
-                                  <div
-                                    style={{
-                                      fontSize: "11px",
-                                      color: "rgba(255,255,255,0.5)",
-                                      marginTop: "1px",
-                                      fontFamily: "monospace",
-                                    }}
-                                  >
-                                    ({from} - {to})
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                  </div>
-                </Section>
-              )}
-            </>
-          )}
-
-          {/* Data Quality - Removed: metadata field no longer exists */}
+          <DetailContent
+            isSubsidiaryNode={isSubsidiaryNode}
+            subsidiary={subsidiary}
+            parentEdge={parentEdge}
+            companyNode={companyNode}
+            handleParentCompanyClick={handleParentCompanyClick}
+          />
         </div>
       ) : (
         // Desktop version - show with tabs
@@ -331,7 +446,7 @@ export function DetailPanel({
           onValueChange={(v) => setActiveTab(v as "info" /* | "audit" */)}
           className="flex-1 flex flex-col overflow-hidden min-w-0"
         >
-          <div style={{ width: "100%", boxSizing: "border-box", padding: `0 ${panelPadding}` }}>
+          <div style={{ width: "100%", boxSizing: "border-box", padding: "0 16px" }}>
             <TabsList
               style={{
                 display: "flex",
@@ -366,211 +481,14 @@ export function DetailPanel({
             className="flex-1 overflow-y-auto mt-0"
             style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
           >
-            {/* Same content as above but wrapped in TabsContent */}
-            {/* Subsidiary Information */}
-            {isSubsidiaryNode && subsidiary && (
-              <>
-                <Section title="Identity">
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "10px 16px",
-                    }}
-                  >
-                    <FieldRow label="CIK" value={subsidiary.cik} mono />
-                    <FieldRow label="Jurisdiction" value={subsidiary.jurisdiction} />
-                    <FieldRow
-                      label="Ownership %"
-                      value={parentEdge?.ownership_percent ? `${parentEdge.ownership_percent}%` : "-"}
-                    />
-                  </div>
-
-                  {/* Parent Company Link */}
-                  {parentEdge?.parentCompany && (
-                    <div style={{ marginTop: "10px" }}>
-                      <div
-                        style={{
-                          fontSize: "11px",
-                          color: "rgba(255,255,255,0.5)",
-                          marginBottom: "2px",
-                        }}
-                      >
-                        Parent Company
-                      </div>
-                      <button
-                        onClick={handleParentCompanyClick}
-                        className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                        style={{
-                          background: "none",
-                          border: "none",
-                          padding: 0,
-                          cursor: "pointer",
-                          fontSize: "12px",
-                          color: "#60a5fa",
-                          fontWeight: 500,
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = "#93c5fd")}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = "#60a5fa")}
-                      >
-                        {parentEdge.parentCompany.name}
-                        <ExternalLink size={12} />
-                      </button>
-                    </div>
-                  )}
-                </Section>
-              </>
-            )}
-            {/* Company Information */}
-            {isEntity && companyNode && (
-              <>
-                <Section title="Identity">
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "10px 16px",
-                    }}
-                  >
-                    <FieldRow label="CIK" value={companyNode.cik} mono />
-                    <FieldRow
-                      label="Entity Type"
-                      value={companyNode.identity?.entityType}
-                      capitalize
-                    />
-
-                    <div style={{ gridColumn: "span 2" }}>
-                      <TickerField
-                        tickers={companyNode.identity?.tickers}
-                      />
-                    </div>
-
-                    <FieldRow label="Jurisdiction" value={companyNode.jurisdiction} />
-                    <FieldRow label="Exchange" value={companyNode.identity?.exchanges} />
-
-                    <FieldRow label="S&P 500" value={companyNode.identity?.sp500} />
-                    <FieldRow label="Owner Org" value={companyNode.identity?.ownerOrg} />
-
-                    <FieldRow label="SIC" value={companyNode.identity?.sic} mono />
-                    <FieldRow label="SIC Description" value={companyNode.identity?.sicDescription} />
-                  </div>
-                </Section>
-
-                {companyNode.companyInfo && (
-                  <Section title="Company Details" noBorder>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: "10px 16px",
-                      }}
-                    >
-                      <FieldRow
-                        label="Fiscal Year End"
-                        value={formatFiscalYearEnd(companyNode.companyInfo.fiscal_year_end)}
-                      />
-                      <FieldRow label="Phone" value={companyNode.companyInfo.phone} />
-
-                      {companyNode.companyInfo.addresses?.mailing && (
-                        <div style={{ gridColumn: "span 2" }}>
-                          <div
-                            style={{
-                              fontSize: "11px",
-                              color: "rgba(255,255,255,0.5)",
-                              marginBottom: "2px",
-                            }}
-                          >
-                            Mailing Address
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              color: "rgba(255,255,255,0.95)",
-                              lineHeight: "1.3",
-                              fontWeight: 500,
-                            }}
-                          >
-                            {companyNode.companyInfo.addresses.mailing.city},{" "}
-                            {companyNode.companyInfo.addresses.mailing.stateOrCountry}
-                          </div>
-                        </div>
-                      )}
-                      {companyNode.companyInfo.former_names &&
-                        Array.isArray(companyNode.companyInfo.former_names) &&
-                        companyNode.companyInfo.former_names.length > 0 && (
-                          <div style={{ gridColumn: "span 2" }}>
-                            <div
-                              style={{
-                                fontSize: "11px",
-                                color: "rgba(255,255,255,0.5)",
-                                marginBottom: "4px",
-                              }}
-                            >
-                              Former Names
-                            </div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                              {companyNode.companyInfo.former_names.map((n: any, i: number) => {
-                                const formatDate = (d: string) => {
-                                  if (!d || typeof d !== "string") return "";
-                                  // Check if it matches ISO format to avoid parsing random strings
-                                  if (!d.includes("T")) return d;
-
-                                  try {
-                                    const date = new Date(d);
-                                    if (isNaN(date.getTime())) return d;
-
-                                    return date.toLocaleDateString("en-CA", {
-                                      timeZone: "America/New_York",
-                                      year: "numeric",
-                                      month: "2-digit",
-                                      day: "2-digit",
-                                    });
-                                  } catch (e) {
-                                    return d;
-                                  }
-                                };
-
-                                const from = formatDate(n.from);
-                                const to = formatDate(n.to);
-
-                                return (
-                                  <div key={i} style={{ display: "flex", flexDirection: "column" }}>
-                                    <div
-                                      style={{
-                                        fontSize: "12px",
-                                        lineHeight: "1.3",
-                                        color: "rgba(255,255,255,0.95)",
-                                        fontWeight: 500,
-                                      }}
-                                    >
-                                      {n.name}
-                                    </div>
-                                    <div
-                                      style={{
-                                        fontSize: "11px",
-                                        color: "rgba(255,255,255,0.5)",
-                                        marginTop: "1px",
-                                        fontFamily: "monospace",
-                                      }}
-                                    >
-                                      ({from} - {to})
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                    </div>
-                  </Section>
-                )}
-              </>
-            )}
-
-
-
-            {/* Data Quality - Removed: metadata field no longer exists */}
-            </TabsContent>
+            <DetailContent
+              isSubsidiaryNode={isSubsidiaryNode}
+              subsidiary={subsidiary}
+              parentEdge={parentEdge}
+              companyNode={companyNode}
+              handleParentCompanyClick={handleParentCompanyClick}
+            />
+          </TabsContent>
           </Tabs>
         )}
     </aside>
@@ -600,7 +518,7 @@ function Section({
           fontWeight: 600,
           color: "rgba(255,255,255,0.5)",
           textTransform: "uppercase",
-          letterSpacing: "0.05em",
+          letterSpacing: "0.1em",
           marginBottom: "12px",
           marginTop: "16px",
         }}
@@ -646,7 +564,9 @@ function FieldRow({
         style={{
           fontSize: "11px",
           color: "rgba(255,255,255,0.5)",
-          marginBottom: "3px",
+          marginBottom: "4px",
+          fontWeight: 500,
+          letterSpacing: "0.02em",
         }}
       >
         {label}
@@ -654,11 +574,12 @@ function FieldRow({
       <div
         style={{
           fontSize: "12px",
-          color: "rgba(255,255,255,0.95)",
-          fontFamily: mono ? "monospace" : "inherit",
+          color: mono ? "#60a5fa" : "rgba(255,255,255,0.9)",
+          fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
           wordBreak: "break-word",
           lineHeight: "1.4",
-          fontWeight: 500,
+          fontWeight: 400,
+          letterSpacing: "0",
         }}
       >
         {display}
@@ -695,7 +616,9 @@ function TickerField({ tickers }: { tickers?: string | string[] | null }) {
         style={{
           fontSize: "11px",
           color: "rgba(255,255,255,0.5)",
-          marginBottom: "2px",
+          marginBottom: "4px",
+          fontWeight: 500,
+          letterSpacing: "0.02em",
         }}
       >
         Tickers
@@ -708,14 +631,15 @@ function TickerField({ tickers }: { tickers?: string | string[] | null }) {
               key={ticker}
               style={{
                 display: "inline-block",
-                fontSize: "10px",
-                fontFamily: "monospace",
+                fontSize: "11px",
+                fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
                 fontWeight: 600,
-                padding: "2px 6px",
+                padding: "3px 7px",
                 borderRadius: "4px",
                 backgroundColor: style.bg,
                 color: style.color,
                 border: `1px solid ${style.border}`,
+                letterSpacing: "0.01em",
               }}
             >
               {ticker}

@@ -75,10 +75,10 @@ function TreeNode({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "6px",
-          padding: "6px 8px",
-          paddingLeft: `${8 + level * 20}px`,
-          borderRadius: "6px",
+          gap: "4px",
+          padding: "4px 8px",
+          paddingLeft: `${8 + level * 16}px`,
+          borderRadius: "4px",
           transition: "background 0.15s ease",
           cursor: hasChildren || onSelectNode ? "pointer" : "default",
         }}
@@ -103,25 +103,25 @@ function TreeNode({
         {hasChildren ? (
           <div
             style={{
-              width: "16px",
-              height: "16px",
+              width: "14px",
+              height: "14px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               color: "rgba(255,255,255,0.4)",
             }}
           >
-            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </div>
         ) : (
-          <div style={{ width: "16px" }} />
+          <div style={{ width: "14px" }} />
         )}
 
         {/* Node Indicator */}
         <div
           style={{
-            width: "6px",
-            height: "6px",
+            width: "5px",
+            height: "5px",
             borderRadius: "50%",
             backgroundColor: hasChildren ? "#60a5fa" : "rgba(255,255,255,0.3)",
             flexShrink: 0,
@@ -131,12 +131,15 @@ function TreeNode({
         {/* Name */}
         <span
           style={{
-            fontSize: "13px",
+            fontSize: "12px",
             color: "rgba(255,255,255,0.75)",
             flex: 1,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            fontFamily: "Arial, sans-serif",
+            fontWeight: "400",
+            lineHeight: "1.3",
           }}
         >
           {node.name}
@@ -146,9 +149,10 @@ function TreeNode({
         {node.ownership_percent !== null && (
           <span
             style={{
-              fontSize: "13px",
+              fontSize: "11px",
               color: "rgba(255,255,255,0.4)",
-              fontFamily: "monospace",
+              fontFamily: "Arial, sans-serif",
+              fontWeight: "400",
               flexShrink: 0,
             }}
           >
