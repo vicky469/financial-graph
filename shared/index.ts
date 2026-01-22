@@ -18,6 +18,12 @@ export * from "./types/validation";
 // Export ID generation utilities (namespaces)
 export * from "./types/ids";
 
+// Export SIC codes
+export * from "./types/sic-codes";
+
+// Export company filters (categories and owner orgs)
+export * from "./types/company-filters";
+
 // Export shared utilities
 export * from "./utils";
 

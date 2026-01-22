@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { ExternalLink } from "lucide-react";
 import type { CompanyDetail, PropertyValue } from "../../types/domain";
-import { CompanyType } from "financial-graph-shared";
+import { CompanyType, getCleanCategory } from "financial-graph-shared";
 
 import { useCompanyDetail } from "../../db/queries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -129,14 +129,47 @@ function DetailContent({
                 gap: "10px 16px",
               }}
             >
-              <FieldRow label="SIC" value={companyNode.identity?.sic} mono />
+              {/* SIC with description merged */}
+              {(companyNode.identity?.sic || companyNode.identity?.sicDescription) && (
+                <div style={{ gridColumn: "span 2" }}>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "rgba(255,255,255,0.5)",
+                      marginBottom: "4px",
+                      fontWeight: 500,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    SIC
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+                      lineHeight: "1.4",
+                      fontWeight: 400,
+                    }}
+                  >
+                    {companyNode.identity?.sic && (
+                      <span style={{ color: "#60a5fa" }}>
+                        {companyNode.identity.sic}
+                      </span>
+                    )}
+                    {companyNode.identity?.sic && companyNode.identity?.sicDescription && (
+                      <span style={{ color: "rgba(255,255,255,0.9)" }}> - </span>
+                    )}
+                    {companyNode.identity?.sicDescription && (
+                      <span style={{ color: "rgba(255,255,255,0.9)" }}>
+                        {companyNode.identity.sicDescription}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               <FieldRow label="Owner Org" value={companyNode.identity?.ownerOrg} />
-              
-              <div style={{ gridColumn: "span 2" }}>
-                <FieldRow label="SIC Description" value={companyNode.identity?.sicDescription} />
-              </div>
-              
-              <FieldRow label="Category" value={companyNode.identity?.category} />
+              <FieldRow label="Category" value={getCleanCategory(companyNode.identity?.category)} />
               <FieldRow label="Jurisdiction" value={companyNode.jurisdiction} />
             </div>
           </Section>
@@ -149,7 +182,11 @@ function DetailContent({
                 gap: "10px 16px",
               }}
             >
-              <FieldRow label="EIN" value={companyNode.identity?.ein} mono />
+              <FieldRow 
+                label="EIN" 
+                value={companyNode.identity?.ein && companyNode.identity.ein !== "000000000" ? companyNode.identity.ein : undefined} 
+                mono 
+              />
             </div>
           </Section>
 
@@ -379,29 +416,33 @@ export function DetailPanel({
       {/* Header - only show if not hiding tabs (desktop mode) */}
       {!hideTabs && (
         <div style={{ padding: `8px ${panelPadding} 0 ${panelPadding}` }}>
-          <div className="flex items-center gap-2 mb-1 justify-end">
-            {isEntity && companyNode && (
-              <Badge variant={companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER ? "success" : "default"}>
-                {companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER ? "PUB" : "PVT"}
-              </Badge>
-            )}
-            {isSubsidiaryNode && <Badge variant="muted">SUB</Badge>}
-            {isLoading && (
-              <span className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-            )}
+          <div className="flex items-center gap-2 mb-1 justify-between">
+            <h2
+              style={{
+                fontSize: "15px",
+                fontWeight: "600",
+                color: "rgba(255,255,255,0.95)",
+                lineHeight: "1.3",
+                wordBreak: "break-word",
+                marginBottom: "0",
+                flex: 1,
+                marginRight: "12px",
+              }}
+            >
+              {isSubsidiaryNode ? subsidiary?.name || "Loading..." : node?.name || "Unknown"}
+            </h2>
+            <div className="flex items-center gap-2 shrink-0">
+              {isEntity && companyNode && (
+                <Badge variant={companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER ? "success" : "default"}>
+                  {companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER ? "PUB" : "PVT"}
+                </Badge>
+              )}
+              {isSubsidiaryNode && <Badge variant="muted">SUB</Badge>}
+              {isLoading && (
+                <span className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+              )}
+            </div>
           </div>
-          <h2
-            style={{
-              fontSize: "15px",
-              fontWeight: "600",
-              color: "rgba(255,255,255,0.95)",
-              lineHeight: "1.3",
-              wordBreak: "break-word",
-              marginBottom: "0",
-            }}
-          >
-            {isSubsidiaryNode ? subsidiary?.name || "Loading..." : node?.name || "Unknown"}
-          </h2>
           {(fullNodeData && 'updated_at' in fullNodeData && fullNodeData.updated_at) || (isSubsidiaryNode && subsidiary?.updated_at) ? (
             <div
               style={{
