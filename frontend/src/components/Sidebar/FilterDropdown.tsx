@@ -16,6 +16,7 @@ export function FilterDropdown({
 }: FilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -31,6 +32,31 @@ export function FilterDropdown({
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Close dropdown when scrolling outside of it
+  useEffect(() => {
+    const handleScroll = (event: Event) => {
+      // Check if the scroll is happening inside the dropdown menu
+      if (menuRef.current && menuRef.current.contains(event.target as Node)) {
+        // Scrolling inside the dropdown menu - don't close
+        return;
+      }
+      
+      // Scrolling outside the dropdown - close it
+      if (isOpen) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      // Listen to all scroll events with capture to catch them early
+      document.addEventListener("scroll", handleScroll, true);
+    }
+
+    return () => {
+      document.removeEventListener("scroll", handleScroll, true);
     };
   }, [isOpen]);
 
@@ -113,6 +139,7 @@ export function FilterDropdown({
       {/* Dropdown Menu */}
       {isOpen && (
         <div
+          ref={menuRef}
           style={{
             position: "absolute",
             top: "calc(100% + 4px)",
