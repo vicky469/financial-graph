@@ -14,9 +14,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onSelectNode, selectedSubsidiaryId, onSubsidiaryClick, showSP500Only, onFilterChange, selectedNode }: SidebarProps) {
-  const MIN_WIDTH = 280;
-  const MAX_WIDTH = 420;
-  const DEFAULT_LIST_WIDTH = MIN_WIDTH;
+  const MIN_WIDTH = 320;
+  const MAX_WIDTH = 500;
+  const DEFAULT_LIST_WIDTH = 320;
   const DEFAULT_COMPANY_WIDTH = 420;
 
   const [width, setWidth] = useState(DEFAULT_LIST_WIDTH);

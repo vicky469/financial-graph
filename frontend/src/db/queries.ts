@@ -32,6 +32,9 @@ export const useAllCompanies = () => {
         ticker: c.identity?.tickers?.split(",")[0]?.trim() ?? null,
         cik: c.identity?.primaryCIK ?? null,
         sp500: c.identity?.sp500 === true,
+        category: c.identity?.category ?? null,
+        ownerOrg: c.identity?.ownerOrg ?? null,
+        entityType: c.identity?.entityType ?? null,
       }));
   }, [data?.company]);
 

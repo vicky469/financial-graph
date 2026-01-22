@@ -52,6 +52,16 @@ export const OWNER_ORGS = [
 ] as const;
 
 /**
+ * Entity Types
+ * Types of business entities
+ */
+export const ENTITY_TYPES = [
+  "investment",
+  "operating",
+  "other",
+] as const;
+
+/**
  * Type for raw category values (as stored in database)
  */
 export type RawCompanyCategory = keyof typeof COMPANY_CATEGORIES;
@@ -65,6 +75,11 @@ export type CleanCompanyCategory = typeof COMPANY_CATEGORIES[RawCompanyCategory]
  * Type for owner organization values
  */
 export type OwnerOrg = typeof OWNER_ORGS[number];
+
+/**
+ * Type for entity type values
+ */
+export type EntityType = typeof ENTITY_TYPES[number];
 
 /**
  * Get clean category display value from raw database value
@@ -110,4 +125,21 @@ export function getAllOwnerOrgs(): OwnerOrg[] {
  */
 export function isValidOwnerOrg(value: string): value is OwnerOrg {
   return OWNER_ORGS.includes(value as OwnerOrg);
+}
+
+/**
+ * Get all entity type values
+ * @returns Array of entity type values
+ */
+export function getAllEntityTypes(): EntityType[] {
+  return [...ENTITY_TYPES];
+}
+
+/**
+ * Check if a value is a valid entity type
+ * @param value - Value to check
+ * @returns True if valid entity type
+ */
+export function isValidEntityType(value: string): value is EntityType {
+  return ENTITY_TYPES.includes(value as EntityType);
 }
