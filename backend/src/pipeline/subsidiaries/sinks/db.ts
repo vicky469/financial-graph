@@ -203,7 +203,7 @@ export class SubsidiariesDBSink implements Sink<ValidatedFiling> {
 
           const subsidiaryId = generateCompanyId({
             name: subsidiary.name,
-            type: CompanyType.PRIVATE,
+            type: CompanyType.SUBSIDIARY,
             jurisdiction_raw: subsidiary.jurisdiction,
           });
 
@@ -211,7 +211,7 @@ export class SubsidiariesDBSink implements Sink<ValidatedFiling> {
             id: subsidiaryId,
             name: subsidiary.name,
             aliases: [],
-            type: CompanyType.PRIVATE,
+            type: CompanyType.SUBSIDIARY,
             jurisdiction_iso: null,
             jurisdiction_raw: subsidiary.jurisdiction ?? null,
             identity: {},
@@ -240,7 +240,7 @@ export class SubsidiariesDBSink implements Sink<ValidatedFiling> {
 
           const subsidiaryId = generateCompanyId({
             name: subsidiary.name,
-            type: CompanyType.PRIVATE,
+            type: CompanyType.SUBSIDIARY,
             jurisdiction_raw: subsidiary.jurisdiction,
           });
 

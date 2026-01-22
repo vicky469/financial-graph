@@ -22,7 +22,7 @@ export async function upsertCompany(
   companyData: Partial<Company>,
 ): Promise<string> {
   // Ensure type is set for ID generation
-  const companyType = companyData.type ?? CompanyType.PRIVATE;
+  const companyType = companyData.type!;
 
   // Generate ID (uses primaryCIK for PUBLIC/ISSUER)
   const id = generateCompanyId({

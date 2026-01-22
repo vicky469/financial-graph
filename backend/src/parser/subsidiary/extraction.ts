@@ -163,10 +163,10 @@ export function extractSubsidiaries(
     }
 
     // Determine company type based on jurisdiction presence
-    // If jurisdiction is missing or empty, it's UNKNOWN, otherwise PRIVATE
+    // If jurisdiction is missing or empty, it's UNKNOWN, otherwise SUBSIDIARY
     const companyType = !parsed.jurisdiction || parsed.jurisdiction.trim() === '' 
       ? CompanyType.UNKNOWN 
-      : CompanyType.PRIVATE;
+      : CompanyType.SUBSIDIARY;
 
     // Validate that we have required fields before creating the record
     if (!parsed.cleanName || !parsed.cleanName.trim() || !parsed.jurisdiction || !parsed.jurisdiction.trim()) {

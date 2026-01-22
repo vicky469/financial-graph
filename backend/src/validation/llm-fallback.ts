@@ -64,7 +64,7 @@ export async function llmFallbackParse(
       // Determine company type based on jurisdiction presence
       const companyType = !llmSub.jurisdiction || llmSub.jurisdiction.trim() === '' 
         ? CompanyType.UNKNOWN 
-        : CompanyType.PRIVATE;
+        : CompanyType.SUBSIDIARY;
 
       const subsidiaryId = generateCompanyId({
         type: companyType,

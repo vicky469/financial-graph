@@ -159,6 +159,63 @@ describe("generateCompanyId", () => {
     });
   });
 
+  describe("SUBSIDIARY companies", () => {
+    test("generates ID from name + jurisdiction", () => {
+      const id = generateCompanyId({
+        type: CompanyType.SUBSIDIARY,
+        name: "Acme Subsidiary LLC",
+        jurisdiction_raw: "Delaware",
+      });
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    });
+
+    test("normalizes name and jurisdiction (case insensitive)", () => {
+      const id1 = generateCompanyId({
+        type: CompanyType.SUBSIDIARY,
+        name: "Acme Subsidiary LLC",
+        jurisdiction_raw: "Delaware",
+      });
+      const id2 = generateCompanyId({
+        type: CompanyType.SUBSIDIARY,
+        name: "ACME SUBSIDIARY LLC",
+        jurisdiction_raw: "DELAWARE",
+      });
+      expect(id1).toBe(id2);
+    });
+
+    test("different type produces different ID even with same name and jurisdiction", () => {
+      const privateId = generateCompanyId({
+        type: CompanyType.PRIVATE,
+        name: "Acme Corp",
+        jurisdiction_raw: "Delaware",
+      });
+      const subsidiaryId = generateCompanyId({
+        type: CompanyType.SUBSIDIARY,
+        name: "Acme Corp",
+        jurisdiction_raw: "Delaware",
+      });
+      expect(privateId).not.toBe(subsidiaryId);
+    });
+
+    test("throws error when jurisdiction is missing", () => {
+      expect(() =>
+        generateCompanyId({
+          type: CompanyType.SUBSIDIARY,
+          name: "Acme Subsidiary LLC",
+        })
+      ).toThrow();
+    });
+
+    test("throws error when name is missing", () => {
+      expect(() =>
+        generateCompanyId({
+          type: CompanyType.SUBSIDIARY,
+          jurisdiction_raw: "Delaware",
+        })
+      ).toThrow();
+    });
+  });
+
   describe("UNKNOWN companies", () => {
     test("generates ID from name only", () => {
       const id = generateCompanyId({

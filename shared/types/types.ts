@@ -198,6 +198,14 @@ export const TrustCompanySchema = z.object({
   identity: CompanyIdentitySchema.optional(),
 });
 
+/** SUBSIDIARY company: requires name + jurisdiction, identity optional */
+export const SubsidiaryCompanySchema = z.object({
+  type: z.literal(CompanyType.SUBSIDIARY),
+  name: NonEmptyString,
+  jurisdiction_raw: JurisdictionString,
+  identity: CompanyIdentitySchema.optional(),
+});
+
 /** Company validation by type */
 export const CompanySchema = z.discriminatedUnion("type", [
   PublicCompanySchema,
@@ -205,6 +213,7 @@ export const CompanySchema = z.discriminatedUnion("type", [
   IssuerCompanySchema,
   UnknownCompanySchema,
   TrustCompanySchema,
+  SubsidiaryCompanySchema,
 ]);
 
 // ============================================================================

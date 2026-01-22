@@ -15,6 +15,7 @@ import {
   PublicCompanySchema,
   IssuerCompanySchema,
   PrivateCompanySchema,
+  SubsidiaryCompanySchema,
   UnknownCompanySchema,
   AccessionNumberString,
   ParentOfParamsSchema,
@@ -81,10 +82,14 @@ export function generateCompanyId(company: CompanyIdInput): string {
       return uuidv5(`${company.type}:${validated.identity.primaryCIK}`, NAMESPACES.COMPANY);
     }
 
-    case CompanyType.PRIVATE: {
-      const validated = PrivateCompanySchema.parse(company);
-      const normalizedName = validated.name.trim().toLowerCase();
-      const normalizedJurisdiction = validated.jurisdiction_raw.trim().toLowerCase();
+    case CompanyType.PRIVATE:
+    case CompanyType.SUBSIDIARY: {
+      // Both PRIVATE and SUBSIDIARY use name + jurisdiction for ID generation
+      if (!company.name || !company.jurisdiction_raw) {
+        throw new Error(`PRIVATE/SUBSIDIARY company requires name and jurisdiction_raw`);
+      }
+      const normalizedName = company.name.trim().toLowerCase();
+      const normalizedJurisdiction = company.jurisdiction_raw.trim().toLowerCase();
       return uuidv5(`${company.type}:${normalizedName}:${normalizedJurisdiction}`, NAMESPACES.COMPANY);
     }
 
