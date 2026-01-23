@@ -70,16 +70,8 @@ export function LandingPage({ onAuth }: LandingPageProps) {
             xmlns="http://www.w3.org/2000/svg"
             style={{ flexShrink: 0 }}
           >
-            {/* Connection lines with gradient */}
-            <defs>
-              <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#818cf8" />
-                <stop offset="100%" stopColor="#a78bfa" />
-              </linearGradient>
-            </defs>
-            
-            {/* Lines connecting nodes */}
-            <g stroke="url(#lineGradient)" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.6">
+            {/* Connection lines */}
+            <g stroke="rgba(150, 160, 190, 0.4)" strokeWidth="1.5" strokeLinecap="round" fill="none">
               <line x1="50" y1="50" x2="75" y2="28" />
               <line x1="75" y1="28" x2="85" y2="42" />
               <line x1="50" y1="50" x2="28" y2="32" />
@@ -87,15 +79,15 @@ export function LandingPage({ onAuth }: LandingPageProps) {
               <line x1="50" y1="50" x2="70" y2="70" />
               <line x1="50" y1="50" x2="30" y2="70" />
             </g>
-            
-            {/* Nodes with gradient fills */}
-            <circle cx="50" cy="50" r="7" fill="#818cf8" stroke="#a78bfa" strokeWidth="2" />
-            <circle cx="75" cy="28" r="5" fill="#a78bfa" stroke="#c4b5fd" strokeWidth="1.5" />
-            <circle cx="85" cy="42" r="3.5" fill="#c4b5fd" stroke="#e0e7ff" strokeWidth="1" />
-            <circle cx="28" cy="32" r="5" fill="#a78bfa" stroke="#c4b5fd" strokeWidth="1.5" />
-            <circle cx="18" cy="52" r="3.5" fill="#c4b5fd" stroke="#e0e7ff" strokeWidth="1" />
-            <circle cx="70" cy="70" r="4" fill="#a78bfa" stroke="#c4b5fd" strokeWidth="1.5" />
-            <circle cx="30" cy="70" r="4" fill="#a78bfa" stroke="#c4b5fd" strokeWidth="1.5" />
+
+            {/* Nodes - muted blue-gray */}
+            <circle cx="50" cy="50" r="6" fill="rgba(130, 150, 190, 0.6)" stroke="rgba(150, 170, 210, 0.4)" strokeWidth="1.5" />
+            <circle cx="75" cy="28" r="4" fill="rgba(130, 150, 190, 0.4)" stroke="rgba(150, 170, 210, 0.3)" strokeWidth="1" />
+            <circle cx="85" cy="42" r="3" fill="rgba(130, 150, 190, 0.3)" stroke="rgba(150, 170, 210, 0.2)" strokeWidth="1" />
+            <circle cx="28" cy="32" r="4" fill="rgba(130, 150, 190, 0.4)" stroke="rgba(150, 170, 210, 0.3)" strokeWidth="1" />
+            <circle cx="18" cy="52" r="3" fill="rgba(130, 150, 190, 0.3)" stroke="rgba(150, 170, 210, 0.2)" strokeWidth="1" />
+            <circle cx="70" cy="70" r="3.5" fill="rgba(130, 150, 190, 0.35)" stroke="rgba(150, 170, 210, 0.25)" strokeWidth="1" />
+            <circle cx="30" cy="70" r="3.5" fill="rgba(130, 150, 190, 0.35)" stroke="rgba(150, 170, 210, 0.25)" strokeWidth="1" />
           </svg>
           <span className="brand-name">Financial Graph</span>
         </div>
@@ -163,7 +155,10 @@ export function LandingPage({ onAuth }: LandingPageProps) {
                   </div>
                 )}
                 
-                <p className="hint-text">Secure authentication with your Google account.</p>
+                <div className="trust-info">
+                  <p className="hint-text">We only store your email and profile photo.</p>
+                  <p className="hint-text-secondary">No access to contacts, drive, or other Google data.</p>
+                </div>
               </div>
             </div>
           </div>
