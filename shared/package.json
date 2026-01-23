@@ -1,6 +1,6 @@
 {
   "name": "financial-graph-shared",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Shared types, schema, and utilities for financial-graph",
   "type": "module",
   "main": "dist/index.js",
@@ -27,9 +27,14 @@
     "test": "bun run build && bun test tests/",
     "test:watch": "bun test --watch tests/",
     "test:only": "bun test tests/",
-    "schema:push": "bunx instant-cli@latest push schema"
+    "schema:push": "bunx instant-cli@latest push schema",
+    "perms:push": "bunx instant-cli@latest push perms"
   },
-  "keywords": ["types", "schema", "instantdb"],
+  "keywords": [
+    "types",
+    "schema",
+    "instantdb"
+  ],
   "author": "",
   "license": "ISC",
   "engines": {

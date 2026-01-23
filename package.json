@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "sync-versions": "node scripts/sync-versions.js",
+    "postinstall": "npm run sync-versions --silent && node scripts/install-hooks.js",
+    "install:all": "echo '📦 Installing dependencies...' && npm install --silent && cd shared && npm install --silent && cd ../backend && npm install --silent && cd ../frontend && npm install --silent && echo '✅ All dependencies installed!'",
     "build:shared": "cd shared && npm run build",
     "build:frontend": "cd frontend && npm run build",
     "build": "npm run build:shared && npm run build:frontend",

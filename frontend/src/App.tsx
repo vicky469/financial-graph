@@ -90,8 +90,12 @@ function AppContent() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans" style={{ width: "100%", maxWidth: "100%", padding: "0" }}>
-      {/* Header */}
-      <Header />
+      {/* Header - hidden by default, shows on hover */}
+      <div className="header-hover-zone">
+        <div className="header-container">
+          <Header />
+        </div>
+      </div>
 
       <div className="flex-1 flex overflow-hidden relative min-w-0" key={selectedCompanyId} style={{ width: "100%", maxWidth: "100%" }}>
         {/* Mobile: Show company list full width when no company selected, hide when company selected */}
