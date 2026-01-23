@@ -10,6 +10,11 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    sourcemap: false, // Disable source maps in production - prevents source code exposure
+    minify: 'esbuild', // Use esbuild for fast minification (default)
+    target: 'es2020', // Modern browsers only
+  },
   test: {
     globals: true,
     environment: 'jsdom',
