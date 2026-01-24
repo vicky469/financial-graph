@@ -82,7 +82,7 @@ export function NoteEditor({
           return !node.content || 
             node.content.length === 0 || 
             node.content.every(child => 
-              !child.text || child.text.trim() === ''
+              !('text' in child) || !child.text || child.text.trim() === ''
             );
         }
         return false;
@@ -158,7 +158,7 @@ export function NoteEditor({
         class: 'prose prose-sm prose-invert max-w-none focus:outline-none min-h-[100px] text-xs',
         style: 'padding: 8px 12px; font-size: 13px; line-height: 1.5;',
       },
-      handleKeyDown: (view, event) => {
+      handleKeyDown: (_view, event) => {
         // Handle @ mention dropdown navigation
         if (showMentionDropdown && filteredCompanies.length > 0) {
           if (event.key === 'ArrowDown') {
@@ -296,7 +296,7 @@ export function NoteEditor({
           return !node.content || 
             node.content.length === 0 || 
             node.content.every(child => 
-              !child.text || child.text.trim() === ''
+              !('text' in child) || !child.text || child.text.trim() === ''
             );
         }
         return false;
