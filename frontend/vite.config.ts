@@ -15,6 +15,10 @@ export default defineConfig({
     minify: 'esbuild', // Use esbuild for fast minification (default)
     target: 'es2020', // Modern browsers only
   },
+  // Development server configuration
+  server: {
+    sourcemapIgnoreList: false, // Show all source maps in dev (for debugging)
+  },
   test: {
     globals: true,
     environment: 'jsdom',

@@ -1,0 +1,725 @@
+/* ==================== NOTE CARD STYLES ==================== */
+
+/* Base note card styles */
+.note-card {
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.note-card:hover {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* System note specific styling - purple tint */
+.note-card-system {
+  background: rgba(168, 85, 247, 0.05) !important;
+  border-color: rgba(168, 85, 247, 0.3) !important;
+}
+
+.note-card-system:hover {
+  background: rgba(168, 85, 247, 0.08) !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.15);
+}
+
+/* System note badge indicator */
+.note-card-system::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(to bottom, rgba(168, 85, 247, 0.6), rgba(168, 85, 247, 0.3));
+  border-radius: 8px 0 0 8px;
+}
+
+/* User note specific styling */
+.note-card-user {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.note-card-user:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Backlink note specific styling - blue tint */
+.note-card-backlink {
+  background: rgba(59, 130, 246, 0.08) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+  cursor: default !important;
+}
+
+.note-card-backlink:hover {
+  background: rgba(59, 130, 246, 0.12) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  transform: none !important; /* No lift effect for read-only backlinks */
+}
+
+/* Backlink note badge indicator */
+.note-card-backlink::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(to bottom, rgba(59, 130, 246, 0.6), rgba(59, 130, 246, 0.3));
+  border-radius: 8px 0 0 8px;
+}
+
+/* ==================== TIPTAP EDITOR STYLES ==================== */
+
+/* Tiptap prose styling for notes */
+.note-card .ProseMirror {
+  outline: none;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: var(--font-sans);
+  font-weight: 400;
+}
+
+.note-card .ProseMirror p {
+  margin: 0 0 5px 0;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+.note-card .ProseMirror p:last-child {
+  margin-bottom: 0;
+}
+
+.note-card .ProseMirror strong {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 13px !important;
+}
+
+.note-card .ProseMirror ul,
+.note-card .ProseMirror ol {
+  margin: 5px 0;
+  padding-left: 18px;
+  font-size: 13px !important;
+}
+
+.note-card .ProseMirror li {
+  margin: 2px 0;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+.note-card .ProseMirror a {
+  color: #60a5fa;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  font-size: 13px !important;
+}
+
+.note-card .ProseMirror a:hover {
+  color: #93c5fd;
+}
+
+/* Company mention specific styles - only underline the mention */
+.note-card .ProseMirror .company-mention {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-decoration-skip-ink: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px !important;
+  font-weight: 500;
+}
+
+.note-card .ProseMirror .company-mention:hover {
+  color: #93c5fd;
+  text-decoration-thickness: 2px;
+}
+
+/* Editor styles - reduce top spacing and ensure consistent font size */
+.ProseMirror {
+  outline: none;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+.ProseMirror > * {
+  margin-top: 0 !important;
+  font-size: 13px !important;
+}
+
+.ProseMirror > *:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+.ProseMirror p {
+  margin-top: 0;
+  margin-bottom: 0.5em;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+.ProseMirror p:first-child {
+  margin-top: 0;
+}
+
+.ProseMirror strong {
+  font-size: 13px !important;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  font-size: 13px !important;
+}
+
+.ProseMirror li {
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+/* Ensure regular text after company mention is not underlined */
+.ProseMirror .company-mention + * {
+  text-decoration: none !important;
+}
+
+/* ==================== EDITOR TOOLBAR STYLES ==================== */
+
+/* Editor toolbar button states */
+.editor-toolbar button {
+  position: relative;
+  overflow: hidden;
+}
+
+.editor-toolbar button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(96, 165, 250, 0.1);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.editor-toolbar button:hover::before {
+  opacity: 1;
+}
+
+.editor-toolbar button:active {
+  transform: scale(0.95);
+}
+
+.editor-toolbar button.is-active {
+  background: rgba(96, 165, 250, 0.2) !important;
+  color: rgba(96, 165, 250, 1) !important;
+  border-color: rgba(96, 165, 250, 0.4) !important;
+}
+
+.editor-toolbar button.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(96, 165, 250, 1);
+}
+
+/* Visibility toggle specific styles */
+.visibility-toggle {
+  position: relative;
+  overflow: hidden;
+}
+
+.visibility-toggle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(96, 165, 250, 0.1);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.visibility-toggle:hover::before {
+  opacity: 1;
+}
+
+/* ==================== LOADING STATES ==================== */
+
+/* Loading state for notes section */
+.notes-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 12px;
+}
+
+.notes-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(96, 165, 250, 0.2);
+  border-top-color: rgba(96, 165, 250, 1);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.notes-loading-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+}
+
+/* Saving state indicator */
+.note-saving-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 4px;
+  font-size: 11px;
+  color: rgba(96, 165, 250, 1);
+  font-weight: 500;
+}
+
+.note-saving-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(96, 165, 250, 0.3);
+  border-top-color: rgba(96, 165, 250, 1);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* Skeleton loading for note cards */
+.note-skeleton {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: 10px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.note-skeleton-line {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.note-skeleton-line:last-child {
+  width: 60%;
+  margin-bottom: 0;
+}
+
+/* ==================== ACTION BUTTON STYLES ==================== */
+
+/* Note action buttons - enhanced hover states */
+.note-action-button {
+  position: relative;
+  overflow: visible;
+}
+
+.note-action-button:active {
+  transform: scale(0.95) !important;
+}
+
+/* ==================== BACKLINK BADGE STYLES ==================== */
+
+/* Backlink badge enhancements */
+.backlink-badge {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.backlink-badge button {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.backlink-badge button::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(96, 165, 250, 1);
+  transform: scaleX(1);
+  transition: transform 0.2s ease;
+}
+
+.backlink-badge button:hover::after {
+  transform: scaleX(1.1);
+}
+
+/* ==================== ERROR MESSAGE STYLES ==================== */
+
+/* Error message enhancements */
+.note-error-message {
+  animation: slideIn 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.note-error-message::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #f87171;
+}
+
+/* ==================== NOTES SECTION HEADER STYLES ==================== */
+
+/* Create note button enhancements */
+.create-note-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.create-note-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(96, 165, 250, 0.1);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  border-radius: 4px;
+}
+
+.create-note-button:hover::before {
+  opacity: 1;
+}
+
+.create-note-button:active {
+  transform: scale(0.9);
+}
+
+/* Show all button enhancements */
+.show-all-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.show-all-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(96, 165, 250, 0.05);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.show-all-button:hover::before {
+  opacity: 1;
+}
+
+.show-all-button:hover {
+  transform: translateX(2px);
+}
+
+.show-all-button:active {
+  transform: translateX(4px) scale(0.98);
+}
+
+/* ==================== MENTION DROPDOWN STYLES ==================== */
+
+/* Company mention dropdown enhancements */
+.mention-dropdown {
+  animation: dropdownSlideIn 0.2s ease-out;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mention-dropdown-item {
+  position: relative;
+  overflow: hidden;
+}
+
+.mention-dropdown-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(96, 165, 250, 0.1);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.mention-dropdown-item:hover::before {
+  opacity: 1;
+}
+
+/* ==================== EDITOR CONTAINER STYLES ==================== */
+
+/* Note editor container enhancements */
+.note-editor {
+  animation: fadeIn 0.3s ease-out;
+  position: relative;
+}
+
+.note-editor::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(to right, rgba(96, 165, 250, 0.5), rgba(96, 165, 250, 0));
+  opacity: 0.5;
+}
+
+/* ==================== CONSISTENT SECTION STYLING ==================== */
+
+/* Ensure notes section matches other DetailPanel sections */
+.notes-section h3 {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+/* Section divider line */
+.notes-section::before {
+  content: '';
+  display: block;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 -16px 16px -16px;
+}
+
+/* ==================== MOBILE NOTES STYLES ==================== */
+
+/* Mobile-specific notes section improvements */
+@media (max-width: 767px) {
+  /* Notes section spacing */
+  .notes-section {
+    padding: 0 12px 12px 12px !important;
+  }
+
+  /* Note cards - better mobile spacing */
+  .note-card {
+    padding: 10px !important;
+    margin-bottom: 10px !important;
+  }
+
+  /* Note card content - slightly larger font for readability on mobile */
+  .note-card .ProseMirror {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+  }
+
+  .note-card .ProseMirror p,
+  .note-card .ProseMirror strong,
+  .note-card .ProseMirror li,
+  .note-card .ProseMirror a,
+  .note-card .ProseMirror .company-mention {
+    font-size: 14px !important;
+  }
+
+  /* Note card metadata - readable size */
+  .note-card-metadata {
+    font-size: 10px !important;
+  }
+
+  /* Editor toolbar - touch-friendly buttons */
+  .editor-toolbar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    padding: 6px !important;
+  }
+
+  .editor-toolbar button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 10px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  /* Editor content - 16px to prevent iOS zoom */
+  .note-editor .ProseMirror {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+    padding: 10px !important;
+    min-height: 100px !important;
+  }
+
+  .note-editor .ProseMirror p,
+  .note-editor .ProseMirror strong,
+  .note-editor .ProseMirror li,
+  .note-editor .ProseMirror a {
+    font-size: 16px !important;
+  }
+
+  /* Action buttons - touch-friendly */
+  .note-action-button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 10px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  /* Pagination controls - touch-friendly */
+  .pagination-button {
+    min-height: 44px !important;
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  .pagination-page-button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 10px !important;
+    font-size: 13px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  /* Notes view header - better mobile spacing */
+  .notes-view-header {
+    padding: 12px 16px !important;
+  }
+
+  /* Notes view back button - touch-friendly */
+  .notes-view-back-button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 10px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  /* Company mention dropdown - better mobile positioning */
+  .mention-dropdown {
+    max-width: calc(100vw - 32px) !important;
+    left: 16px !important;
+    right: 16px !important;
+  }
+
+  .mention-dropdown-item {
+    min-height: 44px !important;
+    padding: 10px 14px !important;
+    font-size: 14px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  /* Visibility toggle - touch-friendly */
+  .visibility-toggle {
+    min-height: 44px !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+
+  /* Create note button - touch-friendly */
+  .create-note-button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 10px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  /* Show all button - touch-friendly */
+  .show-all-button {
+    min-height: 44px !important;
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  /* Backlink badge - better mobile spacing */
+  .backlink-badge {
+    font-size: 11px !important;
+    padding: 4px 0 !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* Error messages - better mobile visibility */
+  .note-error-message {
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+    margin-bottom: 12px !important;
+  }
+
+  /* Confirmation dialog - better mobile sizing */
+  .confirmation-dialog {
+    max-width: calc(100vw - 32px) !important;
+    margin: 16px !important;
+  }
+
+  .confirmation-dialog-button {
+    min-height: 44px !important;
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+}

@@ -6,6 +6,7 @@ import { EntityCard } from "./EntityCard";
 import { GraphRelation } from "./GraphRelation";
 import { QuestionCard } from "./QuestionCard";
 import { GraphVisualization } from "./GraphVisualization";
+import styles from "./LandingPage.module.css";
 
 interface LandingPageProps {
   onAuth: () => void;
@@ -57,12 +58,12 @@ export function LandingPage({ onAuth }: LandingPageProps) {
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <div className="landing-page">
+      <div className={styles.landingPage}>
       
       {/* Hero Section */}
-      <div className="landing-container hero-section" style={{ position: 'relative', zIndex: 1 }}>
+      <div className={`${styles.container} ${styles.heroSection}`} style={{ position: 'relative', zIndex: 1 }}>
         {/* Logo / Brand */}
-        <div className="landing-brand">
+        <div className={styles.brand}>
           <svg
             width="40"
             height="40"
@@ -89,21 +90,21 @@ export function LandingPage({ onAuth }: LandingPageProps) {
             <circle cx="70" cy="70" r="3.5" fill="rgba(130, 150, 190, 0.35)" stroke="rgba(150, 170, 210, 0.25)" strokeWidth="1" />
             <circle cx="30" cy="70" r="3.5" fill="rgba(130, 150, 190, 0.35)" stroke="rgba(150, 170, 210, 0.25)" strokeWidth="1" />
           </svg>
-          <span className="brand-name">Financial Graph</span>
+          <span className={styles.brandName}>Financial Graph</span>
         </div>
 
         {/* Hero Content */}
-        <div className="hero-grid">
+        <div className={styles.heroGrid}>
           {/* Left: Text Content */}
-          <div className="hero-text">
+          <div className={styles.heroText}>
 
-            <h1 className="hero-title">
+            <h1 className={styles.heroTitle}>
               Understand how
               <br />
-              <span className="hero-title-gradient">companies really operate</span>
+              <span className={styles.heroTitleGradient}>companies really operate</span>
             </h1>
 
-            <p className="hero-description">
+            <p className={styles.heroDescription}>
               Navigate complex corporate structures. Map subsidiaries to business lines. Discover
               the entities behind brands and products.
             </p>
@@ -122,10 +123,10 @@ export function LandingPage({ onAuth }: LandingPageProps) {
               </div>
             )}
 
-            <div className="hero-cta">
+            <div className={styles.heroCta}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
                 {/* Custom styled Google Login wrapper */}
-                <div className="google-login-wrapper">
+                <div className={styles.googleLoginWrapper}>
                   <GoogleLogin
                     nonce={nonce}
                     onSuccess={handleGoogleSuccess}
@@ -141,7 +142,7 @@ export function LandingPage({ onAuth }: LandingPageProps) {
                 </div>
                 
                 {error && (
-                  <div className="error-message" style={{
+                  <div className={styles.errorMessage} style={{
                     padding: '12px 16px',
                     background: 'rgba(239, 68, 68, 0.1)',
                     border: '1px solid rgba(239, 68, 68, 0.2)',
@@ -155,9 +156,9 @@ export function LandingPage({ onAuth }: LandingPageProps) {
                   </div>
                 )}
                 
-                <div className="trust-info">
-                  <p className="hint-text">We only store your email and profile photo.</p>
-                  <p className="hint-text-secondary">No access to contacts, drive, or other Google data.</p>
+                <div className={styles.trustInfo}>
+                  <p className={styles.hintText}>We only store your email and profile photo.</p>
+                  <p className={styles.hintTextSecondary}>No access to contacts, drive, or other Google data.</p>
                 </div>
               </div>
             </div>
@@ -165,7 +166,7 @@ export function LandingPage({ onAuth }: LandingPageProps) {
 
           {/* Right: Visual Graph - Desktop only */}
           {!isMobile && (
-            <div className="hero-graph">
+            <div className={styles.heroGraph}>
               <GraphVisualization />
             </div>
           )}
@@ -173,13 +174,13 @@ export function LandingPage({ onAuth }: LandingPageProps) {
       </div>
 
       {/* Features Section */}
-      <div className="section-alt">
-        <div className="landing-container">
-          <div className="section-header">
-            <h2 className="section-label">Powered by Knowledge Graphs</h2>
+      <div className={styles.sectionAlt}>
+        <div className={styles.container}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionLabel}>Powered by Knowledge Graphs</h2>
           </div>
 
-          <div className="features-grid">
+          <div className={styles.featuresGrid}>
             <FeatureCard
               icon={
                 <svg
@@ -245,17 +246,17 @@ export function LandingPage({ onAuth }: LandingPageProps) {
       </div>
 
       {/* Graph Model Section */}
-      <div className="landing-container">
-        <div className="section-header">
-          <h2 className="section-label">The Data Model</h2>
-          <p className="section-title">A graph that captures business reality</p>
-          <p className="section-subtitle">
+      <div className={styles.container}>
+        <div className={styles.sectionHeader}>
+          <h2 className={styles.sectionLabel}>The Data Model</h2>
+          <p className={styles.sectionTitle}>A graph that captures business reality</p>
+          <p className={styles.sectionSubtitle}>
             Moving beyond static lists to a connected knowledge graph that models how companies
             actually operate.
           </p>
         </div>
 
-        <div className="entity-grid">
+        <div className={styles.entityGrid}>
           <EntityCard
             color="#ec4899"
             title="Legal Entity"
@@ -282,8 +283,8 @@ export function LandingPage({ onAuth }: LandingPageProps) {
           />
         </div>
 
-        <div className="relations-box">
-          <div className="relations-content">
+        <div className={styles.relationsBox}>
+          <div className={styles.relationsContent}>
             <GraphRelation from="Legal Entity" relation="owns" to="Brand" />
             <GraphRelation from="Brand" relation="markets" to="Product" />
             <GraphRelation from="Product" relation="belongs to" to="Segment" />
@@ -292,13 +293,13 @@ export function LandingPage({ onAuth }: LandingPageProps) {
       </div>
 
       {/* Questions Section */}
-      <div className="section-alt">
-        <div className="landing-container">
-          <div className="section-header">
-            <p className="section-title">Questions we help you answer</p>
+      <div className={styles.sectionAlt}>
+        <div className={styles.container}>
+          <div className={styles.sectionHeader}>
+            <p className={styles.sectionTitle}>Questions we help you answer</p>
           </div>
 
-          <div className="questions-grid">
+          <div className={styles.questionsGrid}>
             <QuestionCard question="What does this subsidiary actually do?" />
             <QuestionCard question="Which brands sit under which legal entities?" />
             <QuestionCard question="How does this company really operate?" />
@@ -310,11 +311,11 @@ export function LandingPage({ onAuth }: LandingPageProps) {
       </div>
 
       {/* CTA Section */}
-      <div className="landing-container cta-section">
-        <h2 className="cta-title">Ready to explore?</h2>
-        <p className="cta-subtitle">Start navigating corporate structures in seconds.</p>
+      <div className={`${styles.container} ${styles.ctaSection}`}>
+        <h2 className={styles.ctaTitle}>Ready to explore?</h2>
+        <p className={styles.ctaSubtitle}>Start navigating corporate structures in seconds.</p>
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
-          <div className="google-login-wrapper">
+          <div className={styles.googleLoginWrapper}>
             <GoogleLogin
               nonce={nonce}
               onSuccess={handleGoogleSuccess}
@@ -332,8 +333,8 @@ export function LandingPage({ onAuth }: LandingPageProps) {
       </div>
 
       {/* Footer */}
-      <div className="landing-footer">
-        <p>Built with InstantDB Triple Store</p>
+      <div className={styles.footer}>
+        <p>@2025-2026</p>
       </div>
     </div>
     </GoogleOAuthProvider>

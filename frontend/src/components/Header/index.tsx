@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { db } from "../../db/client";
 
 // Shared size for logo and profile button
-const HEADER_ICON_SIZE = 24; // Balanced size
+const HEADER_ICON_SIZE = 32; // Icon/image size
+const HEADER_BUTTON_SIZE = 44; // Touch target size (iOS minimum)
 
 export function Header() {
   const { user } = db.useAuth();
@@ -64,46 +65,59 @@ export function Header() {
       <div className="flex items-center gap-3">
         <div
           className="rounded-full bg-[#2b2b2f] flex items-center justify-center overflow-hidden shrink-0"
-          style={{ width: HEADER_ICON_SIZE, height: HEADER_ICON_SIZE }}
+          style={{ width: HEADER_BUTTON_SIZE, height: HEADER_BUTTON_SIZE }}
         >
           <svg
-            width={HEADER_ICON_SIZE - 4}
-            height={HEADER_ICON_SIZE - 4}
+            width={HEADER_ICON_SIZE}
+            height={HEADER_ICON_SIZE}
             viewBox="0 0 100 100"
             xmlns="http://www.w3.org/2000/svg"
           >
-            <g stroke="#888" strokeWidth="5" strokeLinecap="round">
-              <line x1="50" y1="50" x2="75" y2="28" />
-              <line x1="75" y1="28" x2="85" y2="42" />
-              <line x1="50" y1="50" x2="28" y2="32" />
-              <line x1="28" y1="32" x2="18" y2="52" />
-              <line x1="50" y1="50" x2="70" y2="70" />
-              <line x1="50" y1="50" x2="30" y2="70" />
+            {/* Connection lines */}
+            <g stroke="#777" strokeWidth="3" strokeLinecap="round">
+              <line x1="50" y1="50" x2="78" y2="22" />
+              <line x1="78" y1="22" x2="90" y2="40" />
+              <line x1="50" y1="50" x2="22" y2="22" />
+              <line x1="22" y1="22" x2="10" y2="40" />
+              <line x1="50" y1="50" x2="76" y2="76" />
+              <line x1="50" y1="50" x2="24" y2="76" />
             </g>
-            <circle cx="50" cy="50" r="10" fill="#2b2b2f" stroke="#aaa" strokeWidth="5" />
-            <circle cx="75" cy="28" r="6" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
-            <circle cx="85" cy="42" r="4" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
-            <circle cx="28" cy="32" r="6" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
-            <circle cx="18" cy="52" r="4" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
-            <circle cx="70" cy="70" r="5" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
-            <circle cx="30" cy="70" r="5" fill="#2b2b2f" stroke="#888" strokeWidth="4" />
+            {/* Nodes */}
+            <circle cx="50" cy="50" r="9" fill="#2b2b2f" stroke="#aaa" strokeWidth="3.5" />
+            <circle cx="78" cy="22" r="6" fill="#2b2b2f" stroke="#888" strokeWidth="3" />
+            <circle cx="90" cy="40" r="4" fill="#2b2b2f" stroke="#888" strokeWidth="2.5" />
+            <circle cx="22" cy="22" r="6" fill="#2b2b2f" stroke="#888" strokeWidth="3" />
+            <circle cx="10" cy="40" r="4" fill="#2b2b2f" stroke="#888" strokeWidth="2.5" />
+            <circle cx="76" cy="76" r="5" fill="#2b2b2f" stroke="#888" strokeWidth="3" />
+            <circle cx="24" cy="76" r="5" fill="#2b2b2f" stroke="#888" strokeWidth="3" />
           </svg>
         </div>
-        <span className="text-sm font-medium text-foreground/80 leading-none" style={{ marginLeft: "10px" }}>
+        <span
+          className="text-[11px] font-medium text-foreground/15 leading-none tracking-[0.2em] uppercase"
+          style={{ marginLeft: "10px" }}
+        >
           Financial Graph
         </span>
       </div>
 
       {/* Right side - User Menu */}
       {user && (
-        <div className="relative shrink-0">
+        <div className="relative shrink-0" style={{ marginRight: '4px' }}>
           <button
             ref={buttonRef}
             onClick={toggleMenu}
             className={`rounded-full transition-colors flex items-center justify-center ${
               showUserMenu ? "bg-accent/50 ring-1 ring-accent/30" : "hover:bg-accent/30"
             }`}
-            style={{ width: HEADER_ICON_SIZE, height: HEADER_ICON_SIZE }}
+            style={{ 
+              width: HEADER_BUTTON_SIZE, 
+              height: HEADER_BUTTON_SIZE,
+              minWidth: HEADER_BUTTON_SIZE,
+              minHeight: HEADER_BUTTON_SIZE,
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation',
+            }}
+            aria-label="User menu"
           >
             {user.imageURL ? (
               <img
@@ -114,8 +128,8 @@ export function Header() {
               />
             ) : (
               <svg
-                width={HEADER_ICON_SIZE - 10}
-                height={HEADER_ICON_SIZE - 10}
+                width={HEADER_ICON_SIZE - 8}
+                height={HEADER_ICON_SIZE - 8}
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -155,16 +169,20 @@ export function Header() {
                     alignItems: "center",
                     gap: "8px",
                     width: "100%",
-                    padding: "8px 12px",
-                    fontSize: "12px",
+                    padding: "12px 16px",
+                    fontSize: "13px",
                     color: "rgba(255,255,255,0.8)",
                     background: "none",
                     border: "none",
                     cursor: "pointer",
                     transition: "background 0.15s",
+                    minHeight: "44px",
+                    WebkitTapHighlightColor: "transparent",
+                    touchAction: "manipulation",
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.1)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                  aria-label="Sign out"
                 >
                   <svg
                     width="12"

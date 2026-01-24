@@ -310,11 +310,12 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
               Company
             </button>
           </div>
-          <div style={{ 
-            fontSize: "11px", 
-            color: "rgba(255, 255, 255, 0.4)", 
-            textAlign: "center", 
-            marginTop: "6px" 
+          <div style={{
+            fontSize: "11px",
+            color: "rgba(255, 255, 255, 0.4)",
+            textAlign: "center",
+            marginTop: "8px",
+            marginBottom: "4px",
           }}>
             Use Tab or ← → to switch • Enter to search
           </div>

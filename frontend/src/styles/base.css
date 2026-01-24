@@ -1,0 +1,146 @@
+/* ==================== BASE STYLES ==================== */
+
+/* CSS Variables - must be in @layer base for Tailwind */
+@layer base {
+  :root {
+    /* System font stack for consistent typography */
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+
+    /* Linear-inspired dark theme - minimal and professional */
+    --background: 240 6% 6%; /* Very dark, almost black #0F0F10 */
+    --foreground: 240 5% 84%; /* Muted white for text */
+    --card: 240 5% 9%; /* Slightly lighter than bg #16161A */
+    --card-foreground: 240 5% 84%;
+    --popover: 240 5% 9%;
+    --popover-foreground: 240 5% 84%;
+    --primary: 250 70% 60%; /* Subtle purple accent */
+    --primary-foreground: 240 5% 96%;
+    --secondary: 240 4% 16%; /* Very subtle secondary */
+    --secondary-foreground: 240 5% 84%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 4% 46%; /* Lower contrast muted text */
+    --accent: 240 4% 16%;
+    --accent-foreground: 240 5% 84%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 240 5% 96%;
+    --border: 240 4% 16%; /* Very subtle borders */
+    --input: 240 5% 12%;
+    --ring: 250 70% 60%;
+    --radius: 0.375rem; /* Slightly smaller radius */
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+  
+  html {
+    height: 100%;
+    margin: 0;
+  }
+}
+
+/* Body styles - outside @layer to ensure they apply */
+body {
+  min-height: 100vh;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+  background-color: hsl(240 6% 3%) !important;
+  color: hsl(var(--foreground)) !important;
+  box-sizing: border-box;
+  font-family: var(--font-sans);
+}
+
+/* App container styles - applied when authenticated */
+body.app-mode {
+  height: 100vh;
+  overflow: hidden;
+  background-color: hsl(var(--background)) !important;
+}
+
+body.app-mode #root {
+  height: 100%;
+  width: 100%;
+  background-color: hsl(var(--background)) !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Landing page mode - allow scrolling */
+body.landing-mode {
+  overflow-y: auto;
+}
+
+body.landing-mode #root {
+  min-height: 100vh;
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--background));
+}
+
+/* Spinner animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Header hover-to-show behavior (desktop only) */
+@media (min-width: 768px) {
+  .header-hover-zone {
+    position: relative;
+    z-index: 100;
+    height: 8px;
+    flex-shrink: 0;
+  }
+
+  .header-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    opacity: 0;
+    transform: translateY(-100%);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+    background: hsl(var(--background));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .header-hover-zone:hover .header-container,
+  .header-container:hover {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  /* Keep header visible while interacting with it */
+  .header-hover-zone:focus-within .header-container {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}

@@ -5,6 +5,9 @@ import { CompanyType, getCleanCategory } from "financial-graph-shared";
 
 import { useCompanyDetail } from "../../db/queries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { NotesSection } from "./NotesSection";
+import { NotesView } from "./NotesView";
+import { db } from "../../db/client";
 
 // Helper function to format fiscal year end from MMDD to MM/DD
 function formatFiscalYearEnd(fiscalYearEnd?: string): string | undefined {
@@ -30,12 +33,18 @@ function DetailContent({
   parentEdge,
   companyNode,
   handleParentCompanyClick,
+  companyId,
+  userId,
+  onShowAllNotes,
 }: {
   isSubsidiaryNode: boolean;
   subsidiary: any;
   parentEdge: any;
   companyNode: CompanyDetail | null;
   handleParentCompanyClick: () => void;
+  companyId: string;
+  userId: string | null;
+  onShowAllNotes: () => void;
 }) {
   return (
     <>
@@ -146,7 +155,7 @@ function DetailContent({
                   <div
                     style={{
                       fontSize: "12px",
-                      fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+                      fontFamily: "var(--font-sans)",
                       lineHeight: "1.4",
                       fontWeight: 400,
                     }}
@@ -224,7 +233,7 @@ function DetailContent({
                         color: "rgba(255,255,255,0.9)",
                         lineHeight: "1.5",
                         fontWeight: 400,
-                        fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+                        fontFamily: "var(--font-sans)",
                       }}
                     >
                       {companyNode.companyInfo.addresses.mailing.street1}
@@ -256,7 +265,7 @@ function DetailContent({
                         color: "rgba(255,255,255,0.9)",
                         lineHeight: "1.5",
                         fontWeight: 400,
-                        fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+                        fontFamily: "var(--font-sans)",
                       }}
                     >
                       {(() => {
@@ -336,7 +345,7 @@ function DetailContent({
                                   lineHeight: "1.4",
                                   color: "rgba(255,255,255,0.9)",
                                   fontWeight: 400,
-                                  fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+                                  fontFamily: "var(--font-sans)",
                                 }}
                               >
                                 {n.name}
@@ -346,7 +355,7 @@ function DetailContent({
                                   fontSize: "11px",
                                   color: "rgba(255,255,255,0.5)",
                                   marginTop: "1px",
-                                  fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+                                  fontFamily: "var(--font-sans)",
                                   fontWeight: 400,
                                 }}
                               >
@@ -363,6 +372,18 @@ function DetailContent({
           )}
         </>
       )}
+
+      {/* Notes Section - Requirement 1.5, 8.1, 8.2 */}
+      {userId && (
+        <NotesSection
+          companyId={companyId}
+          userId={userId}
+          onShowAll={onShowAllNotes}
+        />
+      )}
+
+      {/* Bottom spacing for better scrolling */}
+      <div style={{ height: '200px' }} />
     </>
   );
 }
@@ -374,7 +395,11 @@ export function DetailPanel({
   hideTabs = false,
 }: DetailPanelProps) {
   const [activeTab, setActiveTab] = useState<"info" /* | "audit" */>("info");
+  const [showNotesView, setShowNotesView] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Get current user for notes functionality
+  const { user } = db.useAuth();
 
   // Check if this is a subsidiary (either from the flag or if it's not a full CompanyDetail)
   const isSubsidiaryNode = node && 'isSubsidiary' in node ? node.isSubsidiary : false;
@@ -406,12 +431,22 @@ export function DetailPanel({
     }
   };
 
+  // Handle show all notes - switch to NotesView
+  const handleShowAllNotes = () => {
+    setShowNotesView(true);
+  };
+
+  // Handle back from NotesView
+  const handleBackFromNotes = () => {
+    setShowNotesView(false);
+  };
+
   const panelPadding = "16px";
 
   return (
     <aside
       ref={panelRef}
-      className={`detail-panel w-[340px] min-w-[340px] shrink-0 h-full bg-card border-l border-border/40 flex flex-col ${hideTabs ? 'overflow-visible' : 'overflow-hidden'}`}
+      className={`detail-panel w-[400px] min-w-[400px] shrink-0 h-full bg-card border-l border-border/40 flex flex-col ${hideTabs ? 'overflow-visible' : 'overflow-hidden'}`}
     >
       {/* Header - only show if not hiding tabs (desktop mode) */}
       {!hideTabs && (
@@ -472,13 +507,24 @@ export function DetailPanel({
           scrollbarGutter: "stable",
           WebkitOverflowScrolling: "touch" // Enable smooth scrolling on iOS
         }}>
-          <DetailContent
-            isSubsidiaryNode={isSubsidiaryNode}
-            subsidiary={subsidiary}
-            parentEdge={parentEdge}
-            companyNode={companyNode}
-            handleParentCompanyClick={handleParentCompanyClick}
-          />
+          {showNotesView && user ? (
+            <NotesView
+              companyId={node.id}
+              userId={user.id}
+              onBack={handleBackFromNotes}
+            />
+          ) : (
+            <DetailContent
+              isSubsidiaryNode={isSubsidiaryNode}
+              subsidiary={subsidiary}
+              parentEdge={parentEdge}
+              companyNode={companyNode}
+              handleParentCompanyClick={handleParentCompanyClick}
+              companyId={node.id}
+              userId={user?.id || null}
+              onShowAllNotes={handleShowAllNotes}
+            />
+          )}
         </div>
       ) : (
         // Desktop version - show with tabs
@@ -522,13 +568,24 @@ export function DetailPanel({
             className="flex-1 overflow-y-auto mt-0"
             style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
           >
-            <DetailContent
-              isSubsidiaryNode={isSubsidiaryNode}
-              subsidiary={subsidiary}
-              parentEdge={parentEdge}
-              companyNode={companyNode}
-              handleParentCompanyClick={handleParentCompanyClick}
-            />
+            {showNotesView && user ? (
+              <NotesView
+                companyId={node.id}
+                userId={user.id}
+                onBack={handleBackFromNotes}
+              />
+            ) : (
+              <DetailContent
+                isSubsidiaryNode={isSubsidiaryNode}
+                subsidiary={subsidiary}
+                parentEdge={parentEdge}
+                companyNode={companyNode}
+                handleParentCompanyClick={handleParentCompanyClick}
+                companyId={node.id}
+                userId={user?.id || null}
+                onShowAllNotes={handleShowAllNotes}
+              />
+            )}
           </TabsContent>
           </Tabs>
         )}
@@ -616,7 +673,7 @@ function FieldRow({
         style={{
           fontSize: "12px",
           color: mono ? "#60a5fa" : "rgba(255,255,255,0.9)",
-          fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+          fontFamily: "var(--font-sans)",
           wordBreak: "break-word",
           lineHeight: "1.4",
           fontWeight: 400,
@@ -673,7 +730,7 @@ function TickerField({ tickers }: { tickers?: string | string[] | null }) {
               style={{
                 display: "inline-block",
                 fontSize: "11px",
-                fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+                fontFamily: "var(--font-sans)",
                 fontWeight: 600,
                 padding: "3px 7px",
                 borderRadius: "4px",
@@ -844,7 +901,7 @@ function AuditEntry({ audit }: { audit: any }) {
                 padding: "6px 8px",
                 borderRadius: "4px",
                 background: "rgba(255,255,255,0.03)",
-                fontFamily: "monospace",
+                fontFamily: "var(--font-sans)",
               }}
             >
               <div style={{ color: "rgba(255,255,255,0.5)", marginBottom: "2px" }}>

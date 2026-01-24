@@ -87,6 +87,16 @@ const _schema = i.schema({
       operation: i.string().indexed(),
       source_id: i.string().indexed().optional(),
     }),
+
+    // Notes - rich text notes associated with companies
+    notes: i.entity({
+      content: i.json(), // Tiptap JSON document
+      createdAt: i.string().indexed(),
+      updatedAt: i.string(),
+      createdBy: i.string(), // 'user' or 'system'
+      mentionedCompanyIds: i.json().optional(), // Array of company IDs mentioned in the note
+      visibility: i.string().indexed(), // 'private' or 'public', defaults to 'private'
+    }),
   },
   links: {
     // Company -> Filing (many-to-many: multiple companies can file the same document)
@@ -178,6 +188,32 @@ const _schema = i.schema({
         on: "company_info",
         has: "one",
         label: "company",
+      },
+    },
+    // Note -> User (many notes per user)
+    noteUser: {
+      forward: {
+        on: "notes",
+        has: "one",
+        label: "user",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "notes",
+      },
+    },
+    // Note -> Company (many notes per company)
+    noteCompany: {
+      forward: {
+        on: "notes",
+        has: "one",
+        label: "company",
+      },
+      reverse: {
+        on: "company",
+        has: "many",
+        label: "notes",
       },
     },
     // // Company -> Brand (direct ownership link)

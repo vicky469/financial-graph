@@ -137,7 +137,7 @@ function TreeNode({
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
-            fontFamily: "Arial, sans-serif",
+            fontFamily: "var(--font-sans)",
             fontWeight: "400",
             lineHeight: "1.3",
           }}
@@ -151,7 +151,7 @@ function TreeNode({
             style={{
               fontSize: "11px",
               color: "rgba(255,255,255,0.4)",
-              fontFamily: "Arial, sans-serif",
+              fontFamily: "var(--font-sans)",
               fontWeight: "400",
               flexShrink: 0,
             }}
