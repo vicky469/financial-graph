@@ -93,19 +93,11 @@ const rules = {
 
   notes: {
     allow: {
-      // Users can view their own notes, or public notes
-      view: "auth.id != null && (data.ref('user.id') == auth.id || data.visibility == 'public')",
-      // Users can only create notes linked to themselves
+      view: "auth.id != null",
       create: "auth.id != null",
-      // Users can only update their own notes
-      update: "auth.id != null && data.ref('user.id') == auth.id",
-      // Users can only delete their own notes
-      delete: "auth.id != null && data.ref('user.id') == auth.id",
+      update: "auth.id != null",
+      delete: "auth.id != null",
     },
-    bind: [
-      // Ensure new notes are always linked to the authenticated user
-      "isOwner", "auth.id != null && data.ref('user.id') == auth.id",
-    ],
   },
 
   // ==================== AUDIT TRAIL ====================
