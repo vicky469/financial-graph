@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useParams } from "react-router-dom";
 import { db } from "../../db/client";
 
 // Shared size for logo and profile button
@@ -7,6 +8,9 @@ const HEADER_ICON_SIZE = 24; // Icon/image size (reduced from 32)
 const HEADER_BUTTON_SIZE = 36; // Touch target size (reduced from 44)
 
 export function Header() {
+  const { companyId } = useParams<{ companyId?: string }>();
+  const isDetailPage = !!companyId;
+  
   const { user } = db.useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -29,10 +33,10 @@ export function Header() {
     if (showUserMenu && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       if (isMobile) {
-        // Position menu below the floating button
+        // Position menu below the floating button on the left
         setMenuPosition({
-          top: rect.bottom + 8, // Below the button
-          right: 16,
+          top: rect.bottom + 8,
+          right: window.innerWidth - rect.right,
           bottom: 0,
         });
       } else {
@@ -85,8 +89,15 @@ export function Header() {
     <div
       style={{
         position: "fixed",
-        top: "calc(16px + env(safe-area-inset-top, 0px))",
-        right: 8,
+        ...(isDetailPage ? {
+          // Top right on detail pages
+          top: "calc(8px + env(safe-area-inset-top, 0px))",
+          right: 8,
+        } : {
+          // Bottom right on main page (higher up to avoid covering menu)
+          bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
+          right: 16,
+        }),
         zIndex: 100,
       }}
     >
@@ -200,9 +211,9 @@ export function Header() {
     </div>
   );
 
-  // Mobile: only show floating button
+  // Mobile: only show floating button on detail pages
   if (isMobile) {
-    return user ? <FloatingProfileButton /> : null;
+    return user && isDetailPage ? <FloatingProfileButton /> : null;
   }
 
   // Desktop: show full header
