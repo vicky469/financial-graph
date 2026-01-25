@@ -5,6 +5,16 @@
   input, textarea, select {
     font-size: 16px !important;
   }
+
+  /* Make search box shorter to accommodate profile button */
+  .search-container-wrapper {
+    padding-right: 60px !important;
+  }
+
+  /* Reduce spacing between search and filters */
+  .search-container-wrapper {
+    padding-bottom: 8px !important;
+  }
 }
 
 /* Safe area utility */

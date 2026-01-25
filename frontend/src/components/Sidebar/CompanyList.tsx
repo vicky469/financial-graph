@@ -90,13 +90,14 @@ export const CompanyList = memo(function CompanyList({
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Search */}
-      <div style={{ padding: "16px" }}>
+      <div style={{ padding: "16px" }} className="search-container-wrapper">
         <div
           style={{
             position: "relative",
             display: "flex",
             alignItems: "center",
           }}
+          className="search-input-container"
         >
           <Search
             size={14}

@@ -3,8 +3,8 @@ import { createPortal } from "react-dom";
 import { db } from "../../db/client";
 
 // Shared size for logo and profile button
-const HEADER_ICON_SIZE = 32; // Icon/image size
-const HEADER_BUTTON_SIZE = 44; // Touch target size (iOS minimum)
+const HEADER_ICON_SIZE = 24; // Icon/image size (reduced from 32)
+const HEADER_BUTTON_SIZE = 36; // Touch target size (reduced from 44)
 
 export function Header() {
   const { user } = db.useAuth();
@@ -29,11 +29,11 @@ export function Header() {
     if (showUserMenu && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       if (isMobile) {
-        // Position menu above the floating button
+        // Position menu below the floating button
         setMenuPosition({
-          top: 0,
+          top: rect.bottom + 8, // Below the button
           right: 16,
-          bottom: rect.height + 24, // Above the button
+          bottom: 0,
         });
       } else {
         setMenuPosition({
@@ -85,8 +85,8 @@ export function Header() {
     <div
       style={{
         position: "fixed",
-        bottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
-        right: 16,
+        top: "calc(16px + env(safe-area-inset-top, 0px))",
+        right: 8,
         zIndex: 100,
       }}
     >
@@ -144,7 +144,7 @@ export function Header() {
             ref={menuRef}
             style={{
               position: "fixed",
-              bottom: menuPosition.bottom,
+              top: menuPosition.top,
               right: menuPosition.right,
               background: "rgba(30, 30, 35, 0.98)",
               backdropFilter: "blur(8px)",
@@ -212,7 +212,12 @@ export function Header() {
       <div className="flex items-center gap-3">
         <div
           className="rounded-full bg-[#2b2b2f] flex items-center justify-center overflow-hidden shrink-0"
-          style={{ width: HEADER_BUTTON_SIZE, height: HEADER_BUTTON_SIZE }}
+          style={{ 
+            width: HEADER_ICON_SIZE, 
+            height: HEADER_ICON_SIZE,
+            minWidth: HEADER_ICON_SIZE,
+            minHeight: HEADER_ICON_SIZE,
+          }}
         >
           <svg
             width={HEADER_ICON_SIZE}
@@ -254,7 +259,7 @@ export function Header() {
             ref={buttonRef}
             onClick={toggleMenu}
             className={`rounded-full transition-colors flex items-center justify-center ${
-              showUserMenu ? "bg-accent/50 ring-1 ring-accent/30" : "hover:bg-accent/30"
+              showUserMenu ? "bg-accent/50" : "hover:bg-accent/30"
             }`}
             style={{
               width: HEADER_BUTTON_SIZE,
@@ -271,7 +276,12 @@ export function Header() {
                 src={user.imageURL}
                 alt="Profile"
                 className="rounded-full object-cover"
-                style={{ width: HEADER_ICON_SIZE, height: HEADER_ICON_SIZE }}
+                style={{ 
+                  maxWidth: HEADER_ICON_SIZE, 
+                  maxHeight: HEADER_ICON_SIZE,
+                  width: 'auto',
+                  height: 'auto',
+                }}
               />
             ) : (
               <svg
