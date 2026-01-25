@@ -12,29 +12,26 @@ const SUBSIDIARY_NODES = [
 ] as const;
 
 const FLOATING_PARTICLES = [
-  { cx: 50, cy: 130, color: "#818cf8", size: 1.5, duration: "12s", opacity: 0.6 },
-  { cx: 350, cy: 110, color: "#a78bfa", size: 1.5, duration: "10s", opacity: 0.5 },
-  { cx: 380, cy: 260, color: "#34d399", size: 2, duration: "8s", opacity: 0.4 },
-  { cx: 25, cy: 250, color: "#f472b6", size: 1.5, duration: "9s", opacity: 0.5 },
+  { cx: 50, cy: 130, color: "#818cf8", size: 1.5, duration: "12s", opacity: 0.5 },
+  { cx: 350, cy: 110, color: "#a78bfa", size: 1.5, duration: "10s", opacity: 0.45 },
+  { cx: 25, cy: 250, color: "#f472b6", size: 1.5, duration: "11s", opacity: 0.4 },
   { cx: 200, cy: 410, color: "#fbbf24", size: 2, duration: "14s", opacity: 0.3 },
 ] as const;
 
 const STATIC_PARTICLES = [
-  { cx: 150, cy: 140, color: "#c084fc", size: 1, opacity: 0.4, duration: "3s" },
-  { cx: 250, cy: 140, color: "#34d399", size: 1, opacity: 0.3, duration: "4s" },
-  { cx: 100, cy: 380, color: "#ec4899", size: 1.5, opacity: 0.3, duration: "5s" },
-  { cx: 300, cy: 380, color: "#10b981", size: 1.5, opacity: 0.3, duration: "4.5s" },
+  { cx: 150, cy: 140, color: "#c084fc", size: 1, opacity: 0.35, duration: "4s" },
+  { cx: 250, cy: 140, color: "#34d399", size: 1, opacity: 0.3, duration: "5s" },
+  { cx: 300, cy: 380, color: "#10b981", size: 1.5, opacity: 0.3, duration: "5s" },
 ] as const;
 
 const DATA_FLOW_PARTICLES = [
-  { pathId: "#pathCorpFin", color: "#818cf8", size: 3, duration: "2.5s" },
-  { pathId: "#pathCorpTech", color: "#a78bfa", size: 2.5, duration: "3s", delay: "0.5s" },
-  { pathId: "#pathCorpFin", color: "#f472b6", size: 2, duration: "3.5s", reverse: true },
-  { pathId: "#pathCorpTech", color: "#34d399", size: 2, duration: "4s", delay: "1s", reverse: true },
+  { pathId: "#pathCorpFin", color: "#818cf8", size: 2.5, duration: "3s" },
+  { pathId: "#pathCorpFin", color: "#f472b6", size: 2, duration: "3.5s", delay: "1.5s", reverse: true },
+  { pathId: "#pathCorpTech", color: "#34d399", size: 2.5, duration: "3.5s", delay: "0.5s" },
+  { pathId: "#pathCorpTech", color: "#a78bfa", size: 2, duration: "4s", delay: "2s", reverse: true },
   { pathId: "#pathFinTech", color: "#c084fc", size: 2, duration: "5s" },
-  { pathId: "#pathFinTech", color: "#a78bfa", size: 1.5, duration: "5s", delay: "2.5s", reverse: true },
-  { pathId: "#pathFinOps", color: "#fbbf24", size: 2, duration: "4s", delay: "0.3s" },
-  { pathId: "#pathTechOps", color: "#10b981", size: 2, duration: "4.5s", delay: "0.8s" },
+  { pathId: "#pathFinOps", color: "#fbbf24", size: 2, duration: "4.5s", delay: "0.3s" },
+  { pathId: "#pathTechOps", color: "#10b981", size: 2, duration: "5s", delay: "0.8s" },
 ] as const;
 
 // Static styles injected once
@@ -92,34 +89,39 @@ const ambientStyle1: React.CSSProperties = {
   position: "absolute",
   top: "50%",
   left: "50%",
-  transform: "translate(-50%, -50%)",
+  transform: "translate(-50%, -50%) translateZ(0)",
   width: 320,
   height: 320,
   background: "radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%)",
   borderRadius: "50%",
-  animation: "breathe1 6s ease-in-out infinite",
+  animation: "breathe1 8s ease-in-out infinite",
+  willChange: "transform, opacity",
 };
 
 const ambientStyle2: React.CSSProperties = {
   position: "absolute",
   top: "25%",
   left: "25%",
+  transform: "translateZ(0)",
   width: 180,
   height: 180,
   background: "radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, transparent 70%)",
   borderRadius: "50%",
-  animation: "breathe2 8s ease-in-out infinite",
+  animation: "breathe2 10s ease-in-out infinite",
+  willChange: "transform, opacity",
 };
 
 const ambientStyle3: React.CSSProperties = {
   position: "absolute",
   top: "60%",
   right: "15%",
+  transform: "translateZ(0)",
   width: 200,
   height: 200,
   background: "radial-gradient(circle, rgba(20, 184, 166, 0.07) 0%, transparent 70%)",
   borderRadius: "50%",
-  animation: "breathe3 7s ease-in-out infinite",
+  animation: "breathe3 9s ease-in-out infinite",
+  willChange: "transform, opacity",
 };
 
 // ============================================================================
@@ -149,7 +151,11 @@ const GraphSVG = memo(function GraphSVG() {
   );
 });
 
-const svgStyle: React.CSSProperties = { position: "relative", zIndex: 1 };
+const svgStyle: React.CSSProperties = {
+  position: "relative",
+  zIndex: 1,
+  transform: "translateZ(0)", // Force GPU layer
+};
 
 // ============================================================================
 // SVG DEFINITIONS - Static, rendered once
@@ -195,21 +201,21 @@ const Filters = memo(function Filters() {
   return (
     <>
       <filter id="glow1" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="6" result="coloredBlur" />
+        <feGaussianBlur stdDeviation="4" result="coloredBlur" />
         <feMerge>
           <feMergeNode in="coloredBlur" />
           <feMergeNode in="SourceGraphic" />
         </feMerge>
       </filter>
       <filter id="glow2" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+        <feGaussianBlur stdDeviation="2" result="coloredBlur" />
         <feMerge>
           <feMergeNode in="coloredBlur" />
           <feMergeNode in="SourceGraphic" />
         </feMerge>
       </filter>
       <filter id="particleGlow" x="-100%" y="-100%" width="300%" height="300%">
-        <feGaussianBlur stdDeviation="2" />
+        <feGaussianBlur stdDeviation="1.5" />
       </filter>
     </>
   );
@@ -223,13 +229,13 @@ const OrbitalSystem = memo(function OrbitalSystem() {
   return (
     <g>
       <ellipse cx="200" cy="210" rx="175" ry="65" fill="none" stroke="rgba(99, 102, 241, 0.06)" strokeWidth="1">
-        <animateTransform attributeName="transform" type="rotate" from="0 200 210" to="360 200 210" dur="60s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="rotate" from="0 200 210" to="360 200 210" dur="90s" repeatCount="indefinite" />
       </ellipse>
       <ellipse cx="200" cy="210" rx="130" ry="50" fill="none" stroke="rgba(236, 72, 153, 0.05)" strokeWidth="1">
-        <animateTransform attributeName="transform" type="rotate" from="360 200 210" to="0 200 210" dur="45s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="rotate" from="360 200 210" to="0 200 210" dur="75s" repeatCount="indefinite" />
       </ellipse>
       <ellipse cx="200" cy="210" rx="90" ry="35" fill="none" stroke="rgba(52, 211, 153, 0.04)" strokeWidth="1">
-        <animateTransform attributeName="transform" type="rotate" from="0 200 210" to="360 200 210" dur="30s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="rotate" from="0 200 210" to="360 200 210" dur="60s" repeatCount="indefinite" />
       </ellipse>
     </g>
   );
@@ -352,11 +358,7 @@ const MainNodes = memo(function MainNodes() {
         <circle cx="200" cy="350" r="26" stroke="rgba(255,255,255,0.2)" strokeWidth="1" fill="none" />
         <circle cx="200" cy="350" r="34" stroke="rgba(251, 191, 36, 0.2)" strokeWidth="1" fill="none">
           <animate attributeName="r" values="32;42;32" dur="5s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.3;0;0.3" dur="5s" repeatCount="indefinite" />
-        </circle>
-        <circle cx="200" cy="350" r="40" stroke="rgba(251, 191, 36, 0.1)" strokeWidth="1" fill="none">
-          <animate attributeName="r" values="38;50;38" dur="5s" repeatCount="indefinite" begin="1s" />
-          <animate attributeName="opacity" values="0.2;0;0.2" dur="5s" repeatCount="indefinite" begin="1s" />
+          <animate attributeName="opacity" values="0.3;0.05;0.3" dur="5s" repeatCount="indefinite" />
         </circle>
         <text x="200" y="354" textAnchor="middle" fill="white" fontSize="9" fontWeight="500" fontFamily="system-ui">OPS</text>
       </g>

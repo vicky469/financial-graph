@@ -6,6 +6,7 @@ import { EntityCard } from "./EntityCard";
 import { GraphRelation } from "./GraphRelation";
 import { QuestionCard } from "./QuestionCard";
 import { GraphVisualization } from "./GraphVisualization";
+import { NetworkBackground } from "./NetworkBackground";
 import styles from "./LandingPage.module.css";
 
 interface LandingPageProps {
@@ -59,7 +60,8 @@ export function LandingPage({ onAuth }: LandingPageProps) {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <div className={styles.landingPage}>
-      
+      <NetworkBackground />
+
       {/* Hero Section */}
       <div className={`${styles.container} ${styles.heroSection}`} style={{ position: 'relative', zIndex: 1 }}>
         {/* Logo / Brand */}
@@ -283,12 +285,10 @@ export function LandingPage({ onAuth }: LandingPageProps) {
           />
         </div>
 
-        <div className={styles.relationsBox}>
-          <div className={styles.relationsContent}>
-            <GraphRelation from="Legal Entity" relation="owns" to="Brand" />
-            <GraphRelation from="Brand" relation="markets" to="Product" />
-            <GraphRelation from="Product" relation="belongs to" to="Segment" />
-          </div>
+        <div className={styles.relationsContent}>
+          <GraphRelation from="Legal Entity" relation="owns" to="Brand" />
+          <GraphRelation from="Brand" relation="markets" to="Product" />
+          <GraphRelation from="Product" relation="belongs to" to="Segment" />
         </div>
       </div>
 

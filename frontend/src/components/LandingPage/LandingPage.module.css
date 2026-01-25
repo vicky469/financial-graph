@@ -3,7 +3,7 @@
 .landingPage {
   min-height: 100vh;
   background: #050508;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(190, 200, 220, 0.85);
   overflow: auto;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -12,38 +12,7 @@
   position: relative;
 }
 
-/* Star field background */
-.landingPage::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.8), transparent),
-    radial-gradient(1px 1px at 40px 70px, rgba(255, 255, 255, 0.5), transparent),
-    radial-gradient(1px 1px at 50px 160px, rgba(255, 255, 255, 0.6), transparent),
-    radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.4), transparent),
-    radial-gradient(1px 1px at 130px 80px, rgba(255, 255, 255, 0.7), transparent),
-    radial-gradient(1.5px 1.5px at 160px 120px, rgba(255, 255, 255, 0.9), transparent),
-    radial-gradient(1px 1px at 200px 50px, rgba(255, 255, 255, 0.5), transparent),
-    radial-gradient(1px 1px at 220px 150px, rgba(255, 255, 255, 0.4), transparent),
-    radial-gradient(1px 1px at 270px 90px, rgba(255, 255, 255, 0.6), transparent),
-    radial-gradient(1px 1px at 300px 200px, rgba(255, 255, 255, 0.5), transparent),
-    radial-gradient(1.5px 1.5px at 350px 60px, rgba(255, 255, 255, 0.8), transparent),
-    radial-gradient(1px 1px at 400px 140px, rgba(255, 255, 255, 0.4), transparent),
-    radial-gradient(1px 1px at 450px 30px, rgba(255, 255, 255, 0.6), transparent),
-    radial-gradient(1px 1px at 500px 180px, rgba(255, 255, 255, 0.5), transparent),
-    radial-gradient(1px 1px at 550px 100px, rgba(255, 255, 255, 0.7), transparent),
-    radial-gradient(1.5px 1.5px at 600px 220px, rgba(255, 255, 255, 0.6), transparent);
-  background-size: 650px 250px;
-  animation: twinkle 8s ease-in-out infinite alternate;
-  pointer-events: none;
-  z-index: 0;
-}
-
-@keyframes twinkle {
-  0% { opacity: 0.5; }
-  100% { opacity: 0.8; }
-}
+/* Network background is now handled by NetworkBackground.tsx canvas component */
 
 /* Subtle radial glow */
 .landingPage::after {
@@ -129,11 +98,11 @@
   line-height: 1.3;
   letter-spacing: 0.08em;
   margin-bottom: 24px;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(200, 210, 230, 0.85);
 }
 
 .heroTitleGradient {
-  color: rgba(255, 255, 255, 0.95);
+  color: rgba(180, 195, 220, 0.9);
 }
 
 .heroDescription {
@@ -259,9 +228,7 @@
 
 /* Section Styles */
 .sectionAlt {
-  background: rgba(255, 255, 255, 0.015);
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  /* Boundless - no dividers */
 }
 
 .sectionHeader {
@@ -283,7 +250,7 @@
   font-weight: 200;
   letter-spacing: 0.04em;
   margin-bottom: 16px;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(185, 195, 215, 0.85);
 }
 
 .sectionSubtitle {
@@ -314,21 +281,13 @@
   gap: 16px;
 }
 
-/* Relations Box */
-.relationsBox {
-  margin-top: 24px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
 .relationsContent {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   gap: 16px;
+  margin-top: 32px;
 }
 
 /* CTA Section */
@@ -343,7 +302,7 @@
   font-weight: 200;
   letter-spacing: 0.06em;
   margin-bottom: 16px;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(185, 195, 215, 0.85);
 }
 
 .ctaSubtitle {
@@ -365,7 +324,6 @@
 .footer {
   padding: 40px 20px;
   text-align: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .footer p {
@@ -565,16 +523,9 @@
     gap: 32px;
   }
 
-  .relationsBox {
-    margin-top: 48px;
-    padding: 40px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 12px;
-  }
-
   .relationsContent {
     gap: 32px;
+    margin-top: 48px;
   }
 
   .ctaSection {
