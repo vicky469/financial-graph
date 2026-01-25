@@ -255,14 +255,6 @@ export function NoteCard({ note, currentUserId, onEdit, onDelete }: NoteCardProp
           >
             {sourceCompanyName}
           </button>
-          <span style={{ 
-            fontSize: '10px', 
-            color: 'rgba(255, 255, 255, 0.4)',
-            fontStyle: 'italic',
-            marginLeft: '4px'
-          }}>
-            (read-only)
-          </span>
         </div>
       )}
 
