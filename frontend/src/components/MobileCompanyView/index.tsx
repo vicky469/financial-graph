@@ -58,17 +58,19 @@ export function MobileCompanyView({
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-card" style={{ width: "100%", maxWidth: "100%" }}>
-      {/* Back Button - improved spacing */}
-      <div className="flex items-center px-4 py-2 border-b border-border/20 bg-card/50">
-        <button 
-          className="flex items-center gap-2 px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-all rounded-md"
+      {/* Back Button - larger with top gap, no border */}
+      <div className="flex items-center px-4 pt-4 pb-2">
+        <button
+          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-all rounded-md"
           onClick={handleBackClick}
           style={{
-            fontSize: "12px",
+            fontSize: "14px",
             color: "rgba(255,255,255,0.6)",
             background: "none",
             border: "none",
             cursor: "pointer",
+            minHeight: "44px",
+            WebkitTapHighlightColor: "transparent",
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = "rgba(255,255,255,0.9)";
@@ -80,15 +82,14 @@ export function MobileCompanyView({
           }}
         >
           <svg
-            width="14"
-            height="14"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            style={{ opacity: 0.8 }}
           >
             <polyline points="15 18 9 12 15 6" />
           </svg>
@@ -96,7 +97,7 @@ export function MobileCompanyView({
         </button>
       </div>
 
-      {/* Header with company name, badges, and updated date - clean mobile styling */}
+      {/* Header with company name */}
       <div className="px-6 py-3 border-b border-border/30">
         <h2
           style={{

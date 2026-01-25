@@ -234,41 +234,8 @@ function App() {
     };
   }, [isAuthenticated]);
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100vh",
-          background: "hsl(240 6% 6%)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "16px",
-          }}
-        >
-          <div
-            style={{
-              width: "40px",
-              height: "40px",
-              border: "3px solid rgba(99, 102, 241, 0.2)",
-              borderTopColor: "#6366f1",
-              borderRadius: "50%",
-              animation: "spin 0.8s linear infinite",
-            }}
-          />
-          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px" }}>Loading...</span>
-        </div>
-      </div>
-    );
-  }
+  // Skip loading spinner - go straight to content
+  // if (isLoading) { ... }
 
   // Show error if any
   if (error) {

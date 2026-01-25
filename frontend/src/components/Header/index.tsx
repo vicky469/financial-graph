@@ -9,20 +9,41 @@ const HEADER_BUTTON_SIZE = 44; // Touch target size (iOS minimum)
 export function Header() {
   const { user } = db.useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0, bottom: 0 });
+
+  // Check for mobile viewport
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Update menu position when shown
   useEffect(() => {
     if (showUserMenu && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      setMenuPosition({
-        top: rect.bottom + 6,
-        right: window.innerWidth - rect.right,
-      });
+      if (isMobile) {
+        // Position menu above the floating button
+        setMenuPosition({
+          top: 0,
+          right: 16,
+          bottom: rect.height + 24, // Above the button
+        });
+      } else {
+        setMenuPosition({
+          top: rect.bottom + 6,
+          right: window.innerWidth - rect.right,
+          bottom: 0,
+        });
+      }
     }
-  }, [showUserMenu]);
+  }, [showUserMenu, isMobile]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -59,6 +80,127 @@ export function Header() {
     setShowUserMenu((prev) => !prev);
   };
 
+  // Floating profile button for mobile
+  const FloatingProfileButton = () => (
+    <div
+      style={{
+        position: "fixed",
+        bottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
+        right: 16,
+        zIndex: 100,
+      }}
+    >
+      <button
+        ref={buttonRef}
+        onClick={toggleMenu}
+        className={`rounded-full transition-all flex items-center justify-center shadow-lg ${
+          showUserMenu ? "bg-accent/80 ring-2 ring-accent/50" : "bg-[#1a1a1f] hover:bg-[#252529]"
+        }`}
+        style={{
+          width: HEADER_BUTTON_SIZE,
+          height: HEADER_BUTTON_SIZE,
+          minWidth: HEADER_BUTTON_SIZE,
+          minHeight: HEADER_BUTTON_SIZE,
+          WebkitTapHighlightColor: "transparent",
+          touchAction: "manipulation",
+          border: "1px solid rgba(255,255,255,0.1)",
+        }}
+        aria-label="User menu"
+      >
+        {user?.imageURL ? (
+          <img
+            src={user.imageURL}
+            alt="Profile"
+            className="rounded-full object-cover"
+            style={{ width: HEADER_ICON_SIZE, height: HEADER_ICON_SIZE }}
+          />
+        ) : (
+          <svg
+            width={HEADER_ICON_SIZE - 8}
+            height={HEADER_ICON_SIZE - 8}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-foreground/60"
+          >
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        )}
+      </button>
+
+      {/* Menu positioned above the button */}
+      {showUserMenu &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{
+              position: "fixed",
+              bottom: menuPosition.bottom,
+              right: menuPosition.right,
+              background: "rgba(30, 30, 35, 0.98)",
+              backdropFilter: "blur(8px)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: "10px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+              zIndex: 9999,
+              minWidth: "120px",
+            }}
+          >
+            <button
+              onClick={handleLogout}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                width: "100%",
+                padding: "14px 18px",
+                fontSize: "14px",
+                color: "rgba(255,255,255,0.85)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                transition: "background 0.15s",
+                minHeight: "48px",
+                WebkitTapHighlightColor: "transparent",
+                touchAction: "manipulation",
+                borderRadius: "10px",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.1)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+              aria-label="Sign out"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              Sign Out
+            </button>
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+
+  // Mobile: only show floating button
+  if (isMobile) {
+    return user ? <FloatingProfileButton /> : null;
+  }
+
+  // Desktop: show full header
   return (
     <header className="flex items-center justify-between shrink-0 mobile-header border-b border-border/30">
       {/* Left side - Logo and App Name */}
@@ -109,8 +251,8 @@ export function Header() {
             className={`rounded-full transition-colors flex items-center justify-center ${
               showUserMenu ? "bg-accent/50 ring-1 ring-accent/30" : "hover:bg-accent/30"
             }`}
-            style={{ 
-              width: HEADER_BUTTON_SIZE, 
+            style={{
+              width: HEADER_BUTTON_SIZE,
               height: HEADER_BUTTON_SIZE,
               minWidth: HEADER_BUTTON_SIZE,
               minHeight: HEADER_BUTTON_SIZE,
