@@ -21,7 +21,6 @@ export async function createEnrichment(data: {
     footnoteRefs: data.footnoteRefs,
     footnotesHtml: data.footnotesHtml ?? undefined,
     llmEnriched: false,
-    llmEnrichedAt: undefined,
     updated_at: now,
   };
 

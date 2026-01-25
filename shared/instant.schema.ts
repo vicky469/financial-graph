@@ -49,9 +49,7 @@ const _schema = i.schema({
     }),
     subsidiary_enrichment: i.entity({
       footnoteRefs: i.json(),
-      footnotesHtml: i.string().optional(),
-      llmEnriched: i.boolean().indexed(),
-      llmEnrichedAt: i.string().optional(),
+      footnotesHtml: i.string(),
       updated_at: i.string(),
     }),
     company_info: i.entity({

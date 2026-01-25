@@ -293,7 +293,6 @@ export class SubsidiariesDBSink implements Sink<ValidatedFiling> {
                 footnoteRefs: subsidiary.footnoteRefs,
                 footnotesHtml: footnotesHtml || null,
                 llmEnriched: wasLlmEnriched,
-                llmEnrichedAt: wasLlmEnriched ? now : null,
                 updated_at: now,
               };
 

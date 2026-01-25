@@ -17,7 +17,8 @@ export {
   PrivateCompanySchema,
   IssuerCompanySchema,
   UnknownCompanySchema,
-  
+  SubsidiaryEnrichmentDataSchema,
+
   // ID generation params
   AccessionNumberString,
   ParentOfParamsSchema,

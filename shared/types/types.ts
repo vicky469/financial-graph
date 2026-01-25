@@ -282,6 +282,23 @@ export const SubsidiaryEnrichmentParamsSchema = z.object({
   filingId: NonEmptyString,
 });
 
+// Validation schema for subsidiary enrichment data
+export const SubsidiaryEnrichmentDataSchema = z.object({
+  footnoteRefs: z.array(z.string()).refine(
+    (refs) => refs.every(ref => {
+      // If it's purely numeric, check it doesn't exceed 3 digits
+      if (/^\d+$/.test(ref)) {
+        return ref.length <= 3;
+      }
+      // Non-numeric refs (like "iv", "a)", etc.) are allowed
+      return true;
+    }),
+    { message: "Numeric footnoteRefs should not exceed 3 digits" }
+  ),
+  footnotesHtml: z.string().min(1, { message: "footnotesHtml should not be null or empty" }),
+  updated_at: z.string(),
+});
+
 export const BusinessSegmentParamsSchema = z.object({
   companyId: NonEmptyString,
   segmentName: NonEmptyString,
