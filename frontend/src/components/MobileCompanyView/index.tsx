@@ -57,7 +57,7 @@ export function MobileCompanyView({
   };
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-card" style={{ width: "100%", maxWidth: "100%" }}>
+    <div className="flex flex-col h-full w-full overflow-hidden bg-card" style={{ width: "100%", maxWidth: "100%", overflowX: "hidden" }}>
       {/* Back Button */}
       <div className="px-4 pt-3">
         <button
@@ -192,13 +192,15 @@ export function MobileCompanyView({
       <div className="flex-1 overflow-hidden w-full" style={{ width: "100%", maxWidth: "100%" }}>
         {activeTab === "overview" && detailPanelNode && (
           <div 
-            className="h-full overflow-y-auto"
+            className="h-full overflow-y-auto overflow-x-hidden"
             style={{ 
               scrollbarWidth: "thin", 
               scrollbarGutter: "stable",
-              WebkitOverflowScrolling: "touch", // Enable smooth scrolling on iOS
+              WebkitOverflowScrolling: "touch",
               height: "100%",
-              maxHeight: "100%"
+              maxHeight: "100%",
+              width: "100%",
+              maxWidth: "100%",
             }}
           >
             <DetailPanel

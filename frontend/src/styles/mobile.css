@@ -5,6 +5,31 @@
   input, textarea, select {
     font-size: 16px !important;
   }
+
+  /* Prevent horizontal scrolling on mobile */
+  body, html, #root {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    width: 100% !important;
+  }
+
+  /* Force all DetailPanel content to respect viewport */
+  .mobile-detail-content,
+  .mobile-detail-content * {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Prevent grid overflow */
+  [style*="gridTemplateColumns"] {
+    max-width: 100% !important;
+  }
+
+  /* Reduce left padding on mobile for DetailPanel sections */
+  .mobile-detail-content .detail-section {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
 }
 
 /* Safe area utility */

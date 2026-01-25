@@ -502,10 +502,12 @@ export function DetailPanel({
       {/* Content */}
       {hideTabs ? (
         // Mobile version - show content directly without tabs
-        <div className="flex-1 overflow-y-auto px-0 mobile-detail-content" style={{ 
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-0 mobile-detail-content" style={{ 
           scrollbarWidth: "thin", 
           scrollbarGutter: "stable",
-          WebkitOverflowScrolling: "touch" // Enable smooth scrolling on iOS
+          WebkitOverflowScrolling: "touch",
+          width: "100%",
+          maxWidth: "100%",
         }}>
           {showNotesView && user ? (
             <NotesView
@@ -604,6 +606,7 @@ function Section({
 }) {
   return (
     <div
+      className="detail-section"
       style={{
         padding: "0 16px 16px 16px",
         marginLeft: "0px",
