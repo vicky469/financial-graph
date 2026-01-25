@@ -58,18 +58,18 @@ export function MobileCompanyView({
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-card" style={{ width: "100%", maxWidth: "100%" }}>
-      {/* Back Button - larger with top gap, no border */}
-      <div className="flex items-center px-4 pt-4 pb-2">
+      {/* Back Button */}
+      <div className="px-4 pt-3">
         <button
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-all rounded-md"
+          className="flex items-center gap-1.5 px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/20 transition-all rounded-md"
           onClick={handleBackClick}
           style={{
-            fontSize: "14px",
+            fontSize: "13px",
             color: "rgba(255,255,255,0.6)",
             background: "none",
             border: "none",
             cursor: "pointer",
-            minHeight: "44px",
+            minHeight: "36px",
             WebkitTapHighlightColor: "transparent",
           }}
           onMouseEnter={(e) => {
@@ -82,8 +82,8 @@ export function MobileCompanyView({
           }}
         >
           <svg
-            width="16"
-            height="16"
+            width="14"
+            height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -98,15 +98,14 @@ export function MobileCompanyView({
       </div>
 
       {/* Header with company name */}
-      <div className="px-6 py-3 border-b border-border/30">
+      <div className="pr-4 pb-3 border-b border-border/30" style={{ paddingLeft: "10px" }}>
         <h2
           style={{
             fontSize: "15px",
             fontWeight: "600",
             color: "rgba(255,255,255,0.95)",
-            lineHeight: "1.3",
+            lineHeight: "1.4",
             wordBreak: "break-word",
-            marginLeft: "10px",
           }}
         >
           {displayNode?.name || "Unknown"}

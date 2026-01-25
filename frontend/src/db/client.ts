@@ -6,9 +6,10 @@ import { schema } from "financial-graph-shared";
 const APP_ID = import.meta.env.VITE_INSTANTDB_APP_ID;
 
 // Initialize with schema - Google OAuth is handled separately
-export const db = init({ 
+export const db = init({
   appId: APP_ID,
   schema,
+  devtool: false, // Hide InstantDB devtool icon
 });
 
 // Google OAuth configuration

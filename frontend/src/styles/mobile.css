@@ -202,6 +202,20 @@
   }
 }
 
+/* Floating profile button - prevent scaling */
+@media (max-width: 767px) {
+  button[aria-label="User menu"] {
+    transform: none !important;
+    transition: background-color 0.15s ease !important;
+  }
+
+  button[aria-label="User menu"]:active,
+  button[aria-label="User menu"]:focus,
+  button[aria-label="User menu"]:hover {
+    transform: none !important;
+  }
+}
+
 /* Hide on desktop */
 @media (min-width: 768px) {
   .hide-on-desktop {

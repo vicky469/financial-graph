@@ -214,7 +214,7 @@ function AuthenticatedApp() {
 }
 
 function App() {
-  const { isLoading, user, error } = db.useAuth();
+  const { user, error } = db.useAuth();
   
   // Authentication is simply: do we have a user from InstantDB?
   const isAuthenticated = !!user;

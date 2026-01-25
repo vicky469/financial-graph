@@ -93,17 +93,22 @@ export function Header() {
       <button
         ref={buttonRef}
         onClick={toggleMenu}
-        className={`rounded-full transition-all flex items-center justify-center shadow-lg ${
-          showUserMenu ? "bg-accent/80 ring-2 ring-accent/50" : "bg-[#1a1a1f] hover:bg-[#252529]"
-        }`}
+        className="rounded-full flex items-center justify-center"
         style={{
           width: HEADER_BUTTON_SIZE,
           height: HEADER_BUTTON_SIZE,
           minWidth: HEADER_BUTTON_SIZE,
           minHeight: HEADER_BUTTON_SIZE,
+          maxWidth: HEADER_BUTTON_SIZE,
+          maxHeight: HEADER_BUTTON_SIZE,
           WebkitTapHighlightColor: "transparent",
           touchAction: "manipulation",
-          border: "1px solid rgba(255,255,255,0.1)",
+          border: "none",
+          transform: "none",
+          background: showUserMenu ? "rgba(255,255,255,0.15)" : "#1a1a1f",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+          outline: "none",
+          overflow: "hidden",
         }}
         aria-label="User menu"
       >
