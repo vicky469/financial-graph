@@ -1,30 +1,75 @@
 // Shared Query Hooks
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { db } from "./client";
 import { companyToDetail } from "./adapters";
 import { CompanyType, type Company } from "financial-graph-shared";
 
-// Load all public companies (lightweight - just id, name, type, sp500 flag)
+const CACHE_KEY = "companies_cache";
+
+type CompanyListItem = {
+  id: string;
+  name: string;
+  type: "Company";
+  ticker: string | null;
+  cik: string | null;
+  sp500: boolean;
+  category: string | null;
+  ownerOrg: string | null;
+  entityType: string | null;
+};
+
+// Module-level state
+let cachedCompanies: CompanyListItem[] | null = null;
+let serverFetchDone = false;
+
+// Get cached companies from localStorage (only reads once)
+const getCachedCompanies = (): CompanyListItem[] => {
+  if (cachedCompanies !== null) return cachedCompanies;
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    cachedCompanies = cached ? JSON.parse(cached) : [];
+    console.log(`[companies] Loaded ${cachedCompanies!.length} from cache`);
+    return cachedCompanies!;
+  } catch {
+    cachedCompanies = [];
+    return [];
+  }
+};
+
+// Save companies to localStorage
+const setCachedCompanies = (companies: CompanyListItem[]) => {
+  cachedCompanies = companies;
+  serverFetchDone = true;
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(companies));
+  } catch {}
+};
+
+// Load all public companies - instant from cache, fetches from server only once per session
 export const useAllCompanies = () => {
-  const { data, isLoading } = db.useQuery({
-    company: {
-      $: {
-        where: {
-          type: CompanyType.PUBLIC, // Only PUBLIC companies
-        },
-      },
-    },
-  });
+  const cached = getCachedCompanies();
 
-  const companies = useMemo(() => {
-    if (!data?.company) return [];
+  // Only fetch from server if we haven't already this session
+  const shouldFetch = !serverFetchDone;
 
-    return (data.company ?? [])
-      .filter((c: any) => {
-        // Filter out empty names
-        return c.name && c.name.trim() !== "";
-      })
+  const { data, isLoading } = db.useQuery(
+    shouldFetch
+      ? {
+          company: {
+            $: {
+              where: { type: CompanyType.PUBLIC },
+            },
+          },
+        }
+      : null
+  );
+
+  const freshCompanies = useMemo(() => {
+    if (!data?.company) return null;
+
+    return data.company
+      .filter((c: any) => c.name && c.name.trim() !== "")
       .map((c: any) => ({
         id: c.id,
         name: c.name,
@@ -38,7 +83,17 @@ export const useAllCompanies = () => {
       }));
   }, [data?.company]);
 
-  return { companies, isLoading };
+  // Update cache when fresh data arrives
+  useEffect(() => {
+    if (freshCompanies && freshCompanies.length > 0) {
+      console.log(`[companies] Loaded ${freshCompanies.length} from server`);
+      setCachedCompanies(freshCompanies);
+    }
+  }, [freshCompanies]);
+
+  const companies = freshCompanies ?? cached;
+
+  return { companies, isLoading: shouldFetch && isLoading && companies.length === 0 };
 };
 
 // Load company details - works for both public companies and subsidiaries

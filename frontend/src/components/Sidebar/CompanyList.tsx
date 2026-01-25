@@ -239,33 +239,13 @@ export const CompanyList = memo(function CompanyList({
             color: "rgba(255,255,255,0.25)",
           }}
         >
-          {isLoading ? "..." : companies.length.toLocaleString()}
+          {isLoading ? "Loading..." : companies.length.toLocaleString()}
         </span>
       </div>
 
       {/* List */}
       <div style={{ flex: 1, overflowY: "auto", padding: "0 8px" }}>
-        {isLoading ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "120px",
-            }}
-          >
-            <div
-              style={{
-                width: "20px",
-                height: "20px",
-                border: "2px solid rgba(99, 102, 241, 0.2)",
-                borderTopColor: "#818cf8",
-                borderRadius: "50%",
-                animation: "spin 0.8s linear infinite",
-              }}
-            />
-          </div>
-        ) : companies.length === 0 ? (
+        {companies.length === 0 && !isLoading ? (
           <div
             style={{
               display: "flex",
