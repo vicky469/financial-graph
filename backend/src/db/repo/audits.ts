@@ -39,7 +39,7 @@ export async function recordAudit(params: {
     operation: params.operation,
     changed_by: params.changed_by,
     changed_at,
-    source_id: params.source_id || null,
+    source_id: params.source_id,
     fields_changed: params.fields_changed,
     expires_at,
   };
