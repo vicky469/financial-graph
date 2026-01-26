@@ -7,7 +7,7 @@ const rules = {
   // ==================== SYSTEM ENTITIES ====================
   $users: {
     allow: {
-      view: "true", // Anyone can see users (needed for displaying note authors)
+      view: "auth.id != null", // Only authenticated users can see users
       create: "false", // Users are created by auth system only
       delete: "false",
       update: "false",
@@ -95,8 +95,8 @@ const rules = {
     allow: {
       view: "auth.id != null",
       create: "auth.id != null",
-      update: "auth.id != null",
-      delete: "auth.id != null",
+      update: "auth.id in data.ref('user.id')", // Only note owner can update
+      delete: "auth.id in data.ref('user.id')", // Only note owner can delete
     },
   },
 
@@ -104,7 +104,7 @@ const rules = {
 
   audit: {
     allow: {
-      view: "true",
+      view: "auth.id != null", // Only authenticated users can view audit logs
       create: "false",
       delete: "false",
       update: "false",

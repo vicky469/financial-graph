@@ -7,6 +7,7 @@ import { SearchModal } from "./components/SearchModal";
 import { LandingPage } from "./components/LandingPage";
 import { DesktopMainContent } from "./components/DesktopMainContent";
 import { MobileCompanyView } from "./components/MobileCompanyView";
+import { PreviewBanner } from "./components/PreviewBanner";
 import { useCompanyDetail } from "./db/queries";
 import { db } from "./db/client";
 import { InactivityTimeout } from "./components/InactivityTimeout";
@@ -90,6 +91,9 @@ function AppContent() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans" style={{ width: "100%", maxWidth: "100%", padding: "0" }}>
+      {/* Preview Banner */}
+      <PreviewBanner />
+      
       {/* Header - hidden by default, shows on hover */}
       <div className="header-hover-zone">
         <div className="header-container">
@@ -214,7 +218,7 @@ function AuthenticatedApp() {
 }
 
 function App() {
-  const { user, error } = db.useAuth();
+  const { user, isLoading, error } = db.useAuth();
   
   // Authentication is simply: do we have a user from InstantDB?
   const isAuthenticated = !!user;
@@ -234,8 +238,14 @@ function App() {
     };
   }, [isAuthenticated]);
 
-  // Skip loading spinner - go straight to content
-  // if (isLoading) { ... }
+  // Show loading spinner while checking auth state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background text-foreground">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   // Show error if any
   if (error) {
