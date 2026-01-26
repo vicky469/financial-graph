@@ -11,11 +11,15 @@
 import { id } from "@instantdb/admin";
 import { db } from "../client";
 import type { Audit, FieldChange } from "@financial-graph/shared";
+import { isEntityAudited } from "./audit-config";
 
 const AUDIT_RETENTION_DAYS = parseInt(process.env.AUDIT_RETENTION_DAYS || "7");
 
 /**
  * Record an audit event for an entity change
+ * 
+ * Automatically checks if audit trail is enabled for the entity type.
+ * If disabled, returns null without recording.
  */
 export async function recordAudit(params: {
   entity_type: string;
@@ -24,7 +28,12 @@ export async function recordAudit(params: {
   changed_by: "heuristic" | "llm" | "human";
   fields_changed: FieldChange[];
   source_id?: string;
-}): Promise<string> {
+}): Promise<string | null> {
+  // Check if audit trail is enabled for this entity
+  if (!isEntityAudited(params.entity_type)) {
+    return null;
+  }
+
   const changed_at = new Date().toISOString();
   const expires_at = new Date(
     Date.now() + AUDIT_RETENTION_DAYS * 24 * 60 * 60 * 1000
@@ -98,4 +107,81 @@ export async function pruneExpiredAudits(): Promise<number> {
 
   await db.transact(txs);
   return expired.length;
+}
+
+/**
+ * Compute field-level changes between old and new entity states
+ * 
+ * @param oldState - Previous entity state (or null for CREATE operations)
+ * @param newState - New entity state
+ * @param trackedFields - Optional array of field names to track (empty = all fields)
+ * @returns Array of FieldChange objects
+ */
+export function computeFieldChanges(
+  oldState: Record<string, any> | null,
+  newState: Record<string, any>,
+  trackedFields: string[] = []
+): FieldChange[] {
+  const changes: FieldChange[] = [];
+
+  // If no old state, this is a CREATE operation - track all fields
+  if (!oldState) {
+    const fieldsToTrack = trackedFields.length > 0 
+      ? trackedFields 
+      : Object.keys(newState).filter(key => key !== 'id' && key !== 'updated_at');
+    
+    for (const field of fieldsToTrack) {
+      if (newState[field] !== undefined) {
+        changes.push({
+          field,
+          old_value: null,
+          new_value: serializeValue(newState[field]),
+        });
+      }
+    }
+    return changes;
+  }
+
+  // For UPDATE operations, compare old and new states
+  const fieldsToCheck = trackedFields.length > 0 
+    ? trackedFields 
+    : Object.keys({ ...oldState, ...newState }).filter(key => key !== 'id' && key !== 'updated_at');
+
+  for (const field of fieldsToCheck) {
+    const oldValue = oldState[field];
+    const newValue = newState[field];
+
+    // Skip if values are the same
+    if (JSON.stringify(oldValue) === JSON.stringify(newValue)) {
+      continue;
+    }
+
+    changes.push({
+      field,
+      old_value: serializeValue(oldValue),
+      new_value: serializeValue(newValue),
+    });
+  }
+
+  return changes;
+}
+
+/**
+ * Serialize a value for storage in audit trail
+ * Handles complex types like objects, arrays, dates, etc.
+ */
+function serializeValue(value: any): any {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  
+  if (typeof value === 'object') {
+    return JSON.parse(JSON.stringify(value));
+  }
+  
+  return value;
 }
