@@ -9,9 +9,8 @@
  */
 
 import { v5 as uuidv5 } from 'uuid';
+import { CompanyType, type CompanyIdentity } from './domain';
 import { 
-  CompanyType, 
-  type CompanyIdentity,
   PublicCompanySchema,
   IssuerCompanySchema,
   PrivateCompanySchema,
@@ -23,7 +22,7 @@ import {
   BusinessSegmentParamsSchema,
   BrandParamsSchema,
   OwnsParamsSchema,
-} from './types';
+} from './domain-validation';
 
 /**
  * Namespace UUIDs for each entity type.

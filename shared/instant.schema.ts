@@ -95,6 +95,58 @@ const _schema = i.schema({
       mentionedCompanyIds: i.json().optional(), // Array of company IDs mentioned in the note
       visibility: i.string().indexed(), // 'private' or 'public', defaults to 'private'
     }),
+
+    // === JOB CONFIGURATION ENTITIES ===
+    // Job configuration
+    job_config: i.entity({
+      name: i.string().indexed(),
+      description: i.string().optional(),
+      job_type: i.string().indexed().optional(), // Job type for filtering
+      enabled: i.boolean().indexed(),
+      schedule_type: i.string().indexed(), // 'manual' | 'cron'
+      cron_expression: i.string().optional(), // For cron schedule
+      created_at: i.string().indexed(),
+      updated_at: i.string(),
+      created_by: i.string(),
+    }),
+
+    // Job source configuration
+    job_source: i.entity({
+      parameters: i.json(), // { url, location, year, month, description }
+      filters: i.json().optional(), // Filter conditions for this source
+      order_index: i.number(), // Order within job (for future multi-source support)
+      created_at: i.string(),
+      updated_at: i.string(),
+    }),
+
+    // Job destination configuration
+    job_destination: i.entity({
+      parameters: i.json(), // { location_type, location, year, month, description }
+      order_index: i.number(), // Order within job (for multiple destinations)
+      created_at: i.string(),
+      updated_at: i.string(),
+    }),
+
+    // Job execution history
+    job_execution: i.entity({
+      status: i.string().indexed(), // 'running' | 'completed' | 'failed' | 'cancelled'
+      trigger_type: i.string().indexed(), // 'manual' | 'scheduled' | 'dependency'
+      started_at: i.string().indexed(),
+      completed_at: i.string().optional(),
+      items_processed: i.number().optional(),
+      items_succeeded: i.number().optional(),
+      items_failed: i.number().optional(),
+      error_message: i.string().optional(),
+      workflow_id: i.string().indexed(), // workflow ID
+      run_id: i.string().optional(), // run ID
+      execution_metadata: i.json().optional(),
+    }),
+
+    // Job dependencies
+    job_dependency: i.entity({
+      dependency_type: i.string(), // 'success' | 'completion'
+      created_at: i.string(),
+    }),
   },
   links: {
     // Company -> Filing (many-to-many: multiple companies can file the same document)
@@ -213,6 +265,42 @@ const _schema = i.schema({
         has: "many",
         label: "notes",
       },
+    },
+
+    // === JOB CONFIGURATION LINKS ===
+    // Job -> Sources
+    jobSources: {
+      forward: { on: "job_config", has: "many", label: "sources" },
+      reverse: { on: "job_source", has: "one", label: "job" },
+    },
+
+    // Job -> Destinations
+    jobDestinations: {
+      forward: { on: "job_config", has: "many", label: "destinations" },
+      reverse: { on: "job_destination", has: "one", label: "job" },
+    },
+
+    // Job -> Executions
+    jobExecutions: {
+      forward: { on: "job_config", has: "many", label: "executions" },
+      reverse: { on: "job_execution", has: "one", label: "job" },
+    },
+
+    // Job Dependencies (job depends on other jobs)
+    jobDependsOn: {
+      forward: { on: "job_dependency", has: "one", label: "dependentJob" },
+      reverse: { on: "job_config", has: "many", label: "dependencies" },
+    },
+
+    jobDependency: {
+      forward: { on: "job_dependency", has: "one", label: "prerequisiteJob" },
+      reverse: { on: "job_config", has: "many", label: "dependents" },
+    },
+
+    // Job -> User (creator)
+    jobCreator: {
+      forward: { on: "job_config", has: "one", label: "creator" },
+      reverse: { on: "$users", has: "many", label: "createdJobs" },
     },
     // // Company -> Brand (direct ownership link)
     // brandOwner: {

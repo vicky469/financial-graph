@@ -7,8 +7,9 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "cd ../shared && bun run build && cd ../frontend && vite",
+    "build": "cd ../shared && bun run build && cd ../frontend && tsc -b && vite build",
+    "build:shared": "cd ../shared && bun run build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest --run",

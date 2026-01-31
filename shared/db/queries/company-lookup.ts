@@ -5,7 +5,7 @@
  * Can be used with db.query() (frontend) or db.queryOnce() (backend).
  */
 
-import { CompanyType } from "../../types/types";
+import { CompanyType } from "../../types";
 
 export interface CompanyLookupResult {
   id: string;

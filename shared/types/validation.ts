@@ -30,4 +30,4 @@ export {
   // Helpers
   validate,
   safeValidate,
-} from "./types";
+} from "./domain-validation";
