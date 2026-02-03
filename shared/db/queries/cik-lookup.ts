@@ -7,7 +7,7 @@
 
 import type { InstaQLParams } from "@instantdb/core";
 import type { AppSchema } from "../../instant.schema";
-import { CompanyType } from "../../types";
+import { CompanyType } from "../../types/types";
 
 // In-memory cache: CIK -> Company ID
 let cikToCompanyIdCache: Map<string, string> | null = null;

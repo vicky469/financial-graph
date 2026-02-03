@@ -10,10 +10,7 @@ export { default as schema } from "./instant.schema";
 export type { AppSchema } from "./instant.schema";
 
 // Export all types
-export * from "./types";
-
-// Export job validation
-export * from "./types/job-validation";
+export * from "./types/types";
 
 // Export validation utilities
 export * from "./types/validation";

@@ -1,14 +1,162 @@
 /**
- * Domain Validation Schemas
- * 
- * Zod schemas for validating domain entities (companies, filings, etc.)
+ * Shared Database Types & Validation
+ *
+ * InstantDB handles: type checking, required/optional, unique constraints
+ * We handle: business logic validation that InstantDB can't express
+ *
+ * Types vs Interfaces:
+ * - `type` aliases are direct re-exports from InstantDB (InstaQLEntity)
+ * - `interface` adds proper typing for enum/JSON fields that InstantDB types as number/any
+ * - Code should use the interfaces (Company, ParentOfEdge) not the raw types
  */
 
 import { z } from "zod";
-import { CompanyType } from "./domain";
+import type { InstaQLEntity } from "@instantdb/core";
+import type schema from "../instant.schema";
 
 // ============================================================================
-// FIELD VALIDATORS
+// ENUMS
+// ============================================================================
+
+export const CompanyType = {
+  PUBLIC: 1,
+  PRIVATE: 2,
+  ISSUER: 3,
+  UNKNOWN: 4,
+  TRUST: 5,
+  SUBSIDIARY:6
+} as const;
+
+export type CompanyTypeValue = (typeof CompanyType)[keyof typeof CompanyType];
+
+export const ParentOfSource = {
+  MA_EVENT: 1,
+  SPINOFF: 2,
+  IPO: 3,
+  MANUAL: 4,
+  SEC_FILING: 5,
+} as const;
+
+export type ParentOfSourceValue =
+  (typeof ParentOfSource)[keyof typeof ParentOfSource];
+
+// ============================================================================
+// RAW TYPES (from InstantDB - don't use directly, use interfaces below)
+// ============================================================================
+
+type CompanyRaw = InstaQLEntity<typeof schema, "company">;
+type ParentOfEdgeRaw = InstaQLEntity<typeof schema, "parent_of">;
+
+// These are fine to use directly (no enum/JSON fields needing better typing)
+export type Filing = InstaQLEntity<typeof schema, "filing">;
+export type FilingAttachments = Record<string, string>;
+export type SubsidiaryEnrichment = InstaQLEntity<
+  typeof schema,
+  "subsidiary_enrichment"
+>;
+export type Audit = InstaQLEntity<typeof schema, "audit">;
+export type NoteRaw = InstaQLEntity<typeof schema, "notes">;
+// export type CompanyInfo = InstaQLEntity<typeof schema, "company_info">;
+// export type BusinessSegment = InstaQLEntity<typeof schema, "business_segment">;
+// export type Brand = InstaQLEntity<typeof schema, "brand">;
+// export type OwnsEdge = InstaQLEntity<typeof schema, "owns">;
+
+// ============================================================================
+// INTERFACES (use these - proper typing for enum/JSON fields)
+// ============================================================================
+
+/** JSON structure for company.identity field */
+export interface CompanyIdentity {
+  primaryCIK?: string;
+  ciks?: string;
+  tickers?: string;
+  exchanges?: string;
+  sp500?: boolean;
+  lei?: string;
+  duns?: string;
+  entityType?: string;
+  sic?: string;
+  sicDescription?: string;
+  ein?: string;
+  category?: string;
+  ownerOrg?: string;
+}
+
+/** Company with properly typed `type` (enum) and `identity` (JSON) */
+export interface Company extends Omit<CompanyRaw, "type" | "identity"> {
+  type: CompanyTypeValue;
+  identity?: CompanyIdentity;
+}
+
+/** ParentOfEdge with properly typed `source` (enum) */
+export interface ParentOfEdge extends Omit<ParentOfEdgeRaw, "source"> {
+  source: ParentOfSourceValue;
+}
+
+/** JSON structure for audit.fields_changed array items */
+export interface FieldChange {
+  field: string;
+  old_value: unknown;
+  new_value: unknown;
+}
+
+/** Audit with properly typed `fields_changed` (JSON array) */
+export interface AuditWithChanges extends Omit<Audit, "fields_changed"> {
+  fields_changed: FieldChange[];
+}
+
+// ============================================================================
+// TIPTAP JSON TYPES
+// ============================================================================
+
+/** Tiptap mark (formatting like bold, italic, link) */
+export interface TiptapMark {
+  type: string;
+  attrs?: Record<string, any>;
+}
+
+/** Tiptap node (content element like paragraph, text, custom nodes) */
+export interface TiptapNode {
+  type: string;
+  attrs?: Record<string, any>;
+  content?: TiptapNode[];
+  marks?: TiptapMark[];
+  text?: string;
+}
+
+/** Tiptap JSON document structure */
+export interface TiptapJSON {
+  type: "doc";
+  content?: TiptapNode[];
+}
+
+/** Note with properly typed `content` (Tiptap JSON) and `createdBy` */
+export interface Note extends Omit<NoteRaw, "content" | "createdBy" | "createdAt" | "updatedAt"> {
+  content: TiptapJSON;
+  createdBy: "user" | "system";
+  createdAt: number; // InstantDB returns timestamps as numbers
+  updatedAt: number; // InstantDB returns timestamps as numbers
+  mentionedCompanyIds?: string[]; // Array of company IDs mentioned in the note
+  visibility: "private" | "public"; // Note visibility setting, defaults to 'private'
+  user?: {
+    id: string;
+    email?: string;
+  };
+  company?: {
+    id: string;
+    name: string;
+  };
+}
+
+/** Extended type for displaying backlink notes */
+export interface BacklinkNote extends Note {
+  isBacklink: boolean; // True if this note mentions the current company
+  sourceCompanyId: string; // The primary company this note belongs to
+  sourceCompanyName: string; // Name of the source company
+}
+
+// ============================================================================
+// FIELD VALIDATORS (business logic InstantDB can't express)
 // ============================================================================
 
 export const NonEmptyString = z.string().min(1);
@@ -42,7 +190,7 @@ export const JurisdictionString = z.string().refine(
 );
 
 // ============================================================================
-// COMPANY VALIDATION
+// COMPANY VALIDATION (type-specific rules)
 // ============================================================================
 
 const CompanyIdentitySchema = z.object({
@@ -120,7 +268,7 @@ export const CompanySchema = z.discriminatedUnion("type", [
 ]);
 
 // ============================================================================
-// ID GENERATION PARAMS
+// ID GENERATION PARAMS (for composite key generation)
 // ============================================================================
 
 export const ParentOfParamsSchema = z.object({
@@ -167,6 +315,24 @@ export const OwnsParamsSchema = z.object({
   companyId: NonEmptyString,
   brandId: NonEmptyString,
 });
+
+// ============================================================================
+// TYPE GUARDS
+// ============================================================================
+
+export function isPublicCompany(company: Company): boolean {
+  return (
+    company.type === CompanyType.PUBLIC || company.type === CompanyType.ISSUER
+  );
+}
+
+export function isPrivateCompany(company: Company): boolean {
+  return company.type === CompanyType.PRIVATE;
+}
+
+export function isFromSecFiling(edge: ParentOfEdge): boolean {
+  return edge.source === ParentOfSource.SEC_FILING;
+}
 
 // ============================================================================
 // VALIDATION HELPERS

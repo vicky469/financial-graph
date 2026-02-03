@@ -4,18 +4,13 @@
   "private": true,
   "scripts": {
     "sync-versions": "node scripts/sync-versions.js",
-    "postinstall": "bun run sync-versions --silent && node scripts/install-hooks.js",
-    "install:all": "echo '📦 Installing dependencies...' && bun install --silent && cd shared && bun install --silent && cd ../backend && bun install --silent && cd ../frontend && bun install --silent && echo '✅ All dependencies installed!'",
-    "build:shared": "cd shared && bun run build",
-    "build:backend": "cd backend && bun run build",
-    "build:frontend": "cd frontend && bun run build",
-    "build": "bun run build:shared && bun run build:backend && bun run build:frontend",
+    "postinstall": "npm run sync-versions --silent && node scripts/install-hooks.js",
+    "install:all": "echo '📦 Installing dependencies...' && npm install --silent && cd shared && npm install --silent && cd ../backend && npm install --silent && cd ../frontend && npm install --silent && echo '✅ All dependencies installed!'",
+    "build:shared": "cd shared && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:shared && npm run build:frontend",
     "dev:backend": "cd backend && bun run dev",
-    "dev:frontend": "cd frontend && bun run dev",
-    "job:start": "cd backend && bun run job:start",
-    "job:dev": "cd backend && bun run job:dev",
-    "schema:push": "bunx instant-cli@latest push schema",
-    "perms:push": "bunx instant-cli@latest push perms"
+    "dev:frontend": "cd frontend && bun run dev"
   },
   "engines": {
     "node": ">=24.0.0"

@@ -5,7 +5,7 @@
  * Can be used with db.useQuery() (frontend) or db.queryOnce() (backend).
  */
 
-import type { Note } from "../../types";
+import type { Note } from "../../types/types";
 
 /**
  * Query definition: Get all notes for a user (private + public)
