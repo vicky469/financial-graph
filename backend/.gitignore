@@ -42,3 +42,4 @@ coverage
 # Project specific
 src/data_source/sec/raw
 src/data_source/sec/output
+src/output/*

@@ -1,11 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
-  SEC_OUTPUT_DIR,
+  INDEX_DIR,
   SEC_QUARTERS,
   SEC_RAW_DIR,
   SEC_YEARS,
-} from "../config";
+} from "../../../config/config";
 import { createLogger } from "../../../utils/logger";
 
 const logger = createLogger("ingest/sec-metadata");
@@ -30,8 +30,6 @@ async function main(): Promise<void> {
     quarters: SEC_QUARTERS,
   });
 
-  await fs.mkdir(SEC_OUTPUT_DIR, { recursive: true });
-
   const results: RegistrantEntry[] = [];
 
   // Parse all quarterly body files
@@ -39,7 +37,7 @@ async function main(): Promise<void> {
     for (const quarter of SEC_QUARTERS) {
       const bodyPath: string = path.join(
         SEC_RAW_DIR,
-        `${year}-Q${quarter}.body`
+        `${year}-Q${quarter}.body`,
       );
 
       let text: string;
@@ -92,10 +90,13 @@ async function main(): Promise<void> {
   }
 
   if (duplicates.length > 0) {
-    await writeCsvOutput(duplicates, "duplicates");
-    logger.warn(
-      `Found ${duplicates.length} duplicate entries. Saved to duplicates CSV.`
-    );
+    logger.warn("Found duplicate entries", {
+      count: duplicates.length,
+      samples: duplicates.slice(0, 5).map((d) => ({
+        cik: d.cik,
+        accession: d.accessionNumber,
+      })),
+    });
   }
 
   logger.info("Deduplicated entries", {
@@ -105,49 +106,17 @@ async function main(): Promise<void> {
   });
 
   if (deduped.size === 0) {
-    logger.warn("No SEC rows parsed. Keeping existing CSV contents.");
+    logger.warn("No SEC rows parsed. Skipping output.");
     return;
   }
 
-  await writeCsvOutput(Array.from(deduped.values()));
+  await writeJsonOutput(Array.from(deduped.values()));
 }
 
 /**
- * Write registrant entries to CSV file
+ * Write registrant entries to JSON file
  */
-async function writeCsvOutput(
-  entries: RegistrantEntry[],
-  suffix?: string
-): Promise<void> {
-  const header = [
-    "registrant_name",
-    "cik",
-    "accession_number",
-    "accession_number_nodashes",
-    "form_type",
-    "filing_date",
-    "file_name",
-    "source_quarter",
-    "file_path",
-  ];
-
-  const lines = [header.join(",")];
-  for (const entry of entries) {
-    lines.push(
-      [
-        csvEscape(entry.registrantName),
-        entry.cik,
-        entry.accessionNumber,
-        entry.accessionNumberNoDashes,
-        entry.formType,
-        entry.filingDate,
-        csvEscape(entry.fileName),
-        entry.sourceQuarter,
-        entry.filePath ?? "",
-      ].join(",")
-    );
-  }
-
+async function writeJsonOutput(entries: RegistrantEntry[]): Promise<void> {
   const minYear = Math.min(...SEC_YEARS);
   const maxYear = Math.max(...SEC_YEARS);
   const yearsLabel = Number.isFinite(minYear)
@@ -155,14 +124,13 @@ async function writeCsvOutput(
       ? `${minYear}`
       : `${minYear}-${maxYear}`
     : "unknown";
-  const outputFile = path.join(
-    SEC_OUTPUT_DIR,
-    suffix
-      ? `registrant_metadata_${yearsLabel}_${suffix}.csv`
-      : `registrant_metadata_${yearsLabel}.csv`
-  );
-  await fs.writeFile(outputFile, lines.join("\n") + "\n", "utf-8");
-  logger.info("Successfully wrote SEC metadata CSV", {
+
+  const outputFile = path.join(INDEX_DIR, `sec_index_${yearsLabel}.json`);
+
+  await fs.mkdir(INDEX_DIR, { recursive: true });
+  await fs.writeFile(outputFile, JSON.stringify(entries, null, 2), "utf-8");
+
+  logger.info("Successfully wrote SEC metadata JSON", {
     outputFile,
     rowCount: entries.length,
     yearsLabel,
@@ -175,7 +143,7 @@ async function writeCsvOutput(
  */
 function processLine(
   line: string,
-  sourceQuarter: string
+  sourceQuarter: string,
 ): RegistrantEntry | null {
   // Skip empty lines
   const trimmed = line.trim();
@@ -234,7 +202,7 @@ function processLine(
 function parseBodyFile(
   content: string,
   year: number,
-  quarter: number
+  quarter: number,
 ): RegistrantEntry[] {
   const lines = content.split(/\r?\n/);
   const sourceQuarter = `${year}-Q${quarter}`;
@@ -258,13 +226,6 @@ function parseBodyFile(
   }
 
   return entries;
-}
-
-function csvEscape(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
 }
 
 main().catch((err) => {

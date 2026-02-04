@@ -7,7 +7,7 @@ import {
   SEC_REQUEST_MAX_RETRIES,
   SEC_USER_AGENT,
   SEC_YEARS,
-} from "../config";
+} from "../../../config/config";
 
 const REQUEST_HEADERS = {
   "User-Agent": SEC_USER_AGENT,
@@ -49,7 +49,7 @@ async function downloadQuarter(year: number, quarter: number) {
       console.warn(
         `Attempt ${attempt} failed for ${url}: ${err.message}${
           isLastAttempt ? "" : " (retrying)"
-        }`
+        }`,
       );
       if (isLastAttempt) {
         throw err;
@@ -67,7 +67,7 @@ async function fetchIndex(url: string) {
 
   if (!response.ok) {
     throw new Error(
-      `Failed to fetch ${url}: ${response.status} ${response.statusText}`
+      `Failed to fetch ${url}: ${response.status} ${response.statusText}`,
     );
   }
 
@@ -78,7 +78,7 @@ async function fetchIndex(url: string) {
     text.includes("Your Request Originates from an Undeclared Automated Tool")
   ) {
     throw new Error(
-      `Blocked by SEC automated-tool firewall for ${url}. Update User-Agent or slow down.`
+      `Blocked by SEC automated-tool firewall for ${url}. Update User-Agent or slow down.`,
     );
   }
 
@@ -111,7 +111,7 @@ async function persistRawFetch({
     fs.writeFile(
       `${prefix}.meta.json`,
       JSON.stringify(metadata, null, 2),
-      "utf-8"
+      "utf-8",
     ),
     fs.writeFile(`${prefix}.body`, payload, "utf-8"),
   ]);
