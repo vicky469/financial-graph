@@ -1,14 +1,24 @@
 import { SEC_USER_AGENT } from "../config/config";
+import { createLogger } from "../utils/logger";
+
+const SEC_REQUEST_MAX_RETRIES = 3;
+const SEC_REQUEST_DELAY_MS = 200;
+
+const logger = createLogger("integration/sec");
 
 type AcceptType = "json" | "text" | "html";
 
-function buildSecHeaders(accept: AcceptType): Headers {
-  const acceptHeader =
-    accept === "json"
-      ? "application/json"
-      : accept === "html"
-        ? "text/html,*/*"
-        : "*/*";
+function buildSecHeaders(accept?: AcceptType): Headers {
+  let acceptHeader: string;
+  switch (accept) {
+    case "json":
+      acceptHeader = "application/json";
+      break;
+    default:
+      // For plain text/htm we accept anything; SEC often returns text/html
+      acceptHeader = "*/*";
+      break;
+  }
 
   return new Headers({
     "User-Agent": SEC_USER_AGENT,
@@ -47,37 +57,46 @@ export async function fetchSecJSON<T>(url: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function fetchSecText(url: string): Promise<string> {
-  const headers = buildSecHeaders("text");
-  const response = await fetch(url, { headers });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new SecFetchError(
-      response.status,
-      response.statusText,
-      body.slice(0, 200),
-    );
-  }
-
-  return await response.text();
+async function fetchSecPage(url: string): Promise<Response> {
+  const headers = buildSecHeaders();
+  return fetch(url, { headers });
 }
 
-export async function fetchSecTextWithRetry(
-  url: string,
-  maxRetries = 3,
-): Promise<string> {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+export async function fetchSecPageWithRetry(url: string): Promise<string> {
+  for (let attempt = 0; attempt < SEC_REQUEST_MAX_RETRIES; attempt++) {
+    await new Promise((r) => setTimeout(r, SEC_REQUEST_DELAY_MS));
     try {
-      return await fetchSecText(url);
+      const response = await fetchSecPage(url);
+
+      if (response.ok) {
+        return await response.text();
+      }
+
+      const body = await response.text();
+      logger.warn("SEC fetch failed", {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+      });
+
+      const retryable = response.status === 429 || response.status >= 500;
+      if (!retryable || attempt === SEC_REQUEST_MAX_RETRIES - 1) {
+        throw new SecFetchError(
+          response.status,
+          response.statusText,
+          body.slice(0, 200),
+        );
+      }
     } catch (err) {
-      const isSecErr =
-        err instanceof SecFetchError &&
-        (err.status === 429 || err.status >= 500);
-      if (!isSecErr || attempt === maxRetries - 1) throw err;
-      const backoff = Math.min(500 * 2 ** attempt + Math.random() * 250, 5000);
-      await new Promise((r) => setTimeout(r, backoff));
+      // Network or other fetch error
+      if (attempt === SEC_REQUEST_MAX_RETRIES - 1) throw err;
     }
+
+    const backoff =
+      SEC_REQUEST_DELAY_MS * 2 ** attempt +
+      Math.random() * SEC_REQUEST_DELAY_MS;
+    await new Promise((r) => setTimeout(r, Math.min(backoff, 5000)));
   }
+
   throw new Error("Unreachable");
 }

@@ -31,10 +31,23 @@ try {
 }
 
 // Base format function (shared logic)
-const formatLog = (timestamp: string, level: string, message: string, meta: Record<string, any>) => {
-  const lowerLevel = level.toLowerCase();
-  const isWarnOrError = lowerLevel.includes("warn") || lowerLevel.includes("error");
-  const metaStr = isWarnOrError && Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : "";
+const formatLog = (
+  timestamp: string,
+  level: string,
+  message: string,
+  meta: Record<string, any>,
+) => {
+  const lower = level.toLowerCase();
+  const metaForLevel =
+    lower.includes("warn") || lower.includes("error")
+      ? meta
+      : (() => {
+          const { module, ...rest } = meta;
+          return rest;
+        })();
+
+  const metaStr =
+    Object.keys(metaForLevel).length > 0 ? ` ${JSON.stringify(metaForLevel)}` : "";
   return `${timestamp} [${level}]: ${message}${metaStr}`;
 };
 

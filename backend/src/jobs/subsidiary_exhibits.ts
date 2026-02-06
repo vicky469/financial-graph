@@ -11,7 +11,7 @@
 import { db } from "../db/client";
 import { createLogger } from "../utils/logger";
 import { parseCliYears } from "../utils/cli";
-import { fetchSecTextWithRetry } from "../integration/sec";
+import { fetchSecPageWithRetry } from "../integration/sec";
 import { runWorkerPool } from "../utils/worker-pool";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -153,7 +153,7 @@ async function downloadFilingTexts(
   let completed = 0;
   for (const filing of filings) {
     const cachePath = getCachePath(filing, exhibitPrefix);
-    const body = await fetchSecTextWithRetry(filing.file_url);
+    const body = await fetchSecPageWithRetry(filing.file_url);
     await fs.mkdir(path.dirname(cachePath), { recursive: true });
     await fs.writeFile(cachePath, body, "utf-8");
     completed += 1;

@@ -3,28 +3,15 @@
 // under INDEX_DIR for downstream ingestion; years are provided via CLI args.
 import fs from "node:fs/promises";
 import path from "node:path";
-import {
-  INDEX_DIR,
-  SEC_QUARTERS,
-  SEC_REQUEST_DELAY_MS,
-  SEC_REQUEST_MAX_RETRIES,
-} from "../config/config";
-import { fetchSecText } from "../integration/sec";
+import { INDEX_DIR, SEC_QUARTERS } from "../config/config";
+import { fetchSecPageWithRetry } from "../integration/sec";
 import { createLogger } from "../utils/logger";
 import { writeJsonWithMeta } from "../utils/fs";
 import { createJobConfig, finalizeJobConfig } from "../config/jobConfig";
-import {
-  AcceptableYear,
-  RegistrantEntry,
-  RegistrantGrouped,
-} from "./type";
+import { AcceptableYear, RegistrantEntry, RegistrantGrouped } from "./type";
 import { parseCliYears } from "../utils/cli";
 
 const logger = createLogger("jobs/registrant_filing_index");
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function fetchQuarter(
   year: AcceptableYear,
@@ -37,28 +24,12 @@ async function fetchQuarter(
   const url = `https://www.sec.gov/Archives/edgar/full-index/${year}/QTR${quarter}/company.idx`;
   const baseDir = path.join(INDEX_DIR, `sec_registrant_index-${year}`);
   const rawPath = path.join(baseDir, `${year}-Q${quarter}.body`);
-  for (let attempt = 1; attempt <= SEC_REQUEST_MAX_RETRIES; attempt += 1) {
-    try {
-      await delay(SEC_REQUEST_DELAY_MS);
-      const text = await fetchSecText(url);
-      logger.info(`Fetched ${year}-Q${quarter} index`);
-      await fs.mkdir(baseDir, { recursive: true });
-      await fs.writeFile(rawPath, text, "utf-8");
-      logger.info(`Saved raw body ${year}-Q${quarter}`);
-      return { body: text, rawPath, baseDir };
-    } catch (err) {
-      const isLast = attempt === SEC_REQUEST_MAX_RETRIES;
-      logger.warn("Fetch attempt failed", {
-        year,
-        quarter,
-        attempt,
-        error: (err as Error).message,
-      });
-      if (isLast) throw err;
-      await delay(SEC_REQUEST_DELAY_MS * attempt);
-    }
-  }
-  throw new Error("Unreachable");
+  const text = await fetchSecPageWithRetry(url);
+  logger.info(`Fetched ${year}-Q${quarter} index`);
+  await fs.mkdir(baseDir, { recursive: true });
+  await fs.writeFile(rawPath, text, "utf-8");
+  logger.info(`Saved raw body ${year}-Q${quarter}`);
+  return { body: text, rawPath, baseDir };
 }
 
 function processLine(line: string): RegistrantEntry | null {

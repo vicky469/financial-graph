@@ -8,6 +8,7 @@
   - Add `--use-cache` to reuse cached filing text files instead of re-downloading (default: fresh download).
   - Example: `$ bun run job:subsidiary_exhibits -- -2025 --use-cache`
 - Run `$ bun run job:company_info_submissions` to ingest company info from SEC submissions JSON files.
+- Run `$ bun run job:subsidiary_exhibits_download -- -2025` to download EX-21/EX-8 files (requires years).
 
 ## Utilities
 

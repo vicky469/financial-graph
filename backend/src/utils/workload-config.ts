@@ -25,7 +25,7 @@ export const WORKLOAD_PRESETS = {
   }),
 
   secApi: (taskCount: number): WorkloadConfig => ({
-    concurrency: Math.max(1, Math.min(2, Math.ceil(taskCount / 5000))), // very low to respect SEC
+    concurrency: 1, // SEC rate limit: keep single worker
     batchSize: Math.min(100, Math.max(20, Math.ceil(taskCount / 100))),
     reasoning: "SEC API ~10 req/s limit",
   }),
