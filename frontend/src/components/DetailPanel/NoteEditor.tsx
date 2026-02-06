@@ -17,6 +17,7 @@ import { Button } from '../ui/button';
 import { useAllCompanies } from '../../db/queries';
 import { CompanyMention } from './CompanyMentionExtension';
 import { useClickOutside } from '../../hooks/useClickOutside';
+import { hasFeature } from '../../config/featureFlags';
 import type { TiptapJSON } from './NoteCard';
 
 interface NoteEditorProps {
@@ -48,6 +49,7 @@ export function NoteEditor({
   onSave, 
   onCancel 
 }: NoteEditorProps) {
+  const workspaceEnabled = hasFeature('workspace');
   const [isSaving, setIsSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -55,8 +57,16 @@ export function NoteEditor({
   const [mentionPosition, setMentionPosition] = useState<{ top: number; left: number } | null>(null);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
 
-  const [visibility, setVisibility] = useState<'private' | 'public'>(initialVisibility);
+  const [visibility, setVisibility] = useState<'private' | 'public'>(
+    workspaceEnabled ? initialVisibility : 'private'
+  );
   const editorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!workspaceEnabled && visibility !== 'private') {
+      setVisibility('private');
+    }
+  }, [workspaceEnabled, visibility]);
   
   // Get all companies for @ mention autocomplete
   const { companies } = useAllCompanies();
@@ -99,7 +109,8 @@ export function NoteEditor({
       setIsSaving(true);
       setValidationError(null);
       const content = editor.getJSON() as TiptapJSON;
-      await onSave(content, visibility);
+      const effectiveVisibility = workspaceEnabled ? visibility : 'private';
+      await onSave(content, effectiveVisibility);
     } catch (err) {
       console.error('Failed to auto-save note:', err);
       // Error is handled by parent component via useNotes hook
@@ -325,7 +336,8 @@ export function NoteEditor({
 
       const content = editor.getJSON() as TiptapJSON;
       // Pass visibility to save handler
-      await onSave(content, visibility);
+      const effectiveVisibility = workspaceEnabled ? visibility : 'private';
+      await onSave(content, effectiveVisibility);
       
       // onSave will handle closing the editor
     } catch (err) {
@@ -600,52 +612,54 @@ export function NoteEditor({
         <div style={{ flex: 1 }} />
 
         {/* Visibility toggle */}
-        <button
-          onClick={() => setVisibility(visibility === 'private' ? 'public' : 'private')}
-          className="visibility-toggle"
-          style={{
-            padding: '6px 8px',
-            borderRadius: '4px',
-            border: '1px solid rgba(255,255,255,0.2)',
-            backgroundColor: visibility === 'public' 
-              ? 'rgba(96, 165, 250, 0.2)' 
-              : 'rgba(255,255,255,0.05)',
-            color: visibility === 'public' 
-              ? 'rgba(96, 165, 250, 1)' 
-              : 'rgba(255,255,255,0.7)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            transition: 'all 0.2s ease',
-            fontSize: '11px',
-            fontWeight: 500,
-          }}
-          onMouseEnter={(e) => {
-            if (visibility === 'private') {
-              e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (visibility === 'private') {
-              e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
-            }
-          }}
-          aria-label={`Visibility: ${visibility}`}
-          title={visibility === 'private' ? 'Private (only you can see)' : 'Public (visible to all users)'}
-        >
-          {visibility === 'private' ? (
-            <>
-              <Lock size={14} />
-              <span>Private</span>
-            </>
-          ) : (
-            <>
-              <Globe size={14} />
-              <span>Public</span>
-            </>
-          )}
-        </button>
+        {workspaceEnabled && (
+          <button
+            onClick={() => setVisibility(visibility === 'private' ? 'public' : 'private')}
+            className="visibility-toggle"
+            style={{
+              padding: '6px 8px',
+              borderRadius: '4px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              backgroundColor: visibility === 'public' 
+                ? 'rgba(96, 165, 250, 0.2)' 
+                : 'rgba(255,255,255,0.05)',
+              color: visibility === 'public' 
+                ? 'rgba(96, 165, 250, 1)' 
+                : 'rgba(255,255,255,0.7)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.2s ease',
+              fontSize: '11px',
+              fontWeight: 500,
+            }}
+            onMouseEnter={(e) => {
+              if (visibility === 'private') {
+                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (visibility === 'private') {
+                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
+              }
+            }}
+            aria-label={`Visibility: ${visibility}`}
+            title={visibility === 'private' ? 'Private (only you can see)' : 'Public (visible to all users)'}
+          >
+            {visibility === 'private' ? (
+              <>
+                <Lock size={14} />
+                <span>Private</span>
+              </>
+            ) : (
+              <>
+                <Globe size={14} />
+                <span>Public</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Editor content */}

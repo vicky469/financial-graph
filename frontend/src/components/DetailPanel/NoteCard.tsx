@@ -7,6 +7,7 @@ import { Edit2, Trash2, Lock, Globe } from 'lucide-react';
 import { Button } from '../ui/button';
 import { CompanyMention } from './CompanyMentionExtension';
 import { useClickOutside } from '../../hooks/useClickOutside';
+import { hasFeature } from '../../config/featureFlags';
 import type { TiptapJSON, Note } from 'financial-graph-shared/types';
 
 // Extended Note type to include backlink metadata
@@ -43,6 +44,7 @@ export function NoteCard({ note, currentUserId, onEdit, onDelete }: NoteCardProp
   const [isClicked, setIsClicked] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const workspaceEnabled = hasFeature('workspace');
   
   // Close buttons when clicking outside the card
   useClickOutside(cardRef, () => setIsClicked(false), isClicked);
@@ -122,7 +124,7 @@ export function NoteCard({ note, currentUserId, onEdit, onDelete }: NoteCardProp
   const canModify = isUserNote && isOwnNote && !isBacklink;
 
   // Determine visibility
-  const visibility = note.visibility || 'private';
+  const visibility = workspaceEnabled ? (note.visibility || 'private') : 'private';
   const isPublicNote = visibility === 'public';
 
   // Format timestamp for display

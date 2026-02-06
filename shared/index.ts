@@ -11,6 +11,7 @@ export type { AppSchema } from "./instant.schema";
 
 // Export all types
 export * from "./types/types";
+export * from "./types/featureFlags";
 
 // Export validation utilities
 export * from "./types/validation";

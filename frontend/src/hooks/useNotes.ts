@@ -14,6 +14,7 @@
 import { useState } from 'react';
 import { db, tx, id } from '../db/client';
 import { extractMentionedCompanies } from '../utils/mentionExtraction';
+import { hasFeature } from '../config/featureFlags';
 
 export interface TiptapJSON {
   type: 'doc';
@@ -67,6 +68,8 @@ export function useNotes(): UseNotesReturn {
     try {
       setErrorMessage(null);
 
+      const effectiveVisibility = hasFeature('workspace') ? visibility : 'private';
+
       // Generate unique ID for the note
       const noteId = id();
       const now = new Date().toISOString();
@@ -84,7 +87,7 @@ export function useNotes(): UseNotesReturn {
             updatedAt: now,
             createdBy: 'user',
             mentionedCompanyIds,
-            visibility,
+            visibility: effectiveVisibility,
           })
           .link({ user: userId })
           .link({ company: companyId }),
@@ -131,9 +134,14 @@ export function useNotes(): UseNotesReturn {
         mentionedCompanyIds,
       };
 
-      // Update visibility if provided
-      if (visibility !== undefined) {
-        updateData.visibility = visibility;
+      if (hasFeature('workspace')) {
+        // Update visibility if provided
+        if (visibility !== undefined) {
+          updateData.visibility = visibility;
+        }
+      } else {
+        // Force private visibility when workspace feature is disabled
+        updateData.visibility = 'private';
       }
 
       await db.transact([
