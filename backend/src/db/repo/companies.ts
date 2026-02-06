@@ -118,6 +118,7 @@ export async function upsertCompanyInfo(
     addresses?: any;
     phone?: string;
     former_names?: any;
+    additional_info?: any;
   },
 ): Promise<string> {
   const id = generateCompanyInfoId(companyId);

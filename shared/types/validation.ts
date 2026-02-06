@@ -1,6 +1,6 @@
 /**
  * Validation Re-exports (backward compatibility)
- * 
+ *
  * For new code, import directly from "./types"
  */
 
@@ -10,14 +10,15 @@ export {
   IntNumber,
   CIKString,
   JurisdictionString,
-  
-  // Company validation (type-specific rules)
+
+  // Table validation (type-specific rules)
   CompanySchema,
   PublicCompanySchema,
   PrivateCompanySchema,
   IssuerCompanySchema,
   UnknownCompanySchema,
   SubsidiaryEnrichmentDataSchema,
+  FilingDataSchema,
 
   // ID generation params
   AccessionNumberString,
@@ -26,7 +27,7 @@ export {
   BusinessSegmentParamsSchema,
   BrandParamsSchema,
   OwnsParamsSchema,
-  
+
   // Helpers
   validate,
   safeValidate,

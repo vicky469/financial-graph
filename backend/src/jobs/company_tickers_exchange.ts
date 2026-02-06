@@ -1,10 +1,16 @@
+// Job: Fetch SEC company_tickers_exchange JSON, store the raw payload, aggregate
+// tickers by CIK into a deduped company list, persist JSON with metadata, and
+// batch-ingest the companies into the graph database using the "simple" preset.
 import fs from "node:fs/promises";
 import path from "node:path";
 import { INDEX_DIR } from "../config/config";
-import { getIngestionPreset } from "../config/config";
 import { fetchSecJSON } from "../integration/sec";
 import { createLogger } from "../utils/logger";
 import { db } from "../db/client";
+import { writeJsonWithMeta } from "../utils/fs";
+import { createJobConfig, finalizeJobConfig } from "../config/jobConfig";
+import { runWorkerPool } from "../utils/worker-pool";
+import { WORKLOAD_PRESETS } from "../utils/workload-config";
 import type { Company } from "@financial-graph/shared";
 import {
   CompanyType,
@@ -15,10 +21,12 @@ import {
 
 const TICKERS_URL = "https://www.sec.gov/files/company_tickers_exchange.json";
 const OUTPUT_JSON = path.join(INDEX_DIR, "company_tickers.json");
-
-// Use simple preset for lightweight ticker ingestion
-const { concurrency: CONCURRENCY, batchSize: BATCH_SIZE } =
-  getIngestionPreset("simple");
+const OUTPUT_RAW_JSON = path.join(INDEX_DIR, "raw_company_tickers.json");
+const jobConfig = createJobConfig(
+  "company_tickers_exchange",
+  "data",
+  TICKERS_URL,
+);
 
 const logger = createLogger("jobs/company_tickers_exchange");
 
@@ -48,8 +56,16 @@ export async function get(): Promise<TickerData> {
     `Successfully fetched ${rows.length.toLocaleString()} companies.`,
     {
       count: rows.length,
+      source: jobConfig.sourceUrl,
     },
   );
+
+  await fs.mkdir(INDEX_DIR, { recursive: true });
+  await fs.writeFile(OUTPUT_RAW_JSON, JSON.stringify(data, null, 2), {
+    encoding: "utf-8",
+    flag: "w",
+  });
+  logger.info("Saved raw tickers JSON", { path: OUTPUT_RAW_JSON });
 
   return data;
 }
@@ -57,9 +73,20 @@ export async function get(): Promise<TickerData> {
 export async function saveAggregatedJSON(
   companies: AggregatedCompany[],
 ): Promise<void> {
-  await fs.mkdir(INDEX_DIR, { recursive: true });
-  await fs.writeFile(OUTPUT_JSON, JSON.stringify(companies, null, 2), "utf-8");
-  logger.info("Saved aggregated ticker JSON", { path: OUTPUT_JSON });
+  const uniqueCompanies = companies.length;
+
+  const { meta } = await writeJsonWithMeta({
+    filePath: OUTPUT_JSON,
+    source: jobConfig.sourceUrl,
+    data: companies,
+    notes: { job: finalizeJobConfig(jobConfig, "success") },
+  });
+
+  logger.info("Saved aggregated ticker JSON", {
+    path: OUTPUT_JSON,
+    records: meta.records,
+    fileSize: meta.fileSize,
+  });
 }
 
 /**
@@ -153,21 +180,21 @@ export function aggregateTickers({
  * Step 2.2: Persist aggregated companies to DB in parallel.
  */
 export async function saveToDB(companies: AggregatedCompany[]): Promise<void> {
-  let processedCount = 0;
-  let batchIndex = 0;
+  const workload = WORKLOAD_PRESETS.fastIO(companies.length);
+  const BATCH_SIZE = workload.batchSize;
+
   const batches: AggregatedCompany[][] = [];
   for (let i = 0; i < companies.length; i += BATCH_SIZE) {
     batches.push(companies.slice(i, i + BATCH_SIZE));
   }
 
-  const workerCount = Math.max(1, Math.min(CONCURRENCY, batches.length));
-
   logger.info("Starting parallel ingestion", {
-    concurrency: workerCount,
+    concurrency: workload.concurrency,
     batchSize: BATCH_SIZE,
     batches: batches.length,
     total: companies.length,
   });
+  logger.debug(`Workload reasoning: ${workload.reasoning}`);
 
   const buildNode = (entry: AggregatedCompany): Company => {
     const id = generateCompanyId({
@@ -195,28 +222,23 @@ export async function saveToDB(companies: AggregatedCompany[]): Promise<void> {
     return node;
   };
 
-  const worker = async () => {
-    while (true) {
-      const current = batchIndex++;
-      if (current >= batches.length) break;
-
-      const batch = batches[current];
-
+  await runWorkerPool({
+    concurrency: workload.concurrency,
+    tasks: batches,
+    worker: async (batch) => {
       const txs = batch.map((entry) => {
         const node = buildNode(entry);
         return db.tx.company[node.id].update(node);
       });
-
       await db.transact(txs);
-
-      processedCount += batch.length;
-      if (processedCount % 1000 === 0) {
-        logger.info(`Processed ${processedCount}/${companies.length}...`);
-      }
-    }
-  };
-
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+      return batch.length;
+    },
+    onProgress: (stats) => {
+      const processed = stats.completed * BATCH_SIZE;
+      logger.info(`Processed ${processed}/${companies.length}...`);
+    },
+    progressInterval: 5,
+  });
 
   logger.info("Ingestion complete!", {
     total: companies.length,

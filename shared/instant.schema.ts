@@ -57,6 +57,7 @@ const _schema = i.schema({
       addresses: i.json().optional(),
       phone: i.string().optional(),
       former_names: i.json().optional(),
+      additional_info: i.json().optional(),
       updated_at: i.string(),
     }),
     brand: i.entity({

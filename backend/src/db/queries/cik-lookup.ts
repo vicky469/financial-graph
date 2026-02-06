@@ -21,10 +21,10 @@ import {
 const logger = createLogger("cik-lookup");
 
 /**
- * Load the CIK lookup cache from database if not already cached
- * Returns the cache Map (CIK -> Company ID)
+ * Load the PUBLIC company CIK lookup cache from database if not already cached.
+ * Returns the cache Map (CIK -> Company ID).
  */
-export async function loadCikLookupCache(): Promise<Map<string, string>> {
+export async function loadPublicCikLookupCache(): Promise<Map<string, string>> {
   // Check if cache is already initialized
   const existingCache = getCikLookupCache();
   if (existingCache) {
@@ -32,7 +32,7 @@ export async function loadCikLookupCache(): Promise<Map<string, string>> {
     return existingCache;
   }
 
-  logger.info("Building CIK to Company ID mappings from Database...");
+  logger.info("Building PUBLIC CIK -> Company ID mappings from Database...");
   
   const result = await db.query(cikLookupQuery);
   const cache = buildCikCacheFromResult(result);

@@ -24,7 +24,7 @@ export const CompanyType = {
   ISSUER: 3,
   UNKNOWN: 4,
   TRUST: 5,
-  SUBSIDIARY:6
+  SUBSIDIARY: 6,
 } as const;
 
 export type CompanyTypeValue = (typeof CompanyType)[keyof typeof CompanyType];
@@ -131,7 +131,10 @@ export interface TiptapJSON {
 }
 
 /** Note with properly typed `content` (Tiptap JSON) and `createdBy` */
-export interface Note extends Omit<NoteRaw, "content" | "createdBy" | "createdAt" | "updatedAt"> {
+export interface Note extends Omit<
+  NoteRaw,
+  "content" | "createdBy" | "createdAt" | "updatedAt"
+> {
   content: TiptapJSON;
   createdBy: "user" | "system";
   createdAt: number; // InstantDB returns timestamps as numbers
@@ -188,6 +191,23 @@ export const JurisdictionString = z.string().refine(
   },
   { message: "Jurisdiction cannot be a number or percentage" },
 );
+
+// Filing validation
+export const FilingDataSchema = z.object({
+  accession_number: z
+    .string()
+    .min(20, "Accession number is required")
+    .refine((val) => val.includes("-"), {
+      message:
+        "Accession number must contain dashes (not the malformed format without dashes)",
+    }),
+  company_id: z.string().min(1),
+  form_type: z.string().min(1),
+  filing_date: z.string(),
+  file_url: z.string(),
+  source_quarter: z.number().int().min(1).max(4),
+  source_year: z.number().int().min(1990).max(2030),
+});
 
 // ============================================================================
 // COMPANY VALIDATION (type-specific rules)
@@ -285,17 +305,20 @@ export const SubsidiaryEnrichmentParamsSchema = z.object({
 // Validation schema for subsidiary enrichment data
 export const SubsidiaryEnrichmentDataSchema = z.object({
   footnoteRefs: z.array(z.string()).refine(
-    (refs) => refs.every(ref => {
-      // If it's purely numeric, check it doesn't exceed 3 digits
-      if (/^\d+$/.test(ref)) {
-        return ref.length <= 3;
-      }
-      // Non-numeric refs (like "iv", "a)", etc.) are allowed
-      return true;
-    }),
-    { message: "Numeric footnoteRefs should not exceed 3 digits" }
+    (refs) =>
+      refs.every((ref) => {
+        // If it's purely numeric, check it doesn't exceed 3 digits
+        if (/^\d+$/.test(ref)) {
+          return ref.length <= 3;
+        }
+        // Non-numeric refs (like "iv", "a)", etc.) are allowed
+        return true;
+      }),
+    { message: "Numeric footnoteRefs should not exceed 3 digits" },
   ),
-  footnotesHtml: z.string().min(1, { message: "footnotesHtml should not be null or empty" }),
+  footnotesHtml: z
+    .string()
+    .min(1, { message: "footnotesHtml should not be null or empty" }),
   updated_at: z.string(),
 });
 

@@ -20,18 +20,12 @@ bun install
 
 ### 2. Set up Google OAuth Authentication
 
-The application uses Google OAuth for secure authentication with 8-hour session management.
+The application uses Google OAuth for secure authentication.
 
-1. **Follow the detailed setup guide**: [GOOGLE-OAUTH-SETUP.md](./GOOGLE-OAUTH-SETUP.md)
+1. **Follow the detailed setup guide**:
+   https://www.instantdb.com/docs/auth/google-oauth?method=web-google-button
 
-2. **Quick setup summary**:
-   - Create a Google Cloud Project
-   - Enable Google+ API
-   - Create OAuth 2.0 credentials
-   - Configure authorized origins and redirect URIs
-   - Update environment variables
-
-3. **Configure environment variables**:
+2. **Configure environment variables**:
    ```bash
    # Frontend
    cd frontend
@@ -58,31 +52,7 @@ Visit `http://localhost:5173` and sign in with Google.
 ### Features
 
 - **Google OAuth Integration**: Secure authentication using Google accounts
-- **8-Hour Sessions**: Automatic logout after 8 hours for security
-- **Session Management**: Persistent sessions with automatic validation
-- **User Profile**: Display user information and profile picture
-
-### Session Behavior
-
-- Sessions are valid for 8 hours from login
-- The app checks session validity every minute
-- Users are automatically logged out when sessions expire
-- Session data is stored securely in localStorage
-
-### Testing Authentication
-
-Open browser console and use the testing utilities:
-
-```javascript
-// Test session management
-window.authTest.testSessionManagement();
-
-// Check current auth state
-window.authTest.checkAuthState();
-
-// Test logout
-window.authTest.testLogout();
-```
+- **Session Management**: Persistent sessions with profile display (sign-in/out handled via InstantDB auth hooks)
 
 ## 🏗️ Architecture
 
@@ -99,7 +69,9 @@ window.authTest.testLogout();
 - **Node.js** with TypeScript
 - **SEC filing parsers** for extracting corporate data
 - **InstantDB** for data storage
-- **LLM integration** for data enrichment
+- **LLM integration** for data enrichment and fallbacks
+- **Jobs & pipelines** for SEC data ingest:
+  - See job details in `backend/README.md`.
 
 ### Shared (`/shared`)
 
@@ -164,12 +136,14 @@ bun run test         # Run tests
 ### Environment Variables
 
 #### Frontend (`.env`)
+
 ```bash
 VITE_INSTANTDB_APP_ID=your-instantdb-app-id
 VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 ```
 
 #### Backend (`.env`)
+
 ```bash
 INSTANTDB_ADMIN_TOKEN=your-instantdb-admin-token
 # Additional backend configuration...
@@ -226,5 +200,5 @@ See deployment guides in `/docs` for detailed instructions.
 ---
 
 **Last Updated**: January 2026
-**Authentication**: Google OAuth with 8-hour sessions
+**Authentication**: Google OAuth
 **Status**: Active development

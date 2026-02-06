@@ -1,16 +1,21 @@
+// Job: Scrape the S&P 500 constituents table from Wikipedia, save a JSON copy,
+// and flag matching companies in the database (adding sp500/founded metadata
+// and unmarking companies that have fallen out of the index).
 import fs from "node:fs/promises";
-import path from "node:path";
 import { createLogger } from "../utils/logger";
 import { db } from "../db/client";
 import type { Company } from "@financial-graph/shared";
 import { CompanyType } from "@financial-graph/shared";
 import { INDEX_DIR } from "../config/config";
+import { writeJsonWithMeta } from "../utils/fs";
+import { createJobConfig, finalizeJobConfig } from "../config/jobConfig";
 
 const logger = createLogger("jobs/sp500");
 
 const WIKIPEDIA_URL =
   "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies";
-const OUTPUT_FILE = path.join(INDEX_DIR, "sp500_companies.json");
+const OUTPUT_FILE = `${INDEX_DIR}/sp500_companies.json`;
+const jobConfig = createJobConfig("sp500", "data", WIKIPEDIA_URL);
 
 interface SP500Company {
   symbol: string;
@@ -21,6 +26,19 @@ interface SP500Company {
   headquarters: string;
   dateAdded: string;
   founded: string;
+}
+
+function hasCikMatch(company: Company, targetCik: string): boolean {
+  const primaryCIK = company.identity?.primaryCIK;
+  if (primaryCIK && primaryCIK === targetCik) return true;
+
+  const ciks = company.identity?.ciks;
+  if (ciks) {
+    const cikList = ciks.split(",").map((c: string) => c.trim());
+    if (cikList.includes(targetCik)) return true;
+  }
+
+  return false;
 }
 
 async function fetchSP500List(): Promise<SP500Company[]> {
@@ -98,8 +116,19 @@ async function fetchSP500List(): Promise<SP500Company[]> {
 
 export async function saveJSON(companies: SP500Company[]) {
   await fs.mkdir(INDEX_DIR, { recursive: true });
-  await fs.writeFile(OUTPUT_FILE, JSON.stringify(companies, null, 2), "utf-8");
-  logger.info("Saved S&P 500 list", { path: OUTPUT_FILE });
+
+  const { meta } = await writeJsonWithMeta({
+    filePath: OUTPUT_FILE,
+    source: jobConfig.sourceUrl,
+    data: companies,
+    notes: { job: finalizeJobConfig(jobConfig, "success") },
+  });
+
+  logger.info("Saved S&P 500 list", {
+    path: OUTPUT_FILE,
+    records: meta.records,
+    fileSize: meta.fileSize,
+  });
 }
 
 export async function markSP500InDB(sp500Companies: SP500Company[]) {
@@ -120,20 +149,10 @@ export async function markSP500InDB(sp500Companies: SP500Company[]) {
     let found = false;
 
     for (const company of companies) {
-      const primaryCIK = company.identity?.primaryCIK;
-      const ciks = company.identity?.ciks;
-      if (primaryCIK && primaryCIK === sp.cik) {
+      if (hasCikMatch(company, sp.cik)) {
         matched.push({ company, sp500: sp });
         found = true;
         break;
-      }
-      if (!found && ciks) {
-        const cikList = ciks.split(",").map((c: string) => c.trim());
-        if (cikList.includes(sp.cik)) {
-          matched.push({ company, sp500: sp });
-          found = true;
-          break;
-        }
       }
     }
 

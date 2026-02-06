@@ -21,6 +21,7 @@ export function companyToDetail(company: Company & { companyInfo?: unknown }): C
           addresses: (companyInfo as { addresses?: unknown }).addresses,
           phone: (companyInfo as { phone?: string }).phone,
           former_names: (companyInfo as { former_names?: unknown }).former_names,
+          additional_info: (companyInfo as { additional_info?: unknown }).additional_info,
           updated_at: (companyInfo as { updated_at?: string }).updated_at,
         }
       : undefined,

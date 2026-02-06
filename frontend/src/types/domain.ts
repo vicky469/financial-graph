@@ -9,6 +9,7 @@ export interface CompanyDetail extends SharedCompany {
     addresses?: any;
     phone?: string;
     former_names?: any;
+    additional_info?: any;
     updated_at?: string;
   };
   
