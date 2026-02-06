@@ -7,6 +7,13 @@ import "./styles/mobile.css";
 import "./styles/notes.css";
 import App from "./App.tsx";
 
+if (import.meta.env.PROD) {
+  const noop = () => {};
+  console.log = noop;
+  console.info = noop;
+  console.debug = noop;
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
