@@ -198,6 +198,7 @@ export function FilterDropdown({
                 >
                   <input
                     type="checkbox"
+                    name={`filter-${option.toLowerCase().replace(/\s+/g, "-")}`}
                     checked={isSelected}
                     onChange={() => handleToggle(option)}
                     style={{

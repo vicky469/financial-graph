@@ -110,6 +110,7 @@ export const CompanyList = memo(function CompanyList({
           />
           <input
             type="text"
+            name="company-search"
             placeholder={companyFilters.showSP500Only ? "Search S&P 500 companies..." : "Search public companies..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

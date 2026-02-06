@@ -340,6 +340,7 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
             <input
               ref={inputRef}
               type="text"
+              name={searchType === "accession" ? "accession-search" : "company-search"}
               placeholder={placeholder}
               value={currentValue}
               onChange={handleInputChange}

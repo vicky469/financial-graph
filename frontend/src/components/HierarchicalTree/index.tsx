@@ -151,6 +151,7 @@ export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: Hie
             />
             <input
               type="text"
+              name="subsidiary-search"
               placeholder="Search subsidiaries..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
