@@ -216,6 +216,9 @@ export const FilingDataSchema = z.object({
   source_year: z.number().int().min(1990).max(2030),
 });
 
+// Feature flags
+export * from "./featureFlags";
+
 // ============================================================================
 // COMPANY VALIDATION (type-specific rules)
 // ============================================================================
