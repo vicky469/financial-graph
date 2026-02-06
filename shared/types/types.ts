@@ -179,6 +179,13 @@ export const CIKString = z
 export const AccessionNumberString = z
   .string()
   .min(1, "Accession number is required")
+  .refine(
+    (val) => /^\d{10}-\d{2}-\d{6}$/.test(val) || /^\d{18}$/.test(val),
+    {
+      message:
+        "Accession number must be 18 digits (NNNNNNNNNN-NN-NNNNNN or NNNNNNNNNNNNNNNNNN)",
+    },
+  )
   .transform((val) => val.replace(/-/g, ""));
 
 /** Jurisdiction: rejects numbers/percentages (common parsing errors) */

@@ -9,6 +9,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    dedupe: ["zod"],
   },
   build: {
     sourcemap: false, // Disable source maps in production - prevents source code exposure
