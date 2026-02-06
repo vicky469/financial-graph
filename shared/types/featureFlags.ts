@@ -1,4 +1,4 @@
-export const featureFlagKeys = ["workspace"] as const;
+export const featureFlagKeys = ["workspace", "previewBanner"] as const;
 
 export type FeatureFlag = (typeof featureFlagKeys)[number];
 
