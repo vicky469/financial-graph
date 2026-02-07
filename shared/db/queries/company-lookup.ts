@@ -1,21 +1,17 @@
 /**
  * Company Lookup Query Definitions
  *
- * Reusable query definitions for company lookups.
- * Can be used with db.query() (frontend) or db.queryOnce() (backend).
+ * Reusable, stateless query definitions and helpers.
+ * Can be used with db.query() in both frontend and backend.
  */
 
+import type { InstaQLParams } from "@instantdb/core";
+import type { AppSchema } from "../../instant.schema";
 import { CompanyType } from "../../types/types";
-
-export interface CompanyLookupResult {
-  id: string;
-  name: string;
-  cik: string;
-  sp500?: boolean;
-}
 
 export interface CompanyLookupOptions {
   sp500Only?: boolean;
+  excludeSp500?: boolean;
 }
 
 /**
@@ -25,27 +21,29 @@ export const publicCompaniesQuery = {
   company: {
     $: {
       where: { type: CompanyType.PUBLIC },
+      fields: ["id", "name", "identity"],
     },
   },
-} as const;
+} satisfies InstaQLParams<AppSchema>;
 
 /**
  * Helper: Extract CIK -> Company lookup from query result
  */
 export function extractPublicCompaniesLookup(
   result: any,
-  options: CompanyLookupOptions = { sp500Only: false }
+  options?: CompanyLookupOptions,
 ): Map<string, { id: string; name: string }> {
-  const { sp500Only = false } = options;
-  
-  const companies = (result.company || []) as any[];
+  const { sp500Only = false, excludeSp500 = false } = options ?? {};
+  const sp500Filter = sp500Only ? true : excludeSp500 ? false : null;
+
+  const companies = (result?.company ?? []) as any[];
   const lookup = new Map<string, { id: string; name: string }>();
 
   for (const company of companies) {
-    const cik = company.identity?.primaryCIK;
+    const cik = company?.identity?.primaryCIK;
     if (!cik) continue;
 
-    if (sp500Only && company.identity?.sp500 !== true) {
+    if (sp500Filter !== null && company.identity?.sp500 !== sp500Filter) {
       continue;
     }
 
@@ -59,42 +57,18 @@ export function extractPublicCompaniesLookup(
 }
 
 /**
- * Helper: Extract CIK -> Company ID lookup from query result
+ * Helper: Build CIK -> Company ID lookup from query result
  */
-export function extractCikToCompanyIdLookup(
-  result: any,
-  options: CompanyLookupOptions = { sp500Only: false }
-): Map<string, string> {
-  const lookup = extractPublicCompaniesLookup(result, options);
-  const cikLookup = new Map<string, string>();
+export function extractPublicCikIdLookup(result: any): Map<string, string> {
+  const cache = new Map<string, string>();
+  const companies = (result?.company ?? []) as any[];
 
-  for (const [cik, company] of lookup) {
-    cikLookup.set(cik, company.id);
+  for (const comp of companies) {
+    const cik = comp?.identity?.primaryCIK;
+    if (cik) {
+      cache.set(cik, comp.id);
+    }
   }
 
-  return cikLookup;
-}
-
-/**
- * Helper: Find company by CIK from query result
- */
-export function findCompanyByCik(
-  result: any,
-  cik: string
-): CompanyLookupResult | null {
-  const normalizedCik = cik.padStart(10, "0");
-  
-  const companies = (result.company || []) as any[];
-  const company = companies.find(
-    (c: any) => c.identity?.primaryCIK === normalizedCik
-  );
-
-  if (!company) return null;
-
-  return {
-    id: company.id,
-    name: company.name,
-    cik: normalizedCik,
-    sp500: company.identity?.sp500,
-  };
+  return cache;
 }
