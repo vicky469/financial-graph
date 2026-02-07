@@ -1,8 +1,8 @@
 /**
- * Database Queries
+ * Backend Query Exports
  *
- * Read-only query functions for lookups and aggregations.
+ * Re-export shared query definitions and helpers so backend can import
+ * from a single place without duplicating query logic.
  */
 
-export * from "./company-lookup";
-export * from "./cik-lookup";
+export * from "@financial-graph/shared/db";

@@ -1,56 +1,51 @@
 /**
- * Company Lookup Queries
+ * Backend Company Lookup Queries
  *
- * Backend implementation using admin client with shared query definitions.
+ * Thin wrapper around shared query definitions, using the admin client.
+ * Keeps caching local to the backend process.
  */
 
 import { db } from "../client";
 import {
   publicCompaniesQuery,
   extractPublicCompaniesLookup,
-  extractCikToCompanyIdLookup,
-  findCompanyByCik,
-  CompanyLookupOptions,
-  CompanyLookupResult,
+  extractPublicCikIdLookup,
+  type CompanyLookupOptions,
 } from "@financial-graph/shared/db";
 
-/**
- * Get public companies as a CIK -> Company lookup map.
- *
- * @param options.sp500Only - Only include SP500 companies (defaults to true)
- * @returns Map of CIK -> { id, name }
- */
-export async function getPublicCompaniesLookup(
-  options: CompanyLookupOptions = { sp500Only: true }
+let cikToCompanyIdCache: Map<string, string> | null = null;
+let publicCompaniesResultCache: any | null = null;
+
+const normalizeCik = (cik: string): string => cik.padStart(10, "0");
+
+export async function loadPublicCompaniesLookup(
+  options: CompanyLookupOptions = {},
 ): Promise<Map<string, { id: string; name: string }>> {
-  const result = await db.query(publicCompaniesQuery);
-  return extractPublicCompaniesLookup(result, options);
+  if (!publicCompaniesResultCache) {
+    publicCompaniesResultCache = await db.query(publicCompaniesQuery);
+    cikToCompanyIdCache = extractPublicCikIdLookup(publicCompaniesResultCache);
+  }
+
+  return extractPublicCompaniesLookup(publicCompaniesResultCache, options);
 }
 
-/**
- * Get CIK -> Company ID lookup map.
- * Simpler version that only returns IDs.
- *
- * @param options.sp500Only - Only include SP500 companies (defaults to true)
- * @returns Map of CIK -> companyId
- */
-export async function getCikToCompanyIdLookup(
-  options: CompanyLookupOptions = { sp500Only: true }
+export async function loadPublicCikLookupCache(
 ): Promise<Map<string, string>> {
-  const result = await db.query(publicCompaniesQuery);
-  return extractCikToCompanyIdLookup(result, options);
+  if (!publicCompaniesResultCache) {
+    publicCompaniesResultCache = await db.query(publicCompaniesQuery);
+  }
+
+  if (!cikToCompanyIdCache) {
+    cikToCompanyIdCache = extractPublicCikIdLookup(publicCompaniesResultCache);
+  }
+
+  return cikToCompanyIdCache ?? new Map<string, string>();
 }
 
-/**
- * Get company by CIK (single lookup, hits DB).
- * For batch operations, use getPublicCompaniesLookup() instead.
- */
-export async function getCompanyByCik(
-  cik: string
-): Promise<CompanyLookupResult | null> {
-  const result = await db.query(publicCompaniesQuery);
-  return findCompanyByCik(result, cik);
-}
+export function lookupCompanyIdByCik(cik: string): string | null {
+  if (!cikToCompanyIdCache) {
+    return null;
+  }
 
-// Re-export types for convenience
-export type { CompanyLookupOptions, CompanyLookupResult };
+  return cikToCompanyIdCache.get(normalizeCik(cik)) || null;
+}

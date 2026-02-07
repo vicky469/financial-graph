@@ -25,21 +25,17 @@ export async function upsertFiling(
     "FilingData",
   );
 
-  const normalizedAccession = validatedData.accession_number;
-  const filingId = generateFilingId(normalizedAccession);
-  const company_id = validatedData.company_id;
-
   // Ensure accession_number_nodashes is properly formatted (18 digits)
-  const accession_number_nodashes = normalizedAccession.replace(/-/g, "");
-  if (accession_number_nodashes.length !== 18) {
-    throw new Error(
-      `Invalid accession number format: ${normalizedAccession}. Expected 18 digits when dashes removed, got ${accession_number_nodashes.length}`,
-    );
-  }
+  const accession_number_nodashes = validatedData.accession_number.replace(
+    /-/g,
+    "",
+  );
+  const filingId = generateFilingId(accession_number_nodashes);
+  const company_id = validatedData.company_id;
 
   const node: Record<string, unknown> = {
     id: filingId,
-    accession_number: normalizedAccession,
+    accession_number: validatedData.accession_number,
     accession_number_nodashes: accession_number_nodashes,
     form_type: validatedData.form_type,
     filing_date: validatedData.filing_date,

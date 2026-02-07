@@ -8,8 +8,7 @@ import { createLogger } from "../utils/logger";
 import {
   loadPublicCikLookupCache,
   lookupCompanyIdByCik,
-  getCikLookupCacheSize,
-} from "../db/queries/cik-lookup";
+} from "../db/queries/company-lookup";
 import { createJobConfig, finalizeJobConfig } from "../config/jobConfig";
 import { AcceptableYear, RegistrantGrouped, RegistrantIndexFile } from "./type";
 import { parseCliYears } from "../utils/cli";
@@ -187,10 +186,8 @@ async function collectYear(
 async function main() {
   try {
     const years = parseCliYears(process.argv[2]);
-    await loadPublicCikLookupCache();
-    logger.info("Loaded PUBLIC CIK lookup cache", {
-      size: getCikLookupCacheSize(),
-    });
+    const cache = await loadPublicCikLookupCache();
+    logger.info("Loaded PUBLIC CIK lookup cache", { size: cache.size });
 
     for (const year of years) {
       const job = createJobConfig(

@@ -2,7 +2,7 @@
  * Notes Query Definitions
  *
  * Reusable query definitions for notes lookups.
- * Can be used with db.useQuery() (frontend) or db.queryOnce() (backend).
+ * Can be used with db.useQuery() (frontend) or db.query() (backend).
  */
 
 import type { Note } from "../../types/types";
