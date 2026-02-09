@@ -179,13 +179,10 @@ export const CIKString = z
 export const AccessionNumberString = z
   .string()
   .min(1, "Accession number is required")
-  .refine(
-    (val) => /^\d{10}-\d{2}-\d{6}$/.test(val) || /^\d{18}$/.test(val),
-    {
-      message:
-        "Accession number must be 18 digits (NNNNNNNNNN-NN-NNNNNN or NNNNNNNNNNNNNNNNNN)",
-    },
-  )
+  .refine((val) => /^\d{10}-\d{2}-\d{6}$/.test(val) || /^\d{18}$/.test(val), {
+    message:
+      "Accession number must be 18 digits (NNNNNNNNNN-NN-NNNNNN or NNNNNNNNNNNNNNNNNN)",
+  })
   .transform((val) => val.replace(/-/g, ""));
 
 /** Jurisdiction: rejects numbers/percentages (common parsing errors) */
@@ -216,7 +213,6 @@ export const FilingDataSchema = z.object({
   source_year: z.number().int().min(1990).max(2030),
 });
 
-// Feature flags
 export * from "./featureFlags";
 
 // ============================================================================

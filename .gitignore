@@ -15,3 +15,5 @@ dist
 build
 logs
 *.log
+.vercel
+.env*.local

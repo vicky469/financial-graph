@@ -18,37 +18,83 @@ interface CategoryDefinition {
  */
 const CATEGORY_DEFINITIONS: CategoryDefinition[] = [
   // Tier 1: Largest, most established public companies (2,311 companies)
-  { rank: 1, raw: "Large accelerated filer", display: "Large accelerated filer" },
-  { rank: 2, raw: "Large Accelerated<br>Well Known Seasoned Issuer", display: "Large Accelerated Well Known Seasoned Issuer" },
+  {
+    rank: 1,
+    raw: "Large accelerated filer",
+    display: "Large accelerated filer",
+  },
+  {
+    rank: 2,
+    raw: "Large Accelerated<br>Well Known Seasoned Issuer",
+    display: "Large Accelerated Well Known Seasoned Issuer",
+  },
   { rank: 3, raw: "Large Accelerated", display: "Large Accelerated" },
-  { rank: 4, raw: "Large accelerated filer<br>Smaller reporting company", display: "Large accelerated filer Smaller reporting company" },
-  
+  {
+    rank: 4,
+    raw: "Large accelerated filer<br>Smaller reporting company",
+    display: "Large accelerated filer Smaller reporting company",
+  },
+
   // Tier 2: Mid-sized public companies (837 companies)
   { rank: 5, raw: "Accelerated filer", display: "Accelerated filer" },
-  { rank: 6, raw: "Accelerated filer<br>Emerging growth company", display: "Accelerated filer Emerging growth company" },
-  { rank: 7, raw: "Accelerated filer<br>Smaller reporting company", display: "Accelerated filer Smaller reporting company" },
-  { rank: 8, raw: "Accelerated filer<br>Smaller reporting company<br>Emerging growth company", display: "Accelerated filer Smaller reporting company Emerging growth company" },
-  
+  {
+    rank: 6,
+    raw: "Accelerated filer<br>Emerging growth company",
+    display: "Accelerated filer Emerging growth company",
+  },
+  {
+    rank: 7,
+    raw: "Accelerated filer<br>Smaller reporting company",
+    display: "Accelerated filer Smaller reporting company",
+  },
+  {
+    rank: 8,
+    raw: "Accelerated filer<br>Smaller reporting company<br>Emerging growth company",
+    display:
+      "Accelerated filer Smaller reporting company Emerging growth company",
+  },
+
   // Tier 3: Smaller public companies (2,676 companies)
   { rank: 9, raw: "Non-accelerated filer", display: "Non-accelerated filer" },
-  { rank: 10, raw: "Non-accelerated filer<br>Emerging growth company", display: "Non-accelerated filer Emerging growth company" },
-  { rank: 11, raw: "Non-accelerated filer<br>Smaller reporting company", display: "Non-accelerated filer Smaller reporting company" },
-  { rank: 12, raw: "Non-accelerated filer<br>Smaller reporting company<br>Emerging growth company", display: "Non-accelerated filer Smaller reporting company Emerging growth company" },
-  
+  {
+    rank: 10,
+    raw: "Non-accelerated filer<br>Emerging growth company",
+    display: "Non-accelerated filer Emerging growth company",
+  },
+  {
+    rank: 11,
+    raw: "Non-accelerated filer<br>Smaller reporting company",
+    display: "Non-accelerated filer Smaller reporting company",
+  },
+  {
+    rank: 12,
+    raw: "Non-accelerated filer<br>Smaller reporting company<br>Emerging growth company",
+    display:
+      "Non-accelerated filer Smaller reporting company Emerging growth company",
+  },
+
   // Tier 4: Smallest reporting companies (926 companies)
-  { rank: 13, raw: "Smaller reporting company", display: "Smaller reporting company" },
-  { rank: 14, raw: "<br>Emerging growth company", display: "Emerging growth company" },
+  {
+    rank: 13,
+    raw: "Smaller reporting company",
+    display: "Smaller reporting company",
+  },
+  {
+    rank: 14,
+    raw: "<br>Emerging growth company",
+    display: "Emerging growth company",
+  },
 ];
 
 /**
  * Build lookup maps from definitions
  */
 const CATEGORY_RANK = Object.fromEntries(
-  CATEGORY_DEFINITIONS.map(def => [def.display, def.rank])
+  CATEGORY_DEFINITIONS.map((def) => [def.display, def.rank]),
 );
 
 export const COMPANY_CATEGORIES = Object.fromEntries(
-  CATEGORY_DEFINITIONS.map(def => [def.raw, def.display])
+  CATEGORY_DEFINITIONS.map((def) => [def.raw, def.display]),
 ) as Record<string, string>;
 
 /**
@@ -73,11 +119,19 @@ export const OWNER_ORGS = [
  * Entity Types
  * Types of business entities
  */
-export const ENTITY_TYPES = [
-  "investment",
-  "operating",
-  "other",
-] as const;
+export const ENTITY_TYPES = ["investment", "operating", "other"] as const;
+
+/**
+ * Company filter criteria — shared between frontend and backend.
+ * Field naming follows CLI conventions (e.g. --sp500, --exclude-sp500).
+ */
+export interface CompanyFilters {
+  sp500Only: boolean;
+  excludeSp500?: boolean;
+  categories: string[];
+  ownerOrgs: string[];
+  entityTypes: string[];
+}
 
 /**
  * Type for raw category values (as stored in database)
@@ -87,36 +141,39 @@ export type RawCompanyCategory = keyof typeof COMPANY_CATEGORIES;
 /**
  * Type for clean category values (for display)
  */
-export type CleanCompanyCategory = typeof COMPANY_CATEGORIES[RawCompanyCategory];
+export type CleanCompanyCategory =
+  (typeof COMPANY_CATEGORIES)[RawCompanyCategory];
 
 /**
  * Type for owner organization values
  */
-export type OwnerOrg = typeof OWNER_ORGS[number];
+export type OwnerOrg = (typeof OWNER_ORGS)[number];
 
 /**
  * Type for entity type values
  */
-export type EntityType = typeof ENTITY_TYPES[number];
+export type EntityType = (typeof ENTITY_TYPES)[number];
 
 /**
  * Get clean category display value from raw database value
  * @param rawCategory - Raw category value from database (may contain <br> tags)
  * @returns Clean category value for display
  */
-export function getCleanCategory(rawCategory: string | undefined | null): string | undefined {
+export function getCleanCategory(
+  rawCategory: string | undefined | null,
+): string | undefined {
   if (!rawCategory) return undefined;
-  
+
   // Direct mapping if exists
   if (rawCategory in COMPANY_CATEGORIES) {
     return COMPANY_CATEGORIES[rawCategory as RawCompanyCategory];
   }
-  
+
   // Fallback: clean up any <br> tags dynamically
   return rawCategory
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<[^>]*>/g, '')
-    .replace(/\s+/g, ' ')
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -125,8 +182,10 @@ export function getCleanCategory(rawCategory: string | undefined | null): string
  * @returns Array of clean category values in ranked order
  */
 export function getAllCleanCategories(): string[] {
-  const uniqueCategories = Array.from(new Set(Object.values(COMPANY_CATEGORIES)));
-  
+  const uniqueCategories = Array.from(
+    new Set(Object.values(COMPANY_CATEGORIES)),
+  );
+
   // Sort by rank (lower number = higher importance)
   return uniqueCategories.sort((a, b) => {
     const rankA = CATEGORY_RANK[a] ?? 999;

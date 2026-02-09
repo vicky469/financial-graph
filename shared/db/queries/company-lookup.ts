@@ -9,9 +9,10 @@ import type { InstaQLParams } from "@instantdb/core";
 import type { AppSchema } from "../../instant.schema";
 import { CompanyType } from "../../types/types";
 
+export type CompanyLookupMode = "all" | "sp500-only" | "exclude-sp500";
+
 export interface CompanyLookupOptions {
-  sp500Only?: boolean;
-  excludeSp500?: boolean;
+  mode?: CompanyLookupMode;
 }
 
 /**
@@ -27,48 +28,31 @@ export const publicCompaniesQuery = {
 } satisfies InstaQLParams<AppSchema>;
 
 /**
- * Helper: Extract CIK -> Company lookup from query result
+ * Build a CIK -> Company info lookup from a publicCompaniesQuery result,
+ * optionally filtered by SP500 membership.
  */
-export function extractPublicCompaniesLookup(
+export function buildCompanyLookup(
   result: any,
   options?: CompanyLookupOptions,
-): Map<string, { id: string; name: string }> {
-  const { sp500Only = false, excludeSp500 = false } = options ?? {};
-  const sp500Filter = sp500Only ? true : excludeSp500 ? false : null;
-
+): Map<string, { id: string; name: string; isSp500: boolean }> {
+  const mode = options?.mode ?? "all";
   const companies = (result?.company ?? []) as any[];
-  const lookup = new Map<string, { id: string; name: string }>();
+  const lookup = new Map<
+    string,
+    { id: string; name: string; isSp500: boolean }
+  >();
 
   for (const company of companies) {
     const cik = company?.identity?.primaryCIK;
     if (!cik) continue;
 
-    if (sp500Filter !== null && company.identity?.sp500 !== sp500Filter) {
-      continue;
-    }
+    const isSp500 = Boolean(company?.identity?.sp500);
 
-    lookup.set(cik, {
-      id: company.id,
-      name: company.name,
-    });
+    if (mode === "sp500-only" && !isSp500) continue;
+    if (mode === "exclude-sp500" && isSp500) continue;
+
+    lookup.set(cik, { id: company.id, name: company.name, isSp500 });
   }
 
   return lookup;
-}
-
-/**
- * Helper: Build CIK -> Company ID lookup from query result
- */
-export function extractPublicCikIdLookup(result: any): Map<string, string> {
-  const cache = new Map<string, string>();
-  const companies = (result?.company ?? []) as any[];
-
-  for (const comp of companies) {
-    const cik = comp?.identity?.primaryCIK;
-    if (cik) {
-      cache.set(cik, comp.id);
-    }
-  }
-
-  return cache;
 }

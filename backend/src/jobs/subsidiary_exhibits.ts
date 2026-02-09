@@ -10,11 +10,15 @@
 
 import { db } from "../db/client";
 import { createLogger } from "../utils/logger";
-import { parseCliYears } from "../utils/cli";
+import { hasCliFlag, parseCliYears } from "../utils/cli";
 import { fetchSecPageWithRetry } from "../integration/sec";
 import { runWorkerPool } from "../utils/worker-pool";
 import fs from "node:fs/promises";
 import path from "node:path";
+import {
+  SUBSIDIARY_EXHIBITS,
+  type SubsidiaryExhibit,
+} from "../config/subsidiary-exhibits";
 
 const logger = createLogger("jobs/subsidiary_exhibits");
 
@@ -30,13 +34,20 @@ type FilingRow = {
 
 type ExhibitRule = {
   formPrefix: string;
-  exhibitPrefix: string;
+  exhibitPrefix: SubsidiaryExhibit;
 };
 
-const EXHIBIT_RULES: ExhibitRule[] = [
-  { formPrefix: "10-K", exhibitPrefix: "EX-21" },
-  { formPrefix: "20-F", exhibitPrefix: "EX-8" },
-];
+const EXHIBIT_FORM_PREFIX: Record<SubsidiaryExhibit, string> = {
+  "EX-21": "10-K",
+  "EX-8": "20-F",
+};
+
+const EXHIBIT_RULES: ExhibitRule[] = SUBSIDIARY_EXHIBITS.map(
+  (exhibitPrefix) => ({
+    formPrefix: EXHIBIT_FORM_PREFIX[exhibitPrefix],
+    exhibitPrefix,
+  }),
+);
 
 const CACHE_ROOT = path.resolve(
   import.meta.dirname,
@@ -253,15 +264,8 @@ async function processFilings(
 async function main() {
   try {
     const args = process.argv.slice(2);
-    const useCache = args.includes("--use-cache");
-    const yearsArg = args.find(
-      (a) => a.startsWith("-") && a.length > 1 && a !== "--use-cache",
-    );
-    if (!yearsArg) {
-      throw new Error("Missing years arg (e.g., -2025 or -2024,2025)");
-    }
-
-    const years = parseCliYears(yearsArg);
+    const useCache = hasCliFlag(args, "use-cache");
+    const years = parseCliYears(args);
     logger.info("CLI parsed", { years, useCache });
 
     for (const year of years) {

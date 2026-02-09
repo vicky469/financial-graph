@@ -6,7 +6,7 @@ import path from "node:path";
 import { INDEX_DIR, SEC_QUARTERS } from "../config/config";
 import { createLogger } from "../utils/logger";
 import {
-  loadPublicCikLookupCache,
+  loadPublicCompaniesLookup,
   lookupCompanyIdByCik,
 } from "../db/queries/company-lookup";
 import { createJobConfig, finalizeJobConfig } from "../config/jobConfig";
@@ -186,7 +186,7 @@ async function collectYear(
 async function main() {
   try {
     const years = parseCliYears(process.argv[2]);
-    const cache = await loadPublicCikLookupCache();
+    const cache = await loadPublicCompaniesLookup();
     logger.info("Loaded PUBLIC CIK lookup cache", { size: cache.size });
 
     for (const year of years) {

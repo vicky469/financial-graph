@@ -5,6 +5,7 @@ import { JurisdictionTreemap } from "../JurisdictionTreemap";
 import { SearchModal } from "../SearchModal";
 import { useCompanyDetail } from "../../db/queries";
 import type { CompanyDetail } from "../../types/domain";
+import type { CompanyFilters } from "financial-graph-shared";
 
 interface MobileCompanyViewProps {
   selectedCompanyId: string;
@@ -17,18 +18,8 @@ interface MobileCompanyViewProps {
   detailPanelNode: CompanyDetail | { id: string; isSubsidiary: boolean; name?: string } | null;
   isPublic: boolean | undefined;
   parentCompanyId: string | null;
-  companyFilters: {
-    showSP500Only: boolean;
-    categories: string[];
-    ownerOrgs: string[];
-    entityTypes: string[];
-  };
-  onFiltersChange: (filters: {
-    showSP500Only: boolean;
-    categories: string[];
-    ownerOrgs: string[];
-    entityTypes: string[];
-  }) => void;
+  companyFilters: CompanyFilters;
+  onFiltersChange: (filters: CompanyFilters) => void;
 }
 
 export function MobileCompanyView({
@@ -57,7 +48,10 @@ export function MobileCompanyView({
   };
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-card" style={{ width: "100%", maxWidth: "100%", overflowX: "hidden" }}>
+    <div
+      className="flex flex-col h-full w-full overflow-hidden bg-card"
+      style={{ width: "100%", maxWidth: "100%", overflowX: "hidden" }}
+    >
       {/* Back Button */}
       <div className="px-4 pt-3">
         <button
@@ -139,7 +133,8 @@ export function MobileCompanyView({
               borderTop: "none",
               borderLeft: "none",
               borderRight: "none",
-              borderBottom: activeTab === "overview" ? "2px solid #3b82f6" : "2px solid transparent",
+              borderBottom:
+                activeTab === "overview" ? "2px solid #3b82f6" : "2px solid transparent",
               cursor: "pointer",
             }}
           >
@@ -159,7 +154,8 @@ export function MobileCompanyView({
               borderTop: "none",
               borderLeft: "none",
               borderRight: "none",
-              borderBottom: activeTab === "structure" ? "2px solid #3b82f6" : "2px solid transparent",
+              borderBottom:
+                activeTab === "structure" ? "2px solid #3b82f6" : "2px solid transparent",
               cursor: "pointer",
             }}
           >
@@ -170,7 +166,8 @@ export function MobileCompanyView({
             className="cursor-pointer select-none"
             style={{
               flex: 1,
-              backgroundColor: activeTab === "jurisdiction" ? "rgba(255,255,255,0.1)" : "transparent",
+              backgroundColor:
+                activeTab === "jurisdiction" ? "rgba(255,255,255,0.1)" : "transparent",
               color: activeTab === "jurisdiction" ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.5)",
               fontWeight: activeTab === "jurisdiction" ? "600" : "400",
               transition: "all 0.2s ease",
@@ -179,7 +176,8 @@ export function MobileCompanyView({
               borderTop: "none",
               borderLeft: "none",
               borderRight: "none",
-              borderBottom: activeTab === "jurisdiction" ? "2px solid #3b82f6" : "2px solid transparent",
+              borderBottom:
+                activeTab === "jurisdiction" ? "2px solid #3b82f6" : "2px solid transparent",
               cursor: "pointer",
             }}
           >
@@ -191,10 +189,10 @@ export function MobileCompanyView({
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden w-full" style={{ width: "100%", maxWidth: "100%" }}>
         {activeTab === "overview" && detailPanelNode && (
-          <div 
+          <div
             className="h-full overflow-y-auto overflow-x-hidden"
-            style={{ 
-              scrollbarWidth: "thin", 
+            style={{
+              scrollbarWidth: "thin",
               scrollbarGutter: "stable",
               WebkitOverflowScrolling: "touch",
               height: "100%",
@@ -213,7 +211,7 @@ export function MobileCompanyView({
         )}
 
         {activeTab === "structure" && (
-          <div 
+          <div
             className="h-full overflow-y-auto"
             style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
           >
@@ -230,13 +228,13 @@ export function MobileCompanyView({
         )}
 
         {activeTab === "jurisdiction" && (
-          <div 
+          <div
             className="h-full w-full overflow-hidden bg-background"
-            style={{ 
-              scrollbarWidth: "thin", 
+            style={{
+              scrollbarWidth: "thin",
               scrollbarGutter: "stable",
               width: "100%",
-              maxWidth: "100%"
+              maxWidth: "100%",
             }}
           >
             {isLoading ? (

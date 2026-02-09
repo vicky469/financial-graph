@@ -15,6 +15,9 @@
 import { createLogger } from "../../utils/logger";
 import type { SubsidiaryRecord } from "./types";
 import { createLLMProvider, type LLMProvider } from "./llm-provider";
+import type { LLMModification } from "./types";
+
+export type { LLMModification } from "./types";
 
 const logger = createLogger("parsers/subsidiary/llm-enrichment");
 
@@ -35,18 +38,6 @@ function getLLMProvider(): LLMProvider {
 interface OwnershipInfo {
   parentName?: string; // Name of the parent company (if different from heuristic)
   ownership?: number; // Ownership percentage (0-100)
-}
-
-/**
- * Field-level change tracking
- */
-export interface LLMModification {
-  subsidiaryId: string;
-  fieldChanges: {
-    field: string;
-    oldValue: unknown;
-    newValue: unknown;
-  }[];
 }
 
 /**

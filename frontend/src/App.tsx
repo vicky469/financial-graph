@@ -22,19 +22,23 @@ function AppContent() {
   const selectedCompanyId = companyId || null;
 
   // Use a key-based state to automatically reset when company changes
-  const [subsidiaryState, setSubsidiaryState] = useState<{ companyId: string | null; subsidiaryId: string | null }>({
+  const [subsidiaryState, setSubsidiaryState] = useState<{
+    companyId: string | null;
+    subsidiaryId: string | null;
+  }>({
     companyId: selectedCompanyId,
     subsidiaryId: null,
   });
 
   // Derive the actual subsidiary ID, resetting when company changes
-  const selectedSubsidiaryId = subsidiaryState.companyId === selectedCompanyId ? subsidiaryState.subsidiaryId : null;
+  const selectedSubsidiaryId =
+    subsidiaryState.companyId === selectedCompanyId ? subsidiaryState.subsidiaryId : null;
 
   const [showSearchModal, setShowSearchModal] = useState(false);
-  
+
   // Company filters - persisted across navigation
   const [companyFilters, setCompanyFilters] = useState({
-    showSP500Only: false,
+    sp500Only: false,
     categories: [] as string[],
     ownerOrgs: [] as string[],
     entityTypes: [] as string[],
@@ -77,23 +81,30 @@ function AppContent() {
   // Get the detail panel node - either the selected company or subsidiary
   const detailPanelNode = useMemo(() => {
     if (!selectedCompanyId) return null; // No company selected, no detail panel
-    
+
     if (selectedSubsidiaryId) {
       // For subsidiaries, pass a minimal object with isSubsidiary flag
       return { id: selectedSubsidiaryId, isSubsidiary: true };
     }
-    
+
     // Show parent company
     return companyNode || null;
   }, [selectedCompanyId, selectedSubsidiaryId, companyNode]);
 
-  const isPublic = companyNode && (companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER) ? true : undefined;
+  const isPublic =
+    companyNode &&
+    (companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER)
+      ? true
+      : undefined;
 
   return (
-    <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans" style={{ width: "100%", maxWidth: "100%", padding: "0" }}>
+    <div
+      className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans"
+      style={{ width: "100%", maxWidth: "100%", padding: "0" }}
+    >
       {/* Preview Banner */}
       <PreviewBanner />
-      
+
       {/* Header - hidden by default, shows on hover */}
       <div className="header-hover-zone">
         <div className="header-container">
@@ -101,7 +112,11 @@ function AppContent() {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden relative min-w-0" key={selectedCompanyId} style={{ width: "100%", maxWidth: "100%" }}>
+      <div
+        className="flex-1 flex overflow-hidden relative min-w-0"
+        key={selectedCompanyId}
+        style={{ width: "100%", maxWidth: "100%" }}
+      >
         {/* Mobile: Show company list full width when no company selected, hide when company selected */}
         <div className="hide-on-desktop w-full" style={{ width: "100%", maxWidth: "100%" }}>
           {!selectedCompanyId ? (
@@ -144,7 +159,10 @@ function AppContent() {
             onFiltersChange={setCompanyFilters}
           />
 
-          <main className="flex-1 min-w-0 relative bg-background flex flex-col overflow-hidden" style={{ width: "100%", maxWidth: "100%" }}>
+          <main
+            className="flex-1 min-w-0 relative bg-background flex flex-col overflow-hidden"
+            style={{ width: "100%", maxWidth: "100%" }}
+          >
             {!selectedCompanyId ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground/60 gap-3 p-4">
                 <div className="w-16 h-16 rounded-full bg-accent/30 flex items-center justify-center">
@@ -166,8 +184,8 @@ function AppContent() {
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground/40 mt-2">
                     Press{" "}
-                    <kbd className="px-2 py-1 text-xs bg-accent/20 rounded border">⌘ Shift F</kbd> to
-                    search by accession number
+                    <kbd className="px-2 py-1 text-xs bg-accent/20 rounded border">⌘ Shift F</kbd>{" "}
+                    to search by accession number
                   </p>
                 </div>
               </div>
@@ -202,8 +220,6 @@ function AppContent() {
           </div>
         )}
       </div>
-
-
     </div>
   );
 }
@@ -219,7 +235,7 @@ function AuthenticatedApp() {
 
 function App() {
   const { user, isLoading, error } = db.useAuth();
-  
+
   // Authentication is simply: do we have a user from InstantDB?
   const isAuthenticated = !!user;
 

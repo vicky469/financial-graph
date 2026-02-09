@@ -10,7 +10,7 @@ import { LLMModification } from "../parser/subsidiary/llm-enrichment";
 import { createLogger } from "../utils/logger";
 import { generateCompanyId } from "@financial-graph/shared/ids";
 import { CompanyType } from "@financial-graph/shared/types";
-import { getLLMWorkerPool } from "./llm-worker-pool";
+import { getLLMWorkerPool } from "../utils/llm-worker-pool";
 
 const logger = createLogger("validation/llm-fallback");
 
@@ -46,8 +46,8 @@ export async function llmFallbackParse(
       logger.warn(`LLM returned no subsidiaries for ${filingInfo.accession_number}`);
       return {
         ...originalResult,
-        method: "LLM - deepseek-chat (no results)",
-        status: "empty"
+        method: "llm-fallback",
+        status: "empty",
       };
     }
 
@@ -90,9 +90,9 @@ export async function llmFallbackParse(
       logger.warn(`LLM extracted ${llmResult.subsidiaries.length} subsidiaries but none were valid for ${filingInfo.accession_number}`);
       return {
         ...originalResult,
-        method: "LLM - deepseek-chat (no valid results)",
+        method: "llm-fallback",
         status: "failed",
-        errorMessage: `LLM extracted ${llmResult.subsidiaries.length} subsidiaries but none had valid name and jurisdiction`
+        errorMessage: `LLM extracted ${llmResult.subsidiaries.length} subsidiaries but none had valid name and jurisdiction`,
       };
     }
 
@@ -101,7 +101,7 @@ export async function llmFallbackParse(
 
     const enhancedResult: ParseResult = {
       subsidiaries: validSubsidiaries,
-      method: "LLM - deepseek-chat",
+      method: "llm-fallback",
       status: "success",
       classification: originalResult.classification + " (LLM enhanced)",
       tableCount: originalResult.tableCount,
@@ -118,9 +118,9 @@ export async function llmFallbackParse(
     
     return {
       ...originalResult,
-      method: "LLM - deepseek-chat (failed)",
+      method: "llm-fallback",
       status: "failed",
-      errorMessage: `LLM fallback failed: ${error instanceof Error ? error.message : String(error)}`
+      errorMessage: `LLM fallback failed: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }

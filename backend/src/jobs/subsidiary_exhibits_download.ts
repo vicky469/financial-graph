@@ -9,6 +9,10 @@ import { parseCliYears } from "../utils/cli";
 import { runWorkerPool } from "../utils/worker-pool";
 import { WORKLOAD_PRESETS } from "../utils/workload-config";
 import { fetchSecPageWithRetry } from "../integration/sec";
+import {
+  SUBSIDIARY_EXHIBITS,
+  type SubsidiaryExhibit,
+} from "../config/subsidiary-exhibits";
 
 const logger = createLogger("jobs/subsidiary_exhibits_download");
 
@@ -20,19 +24,17 @@ const OUTPUT_ROOT = path.resolve(
   "subsidiary_exhibits",
 );
 
-const PREFIX_FORM_EXHIBIT = {
+const PREFIX_FORM_EXHIBIT: Record<SubsidiaryExhibit, string> = {
   "EX-21": "10-K",
   "EX-8": "20-F",
-} as const;
-
-type ExhibitType = keyof typeof PREFIX_FORM_EXHIBIT;
+};
 
 type FilingRow = {
   attachments?: Record<string, string>;
 };
 
 type DownloadTask = {
-  exhibitType: ExhibitType;
+  exhibitType: SubsidiaryExhibit;
   year: number;
   url: string;
   destPath: string;
@@ -40,7 +42,7 @@ type DownloadTask = {
 
 function buildDestPath(
   year: number,
-  exhibitType: ExhibitType,
+  exhibitType: SubsidiaryExhibit,
   url: string,
 ): string {
   const urlPath = new URL(url).pathname;
@@ -54,7 +56,7 @@ function buildDestPath(
 
 async function fetchExhibits(
   year: number,
-  exhibitType: ExhibitType,
+  exhibitType: SubsidiaryExhibit,
 ): Promise<FilingRow[]> {
   const formPrefix = PREFIX_FORM_EXHIBIT[exhibitType];
   const res = await db.query({
@@ -94,7 +96,7 @@ async function fetchExhibits(
 function collectDownloadTasks(
   year: number,
   filings: FilingRow[],
-  exhibitType: ExhibitType,
+  exhibitType: SubsidiaryExhibit,
 ): DownloadTask[] {
   const tasks: DownloadTask[] = [];
   const prefix = exhibitType; // attachments use the exhibit type as prefix
@@ -131,7 +133,7 @@ async function downloadTask(task: DownloadTask): Promise<void> {
 
 async function processExhibitType(
   year: number,
-  exhibitType: ExhibitType,
+  exhibitType: SubsidiaryExhibit,
   filings: FilingRow[],
 ): Promise<void> {
   const tasks = collectDownloadTasks(year, filings, exhibitType);
@@ -175,7 +177,7 @@ async function processExhibitType(
 }
 
 async function processYear(year: number): Promise<void> {
-  for (const exhibitType of Object.keys(PREFIX_FORM_EXHIBIT) as ExhibitType[]) {
+  for (const exhibitType of SUBSIDIARY_EXHIBITS) {
     const base = path.join(OUTPUT_ROOT, String(year), exhibitType);
     try {
       const entries = await fs.readdir(base);

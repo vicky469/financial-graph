@@ -5,7 +5,13 @@
   background: #050508;
   color: rgba(190, 200, 220, 0.85);
   overflow: auto;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: 0.01em;
@@ -16,10 +22,14 @@
 
 /* Subtle radial glow */
 .landingPage::after {
-  content: '';
+  content: "";
   position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(100, 120, 180, 0.04) 0%, transparent 50%);
+  background: radial-gradient(
+    ellipse 60% 40% at 50% 0%,
+    rgba(100, 120, 180, 0.04) 0%,
+    transparent 50%
+  );
   pointer-events: none;
   z-index: 0;
 }
@@ -58,8 +68,8 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 14px;
+  margin-bottom: 24px;
 }
 
 .brandIcon {
@@ -75,7 +85,7 @@
 }
 
 .brandName {
-  font-size: 14px;
+  font-size: 20px;
   font-weight: 400;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -158,7 +168,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .errorText {
@@ -229,6 +241,7 @@
 /* Section Styles */
 .sectionAlt {
   /* Boundless - no dividers */
+  display: block;
 }
 
 .sectionHeader {
@@ -290,40 +303,301 @@
   margin-top: 32px;
 }
 
-/* CTA Section */
+/* CTA / Contact Section */
 .ctaSection {
-  text-align: center;
-  padding-top: 60px;
-  padding-bottom: 60px;
+  display: block;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .ctaTitle {
   font-size: 22px;
-  font-weight: 200;
+  font-weight: 300;
   letter-spacing: 0.06em;
   margin-bottom: 16px;
-  color: rgba(185, 195, 215, 0.85);
+  color: rgba(225, 230, 245, 0.95);
+  text-align: center;
 }
 
 .ctaSubtitle {
   font-size: 14px;
   font-weight: 300;
   letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.4);
-  margin-bottom: 32px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 40px;
+  text-align: center;
+  max-width: 560px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.ctaButtonLarge {
-  padding: 16px 36px;
-  font-size: 16px;
-  width: auto;
-  display: inline-flex;
+.ctaGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* Form column */
+.ctaFormCol {
+  background: transparent;
+  border: 1px solid rgba(150, 160, 200, 0.25);
+  border-radius: 12px;
+  padding: 28px 24px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.formColTitle {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(230, 235, 245, 0.95);
+  margin-bottom: 4px;
+}
+
+.formColSub {
+  font-size: 11px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 16px;
+}
+
+/* Contact Form */
+.contactForm {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.formLabel {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(200, 210, 230, 0.75);
+}
+
+.formInput {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.95);
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+  font-family: inherit;
+}
+
+.formInput::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.formInput:focus {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.formTextarea {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.95);
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.formTextarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.formTextarea:focus {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.interestChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.interestChip {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 400;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.interestChip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.interestChipActive {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: rgba(129, 140, 248, 0.9);
+}
+
+.interestChipActive:hover {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+}
+
+.checkbox {
+  accent-color: rgba(99, 102, 241, 0.8);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.submitButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: white;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  margin-top: 8px;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.3);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.submitButton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.submitSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Success state */
+.contactFormSuccess {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.successIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.successTitle {
+  font-size: 20px;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  color: rgba(200, 210, 230, 0.85);
+}
+
+.successText {
+  font-size: 14px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 /* Footer */
 .footer {
   padding: 40px 20px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.footerSocials {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.footerIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.45);
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.footerIcon:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .footer p {
@@ -409,6 +683,65 @@
     font-size: 28px;
     font-weight: 200;
     letter-spacing: 0.05em;
+  }
+
+  .ctaFormCol {
+    padding: 28px 24px;
+  }
+
+  .formColTitle {
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+
+  .formColSub {
+    font-size: 12px;
+    margin-bottom: 24px;
+  }
+
+  .contactForm {
+    gap: 22px;
+  }
+
+  .formRow {
+    flex-direction: row;
+    gap: 20px;
+  }
+
+  .formRow > .formField {
+    flex: 1;
+  }
+
+  .formLabel {
+    font-size: 13px;
+  }
+
+  .formInput {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .formTextarea {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .formField {
+    gap: 10px;
+  }
+
+  .interestChip {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .checkboxLabel {
+    font-size: 13px;
+  }
+
+  .submitButton {
+    padding: 12px 24px;
+    font-size: 13px;
   }
 }
 
@@ -528,18 +861,12 @@
     margin-top: 48px;
   }
 
-  .ctaSection {
-    padding-top: 120px;
-    padding-bottom: 120px;
-  }
-
   .ctaTitle {
     font-size: 36px;
     margin-bottom: 24px;
     font-weight: 200;
     letter-spacing: 0.04em;
     line-height: 1.2;
-    color: rgba(185, 195, 215, 0.85);
   }
 
   .ctaSubtitle {
@@ -550,10 +877,8 @@
     color: rgba(255, 255, 255, 0.45);
   }
 
-  .ctaButtonLarge {
-    padding: 20px 48px;
-    font-size: 18px;
-    font-weight: 600;
+  .ctaFormCol {
+    padding: 32px 28px;
   }
 
   .footer {

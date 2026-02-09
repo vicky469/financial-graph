@@ -2,9 +2,24 @@
  * Type definitions for subsidiary parsing
  */
 
-import { LLMModification } from "./llm-enrichment";
+import type {
+  SubsidiaryRecord,
+  SubsidiaryParseResult,
+  SubsidiaryParseMethod,
+  SubsidiaryParseStatus,
+  SubsidiaryFallbackPolicy,
+  ParseTelemetry,
+  LLMModification,
+} from "../../pipeline/subsidiary/types";
 
-export type { LLMModification } from "./llm-enrichment";
+export type {
+  SubsidiaryRecord,
+  SubsidiaryParseMethod,
+  SubsidiaryParseStatus,
+  SubsidiaryFallbackPolicy,
+  ParseTelemetry,
+  LLMModification,
+} from "../../pipeline/subsidiary/types";
 
 /**
  * Map of footnote number to footnote text
@@ -12,30 +27,7 @@ export type { LLMModification } from "./llm-enrichment";
  */
 export type FootnoteMap = Record<string, string>;
 
-export interface SubsidiaryRecord {
-  id: string; // Generated UUID for this subsidiary
-  name: string;
-  jurisdiction: string;
-  nestingLevel: number;
-  parentName?: string; // For nested subsidiaries (human-readable)
-  parentId?: string; // UUID of parent company (for database relations)
-  ownership?: number; // Ownership percentage
-  footnoteRefs: string[]; // Footnote reference numbers (e.g., ["1", "4"])
-  indentationSpaces: number;
-  isNested: boolean;
-}
-
-export interface ParseResult {
-  subsidiaries: SubsidiaryRecord[];
-  method: string;
-  status: "success" | "empty" | "failed"; // success=found data, empty=no subsidiaries found, failed=error occurred
-  classification: string; // Document classification (text-based, single-table, multi-table, etc.)
-  tableCount: number;
-  maxNestingLevel: number;
-  footnotesHtml: string; // Raw HTML of footnote sections
-  llmModifications?: LLMModification[]; // Modifications made by LLM (if enrichment was used)
-  errorMessage?: string;
-}
+export type ParseResult = SubsidiaryParseResult;
 
 export interface ColumnAnalysis {
   isJurisdiction: boolean;

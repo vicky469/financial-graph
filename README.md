@@ -27,10 +27,9 @@ The application uses Google OAuth for secure authentication.
 
 2. **Configure environment variables**:
    ```bash
-   # Frontend
-   cd frontend
+   # Repo root
    cp .env.example .env
-   # Edit .env and add your Google Client ID
+   # Edit .env and add your Google Client ID + Resend settings
    ```
 
 ### 3. Start Development
@@ -135,14 +134,19 @@ bun run test         # Run tests
 
 ### Environment Variables
 
-#### Frontend (`.env`)
+#### Frontend + API (root `.env`)
 
 ```bash
 VITE_INSTANTDB_APP_ID=your-instantdb-app-id
 VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+VITE_GOOGLE_CLIENT_NAME=google-web
+
+RESEND_API_KEY=your-resend-api-key
+CONTACT_SENDER_EMAIL=notifications@yourdomain.com
+CONTACT_TO_EMAIL=you@yourdomain.com
 ```
 
-#### Backend (`.env`)
+#### Backend (`backend/.env`)
 
 ```bash
 INSTANTDB_ADMIN_TOKEN=your-instantdb-admin-token
@@ -187,7 +191,7 @@ INSTANTDB_ADMIN_TOKEN=your-instantdb-admin-token
 4. **Deploy backend services**
 5. **Configure InstantDB for production**
 
-See deployment guides in `/docs` for detailed instructions.
+See `SETUP.md` for setup and deployment instructions.
 
 ## 📄 License
 

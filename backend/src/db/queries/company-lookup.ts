@@ -8,44 +8,42 @@
 import { db } from "../client";
 import {
   publicCompaniesQuery,
-  extractPublicCompaniesLookup,
-  extractPublicCikIdLookup,
+  buildCompanyLookup,
   type CompanyLookupOptions,
 } from "@financial-graph/shared/db";
 
-let cikToCompanyIdCache: Map<string, string> | null = null;
-let publicCompaniesResultCache: any | null = null;
+let queryResultCache: any | null = null;
+let allCompaniesCache: Map<
+  string,
+  { id: string; name: string; isSp500: boolean }
+> | null = null;
 
 const normalizeCik = (cik: string): string => cik.padStart(10, "0");
 
-export async function loadPublicCompaniesLookup(
-  options: CompanyLookupOptions = {},
-): Promise<Map<string, { id: string; name: string }>> {
-  if (!publicCompaniesResultCache) {
-    publicCompaniesResultCache = await db.query(publicCompaniesQuery);
-    cikToCompanyIdCache = extractPublicCikIdLookup(publicCompaniesResultCache);
+async function ensurePublicCompaniesLoaded(): Promise<
+  Map<string, { id: string; name: string; isSp500: boolean }>
+> {
+  if (!allCompaniesCache) {
+    queryResultCache = await db.query(publicCompaniesQuery);
+    allCompaniesCache = buildCompanyLookup(queryResultCache);
   }
-
-  return extractPublicCompaniesLookup(publicCompaniesResultCache, options);
+  return allCompaniesCache;
 }
 
-export async function loadPublicCikLookupCache(
-): Promise<Map<string, string>> {
-  if (!publicCompaniesResultCache) {
-    publicCompaniesResultCache = await db.query(publicCompaniesQuery);
-  }
-
-  if (!cikToCompanyIdCache) {
-    cikToCompanyIdCache = extractPublicCikIdLookup(publicCompaniesResultCache);
-  }
-
-  return cikToCompanyIdCache ?? new Map<string, string>();
+export async function loadPublicCompaniesLookup(
+  options: CompanyLookupOptions = {},
+): Promise<Map<string, { id: string; name: string; isSp500: boolean }>> {
+  await ensurePublicCompaniesLoaded();
+  if (!options.mode || options.mode === "all") return allCompaniesCache!;
+  return buildCompanyLookup(queryResultCache, options);
 }
 
 export function lookupCompanyIdByCik(cik: string): string | null {
-  if (!cikToCompanyIdCache) {
-    return null;
-  }
+  if (!allCompaniesCache) return null;
+  return allCompaniesCache.get(normalizeCik(cik))?.id ?? null;
+}
 
-  return cikToCompanyIdCache.get(normalizeCik(cik)) || null;
+export function clearCompanyLookupCache(): void {
+  queryResultCache = null;
+  allCompaniesCache = null;
 }

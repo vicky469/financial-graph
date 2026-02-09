@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { CompanyList } from "./CompanyList";
 import { Company } from "./Company";
 import type { CompanyDetail } from "../../types/domain";
+import type { CompanyFilters } from "financial-graph-shared";
 
 interface SidebarProps {
   onSelectCompany: (id: string | null) => void;
@@ -9,24 +10,14 @@ interface SidebarProps {
   selectedSubsidiaryId: string | null;
   onSubsidiaryClick?: (subsidiaryId: string | null) => void;
   selectedCompany?: CompanyDetail | null;
-  companyFilters: {
-    showSP500Only: boolean;
-    categories: string[];
-    ownerOrgs: string[];
-    entityTypes: string[];
-  };
-  onFiltersChange: (filters: {
-    showSP500Only: boolean;
-    categories: string[];
-    ownerOrgs: string[];
-    entityTypes: string[];
-  }) => void;
+  companyFilters: CompanyFilters;
+  onFiltersChange: (filters: CompanyFilters) => void;
 }
 
-export function Sidebar({ 
-  onSelectCompany, 
-  selectedSubsidiaryId, 
-  onSubsidiaryClick, 
+export function Sidebar({
+  onSelectCompany,
+  selectedSubsidiaryId,
+  onSubsidiaryClick,
   selectedCompany,
   companyFilters,
   onFiltersChange,
@@ -110,14 +101,14 @@ export function Sidebar({
         } transition-opacity duration-200`}
       >
         {selectedCompany ? (
-          <Company 
-            node={selectedCompany} 
-            onBack={() => onSelectCompany(null)} 
+          <Company
+            node={selectedCompany}
+            onBack={() => onSelectCompany(null)}
             selectedSubsidiaryId={selectedSubsidiaryId}
             onSubsidiaryClick={onSubsidiaryClick}
           />
         ) : (
-          <CompanyList 
+          <CompanyList
             onSelectCompany={onSelectCompany}
             companyFilters={companyFilters}
             onFiltersChange={onFiltersChange}
@@ -164,7 +155,9 @@ export function Sidebar({
             e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = isCollapsed ? "rgba(255,255,255,0.95)" : "rgba(30,30,35,0.95)";
+            e.currentTarget.style.background = isCollapsed
+              ? "rgba(255,255,255,0.95)"
+              : "rgba(30,30,35,0.95)";
             e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
           }}
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}

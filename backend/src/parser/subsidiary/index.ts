@@ -94,7 +94,7 @@ export async function parseExhibit(
       logger.error(`[${filing.accession_number}] HTML parsing failed: ${error.message}`);
       return {
         subsidiaries: [],
-        method: "failed",
+        method: "heuristic",
         status: "failed",
         classification: "failed",
         tableCount: 0,
