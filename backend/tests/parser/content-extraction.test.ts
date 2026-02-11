@@ -5,6 +5,7 @@
  * record generation, and metadata calculation.
  */
 
+import * as cheerio from "cheerio";
 import { extractSubsidiaryRecords } from "../../src/parser/subsidiary/content-extraction";
 import { detectDocumentStructure } from "../../src/parser/subsidiary/structure-detection";
 import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/parser-types";
@@ -17,10 +18,11 @@ function createInput(
   html: string,
   config: ParserConfig = DEFAULT_CONFIG
 ): ContentExtractionInput {
-  const structure = detectDocumentStructure(html, config);
+  const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+  const structure = detectDocumentStructure($, config);
   return {
     structure,
-    html,
+    $,
     config,
     filing: {
       accession_number: "0001234567-24-000001",

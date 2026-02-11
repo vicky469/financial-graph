@@ -36,7 +36,7 @@ const logger = createLogger("parsers/subsidiary/content-extraction");
  * - Footnote context and jurisdiction inference
  * - Indentation-based nesting detection
  *
- * @param input - Content extraction input containing structure, html, config, and filing
+ * @param input - Content extraction input containing structure, $, config, and filing
  * @returns ContentExtractionResult with subsidiaries and metadata
  * @throws ParserError if extraction fails
  */

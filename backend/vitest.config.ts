@@ -11,6 +11,9 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       USE_TEST_DB: 'true',
+      SEC_USER_AGENT: 'FinancialGraphBot/1.0 (test environment)',
+      DEEPSEEK_API_KEY: 'test-key',
+      OPENROUTER_API_KEY: 'test-key',
     },
   },
   resolve: {

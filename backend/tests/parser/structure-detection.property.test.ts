@@ -6,6 +6,7 @@
  */
 
 import fc from "fast-check";
+import * as cheerio from "cheerio";
 import { detectDocumentStructure } from "../../src/parser/subsidiary/structure-detection";
 import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/parser-types";
 import type { ParserConfig } from "../../src/parser/subsidiary/parser-types";
@@ -147,9 +148,10 @@ describe("Structure Detection Property Tests", () => {
             generateSubsidiaryTable(dataRows)
           );
           const html = generateHtml(tables);
+          const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
 
           // Detect structure
-          const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+          const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
           // Verify result has required fields
           expect(result).toHaveProperty("classification");
@@ -190,8 +192,9 @@ describe("Structure Detection Property Tests", () => {
             generateSubsidiaryTable(dataRows)
           );
           const html = generateHtml(tables);
+          const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
 
-          const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+          const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
           // For each detected table, verify header completeness
           result.tables.forEach((table) => {
@@ -226,8 +229,9 @@ describe("Structure Detection Property Tests", () => {
             generateSubsidiaryTable(dataRows)
           );
           const html = generateHtml(tables);
+          const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
 
-          const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+          const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
           // Every detected table should have a valid type
           result.tables.forEach((table) => {
@@ -259,7 +263,8 @@ describe("Structure Detection Property Tests", () => {
             .join("")}</table>`;
 
           const html = generateHtml([firstTable, secondTableHtml]);
-          const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+          const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+          const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
           // Find continuation tables
           const continuationTables = result.tables.filter((t) => t.isContinuation);
@@ -301,8 +306,9 @@ describe("Structure Detection Property Tests", () => {
           const headers = [`${nameKw}`, `${jurKw}`, "Ownership"];
           const table = generateTable(headers, dataRows);
           const html = generateHtml([table]);
+          const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
 
-          const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+          const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
           // The table should be classified as subsidiary
           expect(result.tables.length).toBeGreaterThan(0);
@@ -335,7 +341,8 @@ describe("Structure Detection Property Tests", () => {
           const footerTable = `<table><tr><td>${footerText}</td></tr></table>`;
 
           const html = generateHtml([firstTable, footerTable]);
-          const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+          const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+          const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
           // Find the footer table
           const footerTables = result.tables.filter((t) => t.type === "footnote");
@@ -380,7 +387,8 @@ describe("Structure Detection Property Tests", () => {
             .join("")}</tr>`;
 
           const html = `<html><body><table>${headerRow}${dataRow}</table></body></html>`;
-          const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+          const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+          const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
           // Expected column count is sum of all colspan values
           const expectedCount = colspans.reduce((sum, val) => sum + val, 0);

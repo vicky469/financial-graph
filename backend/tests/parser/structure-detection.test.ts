@@ -5,6 +5,7 @@
  * to ensure correct table detection, classification, and header extraction.
  */
 
+import * as cheerio from "cheerio";
 import { detectDocumentStructure } from "../../src/parser/subsidiary/structure-detection";
 import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/parser-types";
 import type { ParserConfig } from "../../src/parser/subsidiary/parser-types";
@@ -13,7 +14,8 @@ describe("Structure Detection", () => {
   describe("No tables", () => {
     it("returns no-table classification for empty HTML", () => {
       const html = "<html><body><p>No tables here</p></body></html>";
-      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
       expect(result.classification).toBe("no-table");
       expect(result.tables).toHaveLength(0);
@@ -29,7 +31,8 @@ describe("Structure Detection", () => {
           <p>Beta LLC (Nevada)</p>
         </body></html>
       `;
-      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
       expect(result.classification).toBe("text-based");
       expect(result.tables).toHaveLength(0);
@@ -61,7 +64,8 @@ describe("Structure Detection", () => {
           </table>
         </body></html>
       `;
-      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
       expect(result.classification).toBe("single-table");
       expect(result.tables).toHaveLength(1);
@@ -90,7 +94,8 @@ describe("Structure Detection", () => {
           </table>
         </body></html>
       `;
-      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
       expect(result.classification).toBe("single-table");
       expect(result.tables[0].type).toBe("subsidiary");
@@ -123,7 +128,8 @@ describe("Structure Detection", () => {
           </table>
         </body></html>
       `;
-      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
       expect(result.classification).toBe("multi-table");
       expect(result.tables).toHaveLength(2);
@@ -158,7 +164,8 @@ describe("Structure Detection", () => {
           </table>
         </body></html>
       `;
-      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
       expect(result.classification).toBe("multi-table");
       expect(result.tables).toHaveLength(2);
@@ -195,7 +202,8 @@ describe("Structure Detection", () => {
           </table>
         </body></html>
       `;
-      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
       expect(result.classification).toBe("single-table");
       expect(result.tables).toHaveLength(1);
@@ -230,7 +238,8 @@ describe("Structure Detection", () => {
           </table>
         </body></html>
       `;
-      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
       expect(result.tables).toHaveLength(2);
       expect(result.tables[0].type).toBe("subsidiary");
@@ -256,7 +265,8 @@ describe("Structure Detection", () => {
           </table>
         </body></html>
       `;
-      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
       expect(result.tables[0].columnCount).toBe(4); // 2 + 1 + 1
     });
@@ -283,7 +293,8 @@ describe("Structure Detection", () => {
           </table>
         </body></html>
       `;
-      const result = detectDocumentStructure(html, config);
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, config);
 
       // With strict matching, "Entity" and "State" should match
       // because they're in the keyword sets
@@ -303,7 +314,8 @@ describe("Structure Detection", () => {
           </table>
         </body></html>
       `;
-      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
 
       expect(result.classification).toBe("has-table-no-data");
       expect(result.tables).toHaveLength(1);
@@ -318,7 +330,8 @@ describe("Structure Detection", () => {
       // Cheerio is actually quite forgiving, so this might not throw
       // But we test the error handling mechanism
       try {
-        const result = detectDocumentStructure(invalidHtml, DEFAULT_CONFIG);
+        const $ = cheerio.load(invalidHtml, { xmlMode: false, decodeEntities: true });
+        const result = detectDocumentStructure($, DEFAULT_CONFIG);
         // If it doesn't throw, that's fine - Cheerio handled it
         expect(result).toBeDefined();
       } catch (error: any) {

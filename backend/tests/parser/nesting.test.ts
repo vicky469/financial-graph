@@ -80,7 +80,7 @@ describe("analyzeIndentation", () => {
       const result = analyzeIndentation(cell, "Subsidiary Name");
 
       expect(result.hasIndentation).toBe(true);
-      expect(result.spaces).toBe(2); // 20 / 10 = 2
+      expect(result.spaces).toBe(20); // Raw value, mapped dynamically later
     });
 
     it("handles margin-left with different values", () => {
@@ -88,7 +88,7 @@ describe("analyzeIndentation", () => {
       const result = analyzeIndentation(cell, "Subsidiary Name");
 
       expect(result.hasIndentation).toBe(true);
-      expect(result.spaces).toBe(4); // 40 / 10 = 4
+      expect(result.spaces).toBe(40); // Raw value, mapped dynamically later
     });
   });
 
@@ -98,7 +98,7 @@ describe("analyzeIndentation", () => {
       const result = analyzeIndentation(cell, "Subsidiary Name");
 
       expect(result.hasIndentation).toBe(true);
-      expect(result.spaces).toBe(2); // 20 / 10 = 2
+      expect(result.spaces).toBe(20); // Raw value, mapped dynamically later
     });
 
     it("detects indentation from shorthand padding (4 values)", () => {
@@ -110,7 +110,7 @@ describe("analyzeIndentation", () => {
       const result = analyzeIndentation(cell, "Subsidiary Name");
 
       expect(result.hasIndentation).toBe(true);
-      expect(result.spaces).toBe(1); // 13 / 10 = 1
+      expect(result.spaces).toBe(13); // Raw value, mapped dynamically later
     });
 
     it("detects deeper nesting from shorthand padding", () => {
@@ -122,7 +122,7 @@ describe("analyzeIndentation", () => {
       const result = analyzeIndentation(cell, "Subsidiary Name");
 
       expect(result.hasIndentation).toBe(true);
-      expect(result.spaces).toBe(3); // 37 / 10 = 3
+      expect(result.spaces).toBe(37); // Raw value, mapped dynamically later
     });
   });
 
@@ -157,8 +157,8 @@ describe("analyzeIndentation", () => {
       const cell = createMockCell("     Subsidiary", "padding-left: 20pt");
       const result = analyzeIndentation(cell, "     Subsidiary");
 
-      // padding-left takes priority: 20 / 10 = 2
-      expect(result.spaces).toBe(2);
+      // padding-left takes priority: raw value 20
+      expect(result.spaces).toBe(20);
     });
   });
 });
@@ -188,44 +188,127 @@ describe("determineNestingLevel", () => {
     expect(determineNestingLevel(indentInfo, existing)).toBe(0);
   });
 
-  it("returns 1 for first indented row", () => {
-    const indentInfo = { spaces: 4, hasIndentation: true };
-    const existing = [createSubsidiary("Parent", 0, 0)];
+  describe("dynamic mapping with &nbsp; (small increments)", () => {
+    it("maps first indentation (2 spaces) to level 1", () => {
+      const indentInfo = { spaces: 2, hasIndentation: true };
+      const existing = [createSubsidiary("Parent", 0, 0)];
 
-    expect(determineNestingLevel(indentInfo, existing)).toBe(1);
+      expect(determineNestingLevel(indentInfo, existing)).toBe(1);
+    });
+
+    it("maps deeper indentation (4 spaces) to level 2", () => {
+      const indentInfo = { spaces: 4, hasIndentation: true };
+      const existing = [
+        createSubsidiary("Parent", 0, 0),
+        createSubsidiary("Child", 1, 2),
+      ];
+
+      expect(determineNestingLevel(indentInfo, existing)).toBe(2);
+    });
+
+    it("returns same level for same indentation", () => {
+      const indentInfo = { spaces: 2, hasIndentation: true };
+      const existing = [
+        createSubsidiary("Parent", 0, 0),
+        createSubsidiary("Child1", 1, 2),
+      ];
+
+      // Same indentation as Child1, should be level 1
+      expect(determineNestingLevel(indentInfo, existing)).toBe(1);
+    });
   });
 
-  it("returns 2 for deeper indentation", () => {
-    const indentInfo = { spaces: 8, hasIndentation: true };
-    const existing = [
-      createSubsidiary("Parent", 0, 0),
-      createSubsidiary("Child", 1, 4),
-    ];
+  describe("dynamic mapping with CSS padding (large values)", () => {
+    it("maps first CSS indentation (20pt) to level 1", () => {
+      const indentInfo = { spaces: 20, hasIndentation: true };
+      const existing = [createSubsidiary("Parent", 0, 0)];
 
-    expect(determineNestingLevel(indentInfo, existing)).toBe(2);
+      expect(determineNestingLevel(indentInfo, existing)).toBe(1);
+    });
+
+    it("maps deeper CSS indentation (40pt) to level 2", () => {
+      const indentInfo = { spaces: 40, hasIndentation: true };
+      const existing = [
+        createSubsidiary("Parent", 0, 0),
+        createSubsidiary("Child", 1, 20),
+      ];
+
+      expect(determineNestingLevel(indentInfo, existing)).toBe(2);
+    });
+
+    it("handles non-uniform CSS increments (13pt, 37pt)", () => {
+      // Real-world example: Brink's uses 13pt and 37pt
+      const existing = [
+        createSubsidiary("Parent", 0, 0),
+        createSubsidiary("Child", 1, 13),
+      ];
+
+      const indentInfo = { spaces: 37, hasIndentation: true };
+      expect(determineNestingLevel(indentInfo, existing)).toBe(2);
+    });
+
+    it("handles three levels with irregular spacing (13pt, 37pt, 61pt)", () => {
+      const existing = [
+        createSubsidiary("Parent", 0, 0),
+        createSubsidiary("Child", 1, 13),
+        createSubsidiary("Grandchild", 2, 37),
+      ];
+
+      const indentInfo = { spaces: 61, hasIndentation: true };
+      expect(determineNestingLevel(indentInfo, existing)).toBe(3);
+    });
   });
 
-  it("returns same level for same indentation", () => {
-    const indentInfo = { spaces: 4, hasIndentation: true };
-    const existing = [
-      createSubsidiary("Parent", 0, 0),
-      createSubsidiary("Child1", 1, 4),
-    ];
+  describe("dynamic mapping with mixed indentation schemes", () => {
+    it("handles document switching from &nbsp; to CSS mid-table", () => {
+      const existing = [
+        createSubsidiary("Parent", 0, 0),
+        createSubsidiary("Child1", 1, 2), // 2 &nbsp;
+      ];
 
-    // Same indentation as Child1, should be level 1
-    expect(determineNestingLevel(indentInfo, existing)).toBe(1);
+      // New row uses CSS padding: 20pt
+      const indentInfo = { spaces: 20, hasIndentation: true };
+      // Should map to level 2 (20 > 2, so it's deeper)
+      expect(determineNestingLevel(indentInfo, existing)).toBe(2);
+    });
+
+    it("correctly orders mixed values (2, 4, 20, 40)", () => {
+      const existing = [
+        createSubsidiary("Parent", 0, 0),
+        createSubsidiary("Child1", 1, 2),
+        createSubsidiary("Child2", 2, 4),
+        createSubsidiary("Child3", 3, 20),
+      ];
+
+      const indentInfo = { spaces: 40, hasIndentation: true };
+      expect(determineNestingLevel(indentInfo, existing)).toBe(4);
+    });
   });
 
-  it("handles going back to lower indentation", () => {
-    const indentInfo = { spaces: 4, hasIndentation: true };
-    const existing = [
-      createSubsidiary("Parent", 0, 0),
-      createSubsidiary("Child", 1, 4),
-      createSubsidiary("Grandchild", 2, 8),
-    ];
+  describe("going back to lower indentation", () => {
+    it("handles going back to level 1 after level 2", () => {
+      const existing = [
+        createSubsidiary("Parent", 0, 0),
+        createSubsidiary("Child", 1, 20),
+        createSubsidiary("Grandchild", 2, 40),
+      ];
 
-    // Going back to 4 spaces should be level 1
-    expect(determineNestingLevel(indentInfo, existing)).toBe(1);
+      // Going back to 20pt should be level 1
+      const indentInfo = { spaces: 20, hasIndentation: true };
+      expect(determineNestingLevel(indentInfo, existing)).toBe(1);
+    });
+
+    it("handles going back to level 0", () => {
+      const existing = [
+        createSubsidiary("Parent", 0, 0),
+        createSubsidiary("Child", 1, 20),
+        createSubsidiary("Grandchild", 2, 40),
+      ];
+
+      // Going back to 0 should be level 0
+      const indentInfo = { spaces: 0, hasIndentation: false };
+      expect(determineNestingLevel(indentInfo, existing)).toBe(0);
+    });
   });
 
   it("returns 1 when no parent with less indentation found", () => {
