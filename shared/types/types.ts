@@ -360,7 +360,7 @@ export function isPrivateCompany(company: Company): boolean {
 }
 
 export function isFromSecFiling(edge: ParentOfEdge): boolean {
-  return edge.source === ParentOfSource.SEC_FILING;
+  return edge.source === ParentOfSource.SUBSIDIARY_FILING;
 }
 
 // ============================================================================
