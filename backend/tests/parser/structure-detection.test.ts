@@ -6,8 +6,8 @@
  */
 
 import { detectDocumentStructure } from "../../src/parser/subsidiary/structure-detection";
-import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/types-refactored";
-import type { ParserConfig } from "../../src/parser/subsidiary/types-refactored";
+import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/parser-types";
+import type { ParserConfig } from "../../src/parser/subsidiary/parser-types";
 
 describe("Structure Detection", () => {
   describe("No tables", () => {
@@ -18,6 +18,23 @@ describe("Structure Detection", () => {
       expect(result.classification).toBe("no-table");
       expect(result.tables).toHaveLength(0);
       expect(result.totalTableCount).toBe(0);
+    });
+  });
+
+  describe("Text-based listings", () => {
+    it("detects text-based subsidiaries when no tables are present", () => {
+      const html = `
+        <html><body>
+          <div>Acme Corp (Delaware)</div>
+          <p>Beta LLC (Nevada)</p>
+        </body></html>
+      `;
+      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+
+      expect(result.classification).toBe("text-based");
+      expect(result.tables).toHaveLength(0);
+      expect(result.totalTableCount).toBe(0);
+      expect(result.textBased?.entryCount).toBe(2);
     });
   });
 
@@ -151,6 +168,44 @@ describe("Structure Detection", () => {
       expect(continuationTable.isContinuation).toBe(true);
       expect(continuationTable.headers).toBe(null);
       expect(continuationTable.cachedHeaders).toEqual(["Subsidiary Name", "Jurisdiction"]);
+    });
+  });
+
+  describe("Tables without headers", () => {
+    it("classifies data-only tables as subsidiary tables", () => {
+      const html = `
+        <html><body>
+          <table>
+            <tr>
+              <td>Acme Corp</td>
+              <td>Delaware</td>
+            </tr>
+            <tr>
+              <td>Beta LLC</td>
+              <td>Nevada</td>
+            </tr>
+            <tr>
+              <td>Gamma Inc</td>
+              <td>California</td>
+            </tr>
+            <tr>
+              <td>Delta Ltd</td>
+              <td>Texas</td>
+            </tr>
+          </table>
+        </body></html>
+      `;
+      const result = detectDocumentStructure(html, DEFAULT_CONFIG);
+
+      expect(result.classification).toBe("single-table");
+      expect(result.tables).toHaveLength(1);
+
+      const table = result.tables[0];
+      expect(table.type).toBe("subsidiary");
+      expect(table.headers).toBeNull();
+      expect(table.isContinuation).toBe(false);
+      expect(table.rowCount).toBe(4);
+      expect(table.columnCount).toBe(2);
     });
   });
 

@@ -126,6 +126,13 @@ export async function callDeepSeekForSubsidiaries(
   const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
 
   try {
+    const messages = [
+      {
+        role: "user",
+        content: prompt,
+      },
+    ];
+
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: {
@@ -134,12 +141,7 @@ export async function callDeepSeekForSubsidiaries(
       },
       body: JSON.stringify({
         model,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
+        messages,
         temperature,
         max_tokens: maxTokens,
       }),

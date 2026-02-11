@@ -14,12 +14,81 @@ import {
   generateFilingId,
   CompanyType,
 } from "@financial-graph/shared";
+import { createLogger } from "../../../utils/logger";
+
+const logger = createLogger("pipeline/subsidiary/sinks/db");
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY_MS = 1000;
+
+function toLogMeta(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return {
+      error: error.message,
+      name: error.name,
+      stack: error.stack,
+    };
+  }
+  if (typeof error === "object" && error !== null) {
+    return { error };
+  }
+  return { error: String(error) };
+}
+function classifyError(error: Error): 'TIMEOUT' | 'RATE_LIMIT' | 'VALIDATION' | 'UNKNOWN' {
+  const errorMsg = error.message.toLowerCase();
+
+  if (errorMsg.includes("took too long") || errorMsg.includes("timeout")) {
+    return 'TIMEOUT';
+  }
+
+  if (errorMsg.includes("rate limit") || (error as any)?.status === 429) {
+    return 'RATE_LIMIT';
+  }
+
+  if (errorMsg.includes("validation") || errorMsg.includes("invalid")) {
+    return 'VALIDATION';
+  }
+
+  return 'UNKNOWN';
+}
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  context: string,
+  maxRetries = MAX_RETRIES,
+): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const isTimeout = errorMsg.includes("took too long") || errorMsg.includes("timeout");
+      const isRateLimit = errorMsg.includes("rate limit") || (error as any)?.status === 429;
+
+      if (!isTimeout && !isRateLimit) {
+        throw error;
+      }
+
+      if (attempt < maxRetries - 1) {
+        const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
+        logger.warn(
+          `${context}: Retrying after ${delayMs}ms (attempt ${attempt + 1}/${maxRetries}) - ${errorMsg}`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  throw lastError;
+}
 
 export class SubsidiariesDBSink {
   name = "instantdb";
 
   async write(filings: ValidatedFiling[]): Promise<SinkResult> {
-    console.log(`🔄 DB Sink: Starting write for ${filings.length} filings`);
+    logger.info(`🔄 DB Sink: Starting write for ${filings.length} filings`);
 
     let written = 0;
     let errors = 0;
@@ -46,13 +115,13 @@ export class SubsidiariesDBSink {
         details.emptyFilings = empty.length;
         details.failedFilings = failed.length;
 
-        console.log(
+        logger.info(
           `   DB Sink: Processing ${successful.length} successful filings, ${empty.length} empty, ${failed.length} failed`,
         );
       } catch (categorizationError) {
-        console.error(
+        logger.error(
           "Error categorizing filings for DB:",
-          categorizationError,
+          toLogMeta(categorizationError),
         );
         failed = filings || [];
         details.successFilings = 0;
@@ -74,13 +143,7 @@ export class SubsidiariesDBSink {
             } catch (error) {
               const errorMsg =
                 error instanceof Error ? error.message : String(error);
-
-              if (!seenErrors.has(errorMsg)) {
-                seenErrors.add(errorMsg);
-                console.error(
-                  `[${filing.accessionNumberNoDashes}] DB write error: ${errorMsg}`,
-                );
-              }
+              const errorType = classifyError(error as Error);
 
               const validSubsidiaries =
                 filing.parseResult?.subsidiaries?.filter(
@@ -90,6 +153,32 @@ export class SubsidiariesDBSink {
                     sub?.jurisdiction &&
                     sub.jurisdiction.trim(),
                 ) || [];
+
+              // Log error with subsidiary details
+              const subsidiaryDetails = validSubsidiaries.slice(0, 5).map(sub => ({
+                id: generateCompanyId({
+                  name: sub.name,
+                  type: CompanyType.SUBSIDIARY,
+                  jurisdiction_raw: sub.jurisdiction,
+                }),
+                name: sub.name,
+                jurisdiction: sub.jurisdiction,
+              }));
+
+              if (!seenErrors.has(errorMsg)) {
+                seenErrors.add(errorMsg);
+                const errorType = classifyError(error as Error);
+                logger.error(
+                  `[${filing.accessionNumberNoDashes}] DB write failed after ${MAX_RETRIES} retries: ${errorMsg}`,
+                  {
+                    module: "pipeline/subsidiary/sinks/db",
+                    errorType,
+                    subsidiaryCount: validSubsidiaries.length,
+                    subsidiaries: subsidiaryDetails,
+                  }
+                );
+              }
+
               errors += validSubsidiaries.length;
             }
           }),
@@ -99,7 +188,7 @@ export class SubsidiariesDBSink {
       details.enrichmentRecords = enrichmentRecords;
       details.uniqueErrors = seenErrors.size;
     } catch (criticalError) {
-      console.error("Critical error in DB sink:", criticalError);
+      logger.error("Critical error in DB sink:", toLogMeta(criticalError));
       errors++;
 
       details.criticalError =
@@ -119,7 +208,7 @@ export class SubsidiariesDBSink {
     filing: ValidatedFiling,
   ): Promise<{ created: number; enrichmentRecords: number }> {
     try {
-      const MAX_SUBS_PER_TX = 50;
+      const MAX_SUBS_PER_TX = 25; // Reduced from 50 to avoid timeouts
       const subsidiaries = filing.parseResult?.subsidiaries || [];
 
       const validSubsidiaries = subsidiaries.filter((sub) => {
@@ -129,7 +218,7 @@ export class SubsidiariesDBSink {
           !sub?.jurisdiction ||
           !sub.jurisdiction.trim()
         ) {
-          console.warn(
+          logger.warn(
             `Skipping invalid subsidiary in DB: name="${sub?.name}", jurisdiction="${sub?.jurisdiction}" for filing ${filing.accessionNumberNoDashes}`,
           );
           return false;
@@ -138,7 +227,7 @@ export class SubsidiariesDBSink {
       });
 
       if (validSubsidiaries.length === 0) {
-        console.warn(
+        logger.warn(
           `No valid subsidiaries found for filing ${filing.accessionNumberNoDashes}`,
         );
         return { created: 0, enrichmentRecords: 0 };
@@ -159,9 +248,9 @@ export class SubsidiariesDBSink {
             totalCreated += stats.created;
             totalEnrichments += stats.enrichmentRecords;
           } catch (chunkError) {
-            console.error(
+            logger.error(
               `Error writing chunk ${i}-${i + chunk.length} for ${filing.accessionNumberNoDashes}:`,
-              chunkError,
+              toLogMeta(chunkError),
             );
           }
         }
@@ -175,10 +264,7 @@ export class SubsidiariesDBSink {
         filing.parseResult.footnotesHtml,
       );
     } catch (error) {
-      console.error(
-        `Critical error in writeFilingSubsidiaries for ${filing.accessionNumberNoDashes}:`,
-        error,
-      );
+      // Error will be logged in write() batch catch block
       throw error;
     }
   }
@@ -205,7 +291,7 @@ export class SubsidiariesDBSink {
             !subsidiary.jurisdiction ||
             !subsidiary.parentId
           ) {
-            console.warn(
+            logger.warn(
               `Skipping subsidiary with missing data in DB: name="${subsidiary?.name}", jurisdiction="${subsidiary?.jurisdiction}", parentId="${subsidiary?.parentId}" for filing ${filing.accessionNumberNoDashes}`,
             );
             continue;
@@ -231,9 +317,9 @@ export class SubsidiariesDBSink {
           txOps.push(db.tx.company[subsidiaryId].update(companyNode));
           subsidiaryIds.add(subsidiaryId);
         } catch (companyError) {
-          console.error(
+          logger.error(
             `Error processing company ${subsidiary.name} for ${filing.accessionNumberNoDashes}:`,
-            companyError,
+            toLogMeta(companyError),
           );
         }
       }
@@ -262,9 +348,8 @@ export class SubsidiariesDBSink {
 
           const edgeNode = {
             id: edgeId,
-            created_at: now,
             updated_at: now,
-            source: "SEC_EX_21",
+            source: 5, // ParentOfSource.SUBSIDIARY_FILING
           };
 
           txOps.push(db.tx.parent_of[edgeId].update(edgeNode));
@@ -272,34 +357,40 @@ export class SubsidiariesDBSink {
           txOps.push(db.tx.company[subsidiaryId].link({ parents: edgeId }));
           createdLinks.add(edgeId);
 
-          const enrichmentId = generateSubsidiaryEnrichmentId(
-            subsidiaryId,
-            filingId,
-          );
+          // Only create enrichment if we have footnoteRefs or footnotesHtml
+          const hasFootnoteRefs = subsidiary.footnoteRefs && subsidiary.footnoteRefs.length > 0;
+          const hasFootnotesHtml = footnotesHtml && footnotesHtml.trim().length > 0;
+          
+          if (hasFootnoteRefs || hasFootnotesHtml) {
+            const enrichmentId = generateSubsidiaryEnrichmentId(
+              subsidiaryId,
+              filingId,
+            );
 
-          const enrichmentNode = {
-            id: enrichmentId,
-            filing_id: filingId,
-            subsidiary_id: subsidiaryId,
-            company_id: filingCompanyId,
-            source: "SEC_EX_21",
-            footnotes_html: footnotesHtml || null,
-            ownership_pct: subsidiary.ownership ?? null,
-            parse_method: filing.parseResult.method || "unknown",
-            llm_modified:
-              filing.parseResult.telemetry?.fallback?.used ??
-              filing.parseResult.method === "llm-fallback",
-            updated_at: now,
-          };
+            const enrichmentNode = {
+              id: enrichmentId,
+              footnoteRefs: JSON.stringify(subsidiary.footnoteRefs ?? []),
+              footnotesHtml: footnotesHtml || "",
+              updated_at: now,
+            };
 
-          txOps.push(
-            db.tx.subsidiary_enrichment[enrichmentId].update(enrichmentNode),
-          );
-          enrichmentCount += 1;
+            txOps.push(
+              db.tx.subsidiary_enrichment[enrichmentId].update(enrichmentNode),
+            );
+            txOps.push(
+              db.tx.company[subsidiaryId].link({
+                subsidiaryEnrichments: enrichmentId,
+              }),
+            );
+            txOps.push(
+              db.tx.filing[filingId].link({ subsidiaryEnrichments: enrichmentId }),
+            );
+            enrichmentCount += 1;
+          }
         } catch (linkError) {
-          console.error(
+          logger.error(
             `Error creating edge/enrichment for ${subsidiary.name} in ${filing.accessionNumberNoDashes}:`,
-            linkError,
+            toLogMeta(linkError),
           );
         }
       }
@@ -307,8 +398,6 @@ export class SubsidiariesDBSink {
       const filingNode = {
         id: filingId,
         accession_number: filing.accessionNumberNoDashes,
-        company_id: filingCompanyId,
-        source: "SEC",
         updated_at: now,
       };
 
@@ -316,10 +405,13 @@ export class SubsidiariesDBSink {
       txOps.push(db.tx.company[filingCompanyId].link({ filings: filingId }));
 
       if (txOps.length > 0) {
-        await db.transact(txOps);
+        await retryWithBackoff(
+          () => db.transact(txOps),
+          `Filing ${filing.accessionNumberNoDashes}`,
+        );
       }
 
-      console.log(
+      logger.info(
         `   DB: Successfully wrote ${subsidiaryIds.size} subsidiaries for ${filing.accessionNumberNoDashes}`,
       );
 
@@ -328,9 +420,9 @@ export class SubsidiariesDBSink {
         enrichmentRecords: enrichmentCount,
       };
     } catch (error) {
-      console.error(
+      logger.error(
         `Critical error in writeSubsidiariesBatch for ${filing.accessionNumberNoDashes}:`,
-        error,
+        toLogMeta(error),
       );
       throw error;
     }

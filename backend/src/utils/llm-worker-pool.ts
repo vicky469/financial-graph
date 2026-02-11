@@ -15,6 +15,10 @@ import {
   DeepSeekError,
   DeepSeekErrorCode,
 } from "../integration/deepseek";
+import {
+  callQwenForSubsidiaries,
+  QwenError,
+} from "../integration/qwen";
 
 const logger = createLogger("utils/llm-worker-pool");
 
@@ -24,6 +28,8 @@ interface LLMRequest {
   resolve: (result: any) => void;
   reject: (error: Error) => void;
   retries: number;
+  isVisionModel?: boolean; // Flag for vision model
+  imageUrls?: string[]; // Image URLs for vision model
 }
 
 interface LLMWorkerPoolConfig {
@@ -59,7 +65,7 @@ export class LLMWorkerPool {
   /**
    * Add a request to the queue and return a promise
    */
-  async processRequest(id: string, html: string): Promise<any> {
+  async processRequest(id: string, html: string, isVisionModel: boolean = false, imageUrls: string[] = []): Promise<any> {
     if (this.isShuttingDown) {
       throw new Error("Worker pool is shutting down");
     }
@@ -71,6 +77,8 @@ export class LLMWorkerPool {
         resolve,
         reject,
         retries: 0,
+        isVisionModel,
+        imageUrls,
       };
 
       this.queue.push(request);
@@ -107,14 +115,18 @@ export class LLMWorkerPool {
       const result = await this.executeRequest(request);
       request.resolve(result);
     } catch (error) {
-      const llmError =
-        error instanceof DeepSeekError
-          ? error
-          : new DeepSeekError(
-              DeepSeekErrorCode.UNKNOWN_ERROR,
-              error instanceof Error ? error.message : String(error),
-              error instanceof Error ? error : undefined,
-            );
+      // Handle both DeepSeek and Qwen errors
+      let llmError: DeepSeekError | QwenError;
+      
+      if (error instanceof DeepSeekError || error instanceof QwenError) {
+        llmError = error;
+      } else {
+        llmError = new DeepSeekError(
+          DeepSeekErrorCode.UNKNOWN_ERROR,
+          error instanceof Error ? error.message : String(error),
+          error instanceof Error ? error : undefined,
+        );
+      }
 
       if (llmError.isRetryable && request.retries < this.config.maxRetries) {
         request.retries++;
@@ -148,6 +160,13 @@ export class LLMWorkerPool {
    * Execute the actual LLM API request
    */
   private async executeRequest(request: LLMRequest): Promise<any> {
+    // Use Qwen VL for vision requests, DeepSeek for text
+    if (request.isVisionModel && request.imageUrls && request.imageUrls.length > 0) {
+      return callQwenForSubsidiaries(request.imageUrls, {
+        requestTimeout: this.config.requestTimeout,
+      });
+    }
+    
     return callDeepSeekForSubsidiaries(request.html, {
       requestTimeout: this.config.requestTimeout,
     });

@@ -24,6 +24,7 @@ const JURISDICTION = new Set([
   "country",
   "location",
   "organized",
+  "domicile",
   "laws", // "Laws of [State]" is common in SEC filings
 ]);
 

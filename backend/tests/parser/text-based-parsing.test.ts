@@ -1,14 +1,15 @@
 /**
- * Text-Based Subsidiary Parsing Tests
+ * Text-Based Subsidiary Detection Tests
  *
- * Tests for parsing text-based subsidiary listings (non-table format).
+ * Text-based listings are detected but not parsed by heuristics.
  */
 
 import { describe, test, expect } from "vitest";
-import { parseExhibitRefactored } from "../../src/parser/subsidiary";
+import { DEFAULT_CONFIG, parseExhibit } from "../../src/parser/subsidiary";
 
-describe("Text-Based Subsidiary Parsing", () => {
-  test("should parse text-based subsidiary listing with parentheses format", async () => {
+describe("Text-Based Subsidiary Detection", () => {
+  const config = { ...DEFAULT_CONFIG, fallbackPolicy: "none" as const };
+  test("should detect text-based listing with parentheses format", async () => {
     const html = `
       <html>
         <body>
@@ -24,29 +25,22 @@ describe("Text-Based Subsidiary Parsing", () => {
       </html>
     `;
 
-    const result = await parseExhibitRefactored(html, {
-      accession_number: "test-001",
-      cik: "1234567890",
-      filingCompanyId: "test-company-id",
-    });
+    const result = await parseExhibit(
+      html,
+      {
+        accession_number: "test-001",
+        cik: "1234567890",
+        filingCompanyId: "test-company-id",
+      },
+      config,
+    );
 
-    expect(result.subsidiaries).toHaveLength(6);
-    expect(result.status).toBe("success");
-    expect(result.maxNestingLevel).toBe(0); // Text-based entries are flat
-
-    // Check specific entries
-    const subsidiaries = result.subsidiaries;
-    expect(subsidiaries[0].name).toBe("The Trade Desk Cayman");
-    expect(subsidiaries[0].jurisdiction).toBe("Cayman Islands");
-    
-    expect(subsidiaries[1].name).toBe("The Trade Desk International Limited");
-    expect(subsidiaries[1].jurisdiction).toBe("United Kingdom");
-    
-    expect(subsidiaries[4].name).toBe("The Trade Desk GmbH");
-    expect(subsidiaries[4].jurisdiction).toBe("Germany");
+    expect(result.subsidiaries).toHaveLength(0);
+    expect(result.status).toBe("empty");
+    expect(result.classification).toBe("text-based");
   });
 
-  test("should handle mixed formats in text-based listing", async () => {
+  test("should detect mixed formats in text-based listing", async () => {
     const html = `
       <html>
         <body>
@@ -59,29 +53,22 @@ describe("Text-Based Subsidiary Parsing", () => {
       </html>
     `;
 
-    const result = await parseExhibitRefactored(html, {
-      accession_number: "test-002",
-      cik: "1234567890",
-      filingCompanyId: "test-company-id",
-    });
+    const result = await parseExhibit(
+      html,
+      {
+        accession_number: "test-002",
+        cik: "1234567890",
+        filingCompanyId: "test-company-id",
+      },
+      config,
+    );
 
-    expect(result.subsidiaries).toHaveLength(4);
-    
-    const subsidiaries = result.subsidiaries;
-    expect(subsidiaries[0].name).toBe("Company A");
-    expect(subsidiaries[0].jurisdiction).toBe("United States");
-    
-    expect(subsidiaries[1].name).toBe("Company B");
-    expect(subsidiaries[1].jurisdiction).toBe("Canada");
-    
-    expect(subsidiaries[2].name).toBe("Company C");
-    expect(subsidiaries[2].jurisdiction).toBe("France");
-    
-    expect(subsidiaries[3].name).toBe("Company D LLC");
-    expect(subsidiaries[3].jurisdiction).toBe("Unknown");
+    expect(result.subsidiaries).toHaveLength(0);
+    expect(result.status).toBe("empty");
+    expect(result.classification).toBe("text-based");
   });
 
-  test("should handle footnote references in text-based entries", async () => {
+  test("should detect footnote references in text-based entries", async () => {
     const html = `
       <html>
         <body>
@@ -94,22 +81,19 @@ describe("Text-Based Subsidiary Parsing", () => {
       </html>
     `;
 
-    const result = await parseExhibitRefactored(html, {
-      accession_number: "test-003",
-      cik: "1234567890",
-      filingCompanyId: "test-company-id",
-    });
+    const result = await parseExhibit(
+      html,
+      {
+        accession_number: "test-003",
+        cik: "1234567890",
+        filingCompanyId: "test-company-id",
+      },
+      config,
+    );
 
-    expect(result.subsidiaries).toHaveLength(2);
-    
-    const subsidiaries = result.subsidiaries;
-    expect(subsidiaries[0].name).toBe("Company A");
-    expect(subsidiaries[0].jurisdiction).toBe("United States");
-    expect(subsidiaries[0].footnoteRefs).toContain("1");
-    
-    expect(subsidiaries[1].name).toBe("Company B");
-    expect(subsidiaries[1].jurisdiction).toBe("Canada");
-    expect(subsidiaries[1].footnoteRefs).toContain("2");
+    expect(result.subsidiaries).toHaveLength(0);
+    expect(result.status).toBe("empty");
+    expect(result.classification).toBe("text-based");
   });
 
   test("should fall back to table parsing when no text-based pattern found", async () => {
@@ -124,11 +108,15 @@ describe("Text-Based Subsidiary Parsing", () => {
       </html>
     `;
 
-    const result = await parseExhibitRefactored(html, {
-      accession_number: "test-004",
-      cik: "1234567890",
-      filingCompanyId: "test-company-id",
-    });
+    const result = await parseExhibit(
+      html,
+      {
+        accession_number: "test-004",
+        cik: "1234567890",
+        filingCompanyId: "test-company-id",
+      },
+      config,
+    );
 
     expect(result.subsidiaries).toHaveLength(1);
     expect(result.subsidiaries[0].name).toBe("Test Company LLC");
@@ -145,17 +133,21 @@ describe("Text-Based Subsidiary Parsing", () => {
       </html>
     `;
 
-    const result = await parseExhibitRefactored(html, {
-      accession_number: "test-005",
-      cik: "1234567890",
-      filingCompanyId: "test-company-id",
-    });
+    const result = await parseExhibit(
+      html,
+      {
+        accession_number: "test-005",
+        cik: "1234567890",
+        filingCompanyId: "test-company-id",
+      },
+      config,
+    );
 
     expect(result.subsidiaries).toHaveLength(0);
     expect(result.status).toBe("empty");
   });
 
-  test("should handle real Trade Desk format", async () => {
+  test("should detect real Trade Desk format", async () => {
     const html = `
       <html>
         <body>
@@ -175,26 +167,18 @@ describe("Text-Based Subsidiary Parsing", () => {
       </html>
     `;
 
-    const result = await parseExhibitRefactored(html, {
-      accession_number: "000167193325000029",
-      cik: "1671933",
-      filingCompanyId: "trade-desk-company-id",
-    });
+    const result = await parseExhibit(
+      html,
+      {
+        accession_number: "000167193325000029",
+        cik: "1671933",
+        filingCompanyId: "trade-desk-company-id",
+      },
+      config,
+    );
 
-    expect(result.subsidiaries.length).toBeGreaterThan(5);
-    expect(result.status).toBe("success");
-    
-    // Check that we got the expected subsidiaries
-    const names = result.subsidiaries.map(s => s.name);
-    expect(names).toContain("The Trade Desk Cayman");
-    expect(names).toContain("The Trade Desk International Limited");
-    expect(names).toContain("The Trade Desk Australia PTY LTD");
-    
-    // Check jurisdictions
-    const cayman = result.subsidiaries.find(s => s.name === "The Trade Desk Cayman");
-    expect(cayman?.jurisdiction).toBe("Cayman Islands");
-    
-    const uk = result.subsidiaries.find(s => s.name === "The Trade Desk International Limited");
-    expect(uk?.jurisdiction).toBe("United Kingdom");
+    expect(result.subsidiaries).toHaveLength(0);
+    expect(result.status).toBe("empty");
+    expect(result.classification).toBe("text-based");
   });
 });

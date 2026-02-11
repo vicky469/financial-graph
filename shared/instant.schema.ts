@@ -48,7 +48,7 @@ const _schema = i.schema({
       updated_at: i.string(),
     }),
     subsidiary_enrichment: i.entity({
-      footnoteRefs: i.json(),
+      footnoteRefs: i.string(),
       footnotesHtml: i.string(),
       updated_at: i.string(),
     }),

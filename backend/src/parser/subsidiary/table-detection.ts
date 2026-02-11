@@ -12,6 +12,84 @@ import {
   containsAny,
 } from "../../config/subsidiary-keywords";
 
+const COMPANY_SUFFIXES = [
+  "llc",
+  "inc",
+  "inc.",
+  "corp",
+  "ltd",
+  "limited",
+  "company",
+  "corporation",
+  "s.a.",
+  "gmbh",
+  "b.v.",
+  "pty",
+  "plc",
+  "n.v.",
+  "bank",
+  "national",
+];
+
+const JURISDICTION_HINTS = [
+  "united states",
+  "delaware",
+  "new york",
+  "california",
+  "colombia",
+  "india",
+  "chile",
+  "netherlands",
+  "canada",
+  "uk",
+  "germany",
+  "france",
+  "japan",
+  "australia",
+  "west virginia",
+  "virginia",
+  "texas",
+  "florida",
+  "nevada",
+  "illinois",
+  "pennsylvania",
+  "ohio",
+  "michigan",
+  "georgia",
+  "north carolina",
+  "south carolina",
+];
+
+export function looksLikeCompanyName(text: string): boolean {
+  const lower = text.toLowerCase();
+  return COMPANY_SUFFIXES.some((suffix) => lower.includes(suffix));
+}
+
+export function looksLikeJurisdiction(text: string): boolean {
+  const lower = text.toLowerCase();
+  return (
+    JURISDICTION_HINTS.some((hint) => lower.includes(hint)) ||
+    containsAny(lower, SUBSIDIARY_KEYWORDS.JURISDICTION)
+  );
+}
+
+function looksLikeOwnershipValue(text: string): boolean {
+  return /\b\d{1,3}(?:\.\d+)?%\b/.test(text);
+}
+
+export function isLikelyHeaderLabel(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (/\d/.test(trimmed)) return false;
+  if (looksLikeCompanyName(trimmed) || looksLikeJurisdiction(trimmed)) return false;
+  return trimmed.length <= 40 && /[a-z]/i.test(trimmed);
+}
+
+export function isPossibleHeaderRowText(name: string, jurisdiction: string): boolean {
+  const combined = `${name} ${jurisdiction}`.toLowerCase();
+  return isHeaderKeywordRow(combined);
+}
+
 /**
  * Check if a table is likely a footer/note table rather than a continuation table
  */
@@ -55,7 +133,7 @@ export function hasSubsidiaryData($: any, table: any): boolean {
     const cellTexts = cells.map((_: any, cell: any) => $(cell).text().trim()).get();
     
     // Skip empty rows
-    if (cellTexts.every(text => text.length === 0)) return;
+    if (cellTexts.every((text: string) => text.length === 0)) return;
     
     // Skip rows that are clearly descriptive text (long single-cell content)
     if (cells.length === 1 && cellTexts[0].length > 100) return;
@@ -67,29 +145,8 @@ export function hasSubsidiaryData($: any, table: any): boolean {
     // 2. Jurisdiction patterns (country/state names)
     // 3. At least 2 non-empty cells (name + jurisdiction pattern)
     
-    const hasCompanyName = cellTexts.some((text: string) => {
-      const lower = text.toLowerCase();
-      return lower.includes('llc') || lower.includes('inc') || lower.includes('corp') || 
-             lower.includes('ltd') || lower.includes('limited') || lower.includes('company') ||
-             lower.includes('s.a.') || lower.includes('gmbh') || lower.includes('b.v.') ||
-             lower.includes('pty') || lower.includes('plc') || lower.includes('n.v.') ||
-             lower.includes('bank') || lower.includes('corporation') || lower.includes('national');
-    });
-    
-    const hasJurisdiction = cellTexts.some((text: string) => {
-      const lower = text.toLowerCase();
-      // Common countries and states - expanded list
-      return lower.includes('united states') || lower.includes('delaware') || 
-             lower.includes('new york') || lower.includes('california') || 
-             lower.includes('colombia') || lower.includes('india') || 
-             lower.includes('chile') || lower.includes('netherlands') ||
-             lower.includes('canada') || lower.includes('uk') || lower.includes('germany') ||
-             lower.includes('france') || lower.includes('japan') || lower.includes('australia') ||
-             lower.includes('west virginia') || lower.includes('virginia') || lower.includes('texas') ||
-             lower.includes('florida') || lower.includes('nevada') || lower.includes('illinois') ||
-             lower.includes('pennsylvania') || lower.includes('ohio') || lower.includes('michigan') ||
-             lower.includes('georgia') || lower.includes('north carolina') || lower.includes('south carolina');
-    });
+    const hasCompanyName = cellTexts.some((text: string) => looksLikeCompanyName(text));
+    const hasJurisdiction = cellTexts.some((text: string) => looksLikeJurisdiction(text));
     
     const hasMultipleCells = cellTexts.filter((text: string) => text.length > 0).length >= 2;
     
@@ -165,9 +222,7 @@ export function findHeaderRow($: any, rows: any): number {
     if (cells.length === 1 && text.length > 100) continue;
     
     // If row has both name and jurisdiction keywords AND has multiple cells, it's likely a header
-    if (containsAny(text, SUBSIDIARY_KEYWORDS.SUBSIDIARY_NAME) && 
-        containsAny(text, SUBSIDIARY_KEYWORDS.JURISDICTION) &&
-        cells.length >= 2) {
+    if (isHeaderKeywordRow(text) && cells.length >= 2) {
       return i;
     }
   }
@@ -179,6 +234,9 @@ export function findHeaderRow($: any, rows: any): number {
       return i;
     }
   }
+
+  const inferred = inferHeaderRowIndex($, rows);
+  if (inferred !== -1) return inferred;
   
   return -1; // No header found
 }
@@ -239,8 +297,7 @@ export function isHeaderRow(name: string, jurisdiction: string): boolean {
   const companyIndicators = ["llc", "inc.", "corp", "ltd", "l.l.c", "s.a.", "gmbh", "b.v.", "pty", "plc", "n.v."];
   if (companyIndicators.some(ind => nameLower.includes(ind))) return false;
   
-  // Check for explicit header patterns
-  if (text.includes("name") && text.includes("jurisdiction")) return true;
+  if (isPossibleHeaderRowText(name, jurisdiction)) return true;
   
   // Check for title markers, but exclude common false positives
   // "United States" should not trigger "state" keyword
@@ -260,5 +317,56 @@ export function isHeaderRow(name: string, jurisdiction: string): boolean {
          text.includes("entity") || text.includes("jurisdiction") ||
          text.includes("incorporation") || text.includes("country") ||
          text.includes("location") || text.includes("organized") ||
+         text.includes("domicile") ||
          hasOwnershipHeader;
+}
+
+/**
+ * Shared header keyword detection used by header row parsing and validation.
+ */
+export function isHeaderKeywordRow(text: string): boolean {
+  return (
+    containsAny(text, SUBSIDIARY_KEYWORDS.SUBSIDIARY_NAME) &&
+    containsAny(text, SUBSIDIARY_KEYWORDS.JURISDICTION)
+  );
+}
+
+function inferHeaderRowIndex($: any, rows: any): number {
+  for (let i = 0; i < Math.min(6, rows.length - 1); i++) {
+    const $tr = $(rows[i]);
+    const cells = $tr.find("td, th");
+    if (cells.length < 2) continue;
+
+    const cellTexts = cells
+      .map((_: any, cell: any) => $(cell).text().trim())
+      .get()
+      .filter((text: string) => text.length > 0);
+
+    if (cellTexts.length < 2) continue;
+
+    const headerLike = cellTexts.every((text: string) => isLikelyHeaderLabel(text));
+    if (!headerLike) continue;
+
+    const nextRow = $(rows[i + 1]);
+    const nextCells = nextRow.find("td, th");
+    const nextTexts = nextCells
+      .map((_: any, cell: any) => $(cell).text().trim())
+      .get()
+      .filter((text: string) => text.length > 0);
+
+    if (nextTexts.length < 2) continue;
+
+    const nextHasDataSignals = nextTexts.some(
+      (text: string) =>
+        looksLikeCompanyName(text) ||
+        looksLikeJurisdiction(text) ||
+        looksLikeOwnershipValue(text),
+    );
+
+    if (nextHasDataSignals) {
+      return i;
+    }
+  }
+
+  return -1;
 }

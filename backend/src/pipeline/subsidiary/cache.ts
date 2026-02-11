@@ -12,7 +12,7 @@ import type { SECFilingTarget } from "./types";
 import type { SubsidiaryExhibit } from "../../config/subsidiary-exhibits";
 import type { CompanyLookupOptions } from "@financial-graph/shared/db";
 
-const logger = createLogger("jobs/parse_subsidiaries/cache");
+const logger = createLogger("pipeline/subsidiary/cache");
 
 const normalizeCik = (cik: string): string => cik.padStart(10, "0");
 
@@ -89,6 +89,7 @@ export async function writeCachedTargetsFile(options: {
   outputPath?: string;
   companyLookup?: CompanyLookupOptions;
   limit?: number;
+  accessions?: string[];
 }): Promise<TargetsFileResult> {
   const {
     year,
@@ -97,6 +98,7 @@ export async function writeCachedTargetsFile(options: {
     outputPath,
     companyLookup,
     limit,
+    accessions,
   } = options;
 
   const companyMap = await loadPublicCompaniesLookup(companyLookup);
@@ -112,6 +114,11 @@ export async function writeCachedTargetsFile(options: {
       await once(stream, "drain");
     }
   };
+
+  // Normalize accession filter (remove dashes)
+  const accessionFilter = accessions && accessions.length > 0
+    ? new Set(accessions.map(a => a.replace(/-/g, '')))
+    : null;
 
   let scannedCount = 0;
   let targetCount = 0;
@@ -143,6 +150,11 @@ export async function writeCachedTargetsFile(options: {
 
       const company = companyMap.get(normalizeCik(parsed.cik));
       if (!company) continue;
+
+      // Filter by accessions if provided
+      if (accessionFilter && !accessionFilter.has(parsed.accessionNumberNoDashes)) {
+        continue;
+      }
 
       const target: SECFilingTarget = {
         accessionNumberNoDashes: parsed.accessionNumberNoDashes,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildTargetsFilename } from "../../src/jobs/parse_subsidiaries/cache";
+import { buildTargetsFilename } from "../../src/pipeline/subsidiary/cache";
 
 describe("buildTargetsFilename", () => {
   test("defaults to targets.jsonl", () => {

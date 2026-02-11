@@ -33,7 +33,12 @@ export function extractSubsidiaries(
   rows: any,
   headerRowIndex: number,
   headers: string[],
-  filing: { accession_number: string; cik: string; filingCompanyId: string; filingCompanyName: string }
+  filing: {
+    accession_number: string;
+    cik: string;
+    filingCompanyId: string;
+    filingCompanyName: string;
+  },
 ): SubsidiaryRecord[] {
   const subsidiaries: SubsidiaryRecord[] = [];
   const parentStack = new ParentStack();
@@ -45,18 +50,18 @@ export function extractSubsidiaries(
   const nameColIdx = detectColumnIndex(
     headers,
     SUBSIDIARY_KEYWORDS.SUBSIDIARY_NAME,
-    0
+    0,
   );
   const jurColIdx = detectColumnIndex(
     headers,
     SUBSIDIARY_KEYWORDS.JURISDICTION,
-    -1
+    -1,
   );
   if (jurColIdx === -1) {
     throw new MissingColumnError("jurisdiction", filing.accession_number);
   }
   const ownershipColIdx = headers.findIndex((h) =>
-    /ownership|percent|%|owned/i.test(h)
+    /ownership|percent|%|owned/i.test(h),
   );
 
   // Note: Footnote processing happens separately in LLM enrichment step
@@ -80,7 +85,7 @@ export function extractSubsidiaries(
       cellCount,
       nameColIdx,
       jurColIdx,
-      ownershipColIdx
+      ownershipColIdx,
     );
 
     // 1. Handle Note Headers (e.g. "(1) Company Name")
@@ -157,20 +162,28 @@ export function extractSubsidiaries(
 
     // Debug logging for level 0 subsidiaries
     if (level === 0) {
-      logger.info(
-        `[${filing.accession_number}] Level 0 subsidiary "${parsed.cleanName}": parentId=${parentId}, filingCompanyId=${parentCompanyId}`
+      logger.debug(
+        `[${filing.accession_number}] Level 0 subsidiary "${parsed.cleanName}": parentId=${parentId}, filingCompanyId=${parentCompanyId}`,
       );
     }
 
     // Determine company type based on jurisdiction presence
     // If jurisdiction is missing or empty, it's UNKNOWN, otherwise SUBSIDIARY
-    const companyType = !parsed.jurisdiction || parsed.jurisdiction.trim() === '' 
-      ? CompanyType.UNKNOWN 
-      : CompanyType.SUBSIDIARY;
+    const companyType =
+      !parsed.jurisdiction || parsed.jurisdiction.trim() === ""
+        ? CompanyType.UNKNOWN
+        : CompanyType.SUBSIDIARY;
 
     // Validate that we have required fields before creating the record
-    if (!parsed.cleanName || !parsed.cleanName.trim() || !parsed.jurisdiction || !parsed.jurisdiction.trim()) {
-      logger.warn(`Skipping subsidiary with invalid data: name="${parsed.cleanName}", jurisdiction="${parsed.jurisdiction}"`);
+    if (
+      !parsed.cleanName ||
+      !parsed.cleanName.trim() ||
+      !parsed.jurisdiction ||
+      !parsed.jurisdiction.trim()
+    ) {
+      logger.warn(
+        `Skipping subsidiary with invalid data: name="${parsed.cleanName}", jurisdiction="${parsed.jurisdiction}"`,
+      );
       return;
     }
 
@@ -208,7 +221,7 @@ export function extractSubsidiaries(
 function detectColumnIndex(
   headers: string[],
   keywords: Set<string>,
-  defaultIdx: number
+  defaultIdx: number,
 ): number {
   const idx = headers.findIndex((h) => containsAny(h, keywords));
   return idx !== -1 ? idx : defaultIdx;

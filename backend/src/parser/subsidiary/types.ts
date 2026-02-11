@@ -45,3 +45,18 @@ export interface ParsedColumns {
   ownership: number | undefined;
   ownershipFootnoteRefs: string[];
 }
+
+/**
+ * Result of content extraction phase
+ * Directly produces the record format consumers expect
+ */
+export interface ContentExtractionResult {
+  /** Extracted subsidiary records */
+  subsidiaries: SubsidiaryRecord[];
+  /** Maximum nesting level found */
+  maxNestingLevel: number;
+  /** Preprocessed footnotes HTML for LLM enrichment */
+  footnotesHtml: string;
+  /** Number of tables processed */
+  tableCount: number;
+}

@@ -1,13 +1,13 @@
 /**
  * Structure Detection Phase
- * 
+ *
  * Simplified version that focuses on the essential task:
  * 1. Find tables with subsidiary keywords in headers
  * 2. Detect text-based subsidiary listings
  * 3. Return a simple structure description
  */
 
-import * as cheerio from 'cheerio';
+import * as cheerio from "cheerio";
 type CheerioAPI = ReturnType<typeof cheerio.load>;
 
 import { createLogger } from "../../utils/logger";
@@ -16,42 +16,149 @@ import type {
   DocumentStructure,
   TableInfo,
   ParserConfig,
-} from "./types-refactored";
-import { ParserError, DocumentClassification, TableType } from "./types-refactored";
+} from "./parser-types";
+import { ParserError, DocumentClassification, TableType } from "./parser-types";
 import {
   findHeaderRow,
   extractHeaders,
   isLikelyFooterTable,
   hasSubsidiaryData,
 } from "./table-detection";
-import { SUBSIDIARY_KEYWORDS, containsAny } from "../../config/subsidiary-keywords";
+import {
+  SUBSIDIARY_KEYWORDS,
+  containsAny,
+} from "../../config/subsidiary-keywords";
 
 const logger = createLogger("parsers/subsidiary/structure-detection");
 
 // ============================================================================
-// Main Structure Detection Function (Simplified)
+// Special Format Detection
 // ============================================================================
 
 /**
- * Detect and analyze document structure:
- * 1. Check for text-based subsidiaries first
- * 2. Find tables with subsidiary keywords in headers
- * 3. Return basic structure info
- * 
- * @param html - HTML content to parse
+ * Detect if document uses special formats (images or embedded PDFs)
+ * that require LLM processing instead of table parsing
+ *
+ * @param $ - Cheerio instance
+ * @returns DocumentClassification if special format detected, null otherwise
+ */
+function detectSpecialFormats(
+  $: CheerioAPI,
+): DocumentClassification.IMAGE_BASED | DocumentClassification.PDF_BASED | null {
+  // Check for embedded images that might contain subsidiary data
+  const images = $("img");
+  if (images.length > 0) {
+    // Look for images that are likely to contain subsidiary information
+    // (not just logos or decorative images)
+    let hasSubstantialImage = false;
+    
+    images.each((_: number, img: any) => {
+      const $img = $(img);
+      const alt = ($img.attr("alt") || "").toLowerCase();
+      const src = ($img.attr("src") || "").toLowerCase();
+      
+      // Check if image is substantial (likely contains data)
+      // Heuristics:
+      // 1. Image with "exhibit" or "subsidiary" in alt/src
+      // 2. Image with substantial dimensions (width/height > 200px)
+      // 3. Image with generic names like "image.jpg", "image_001.jpg", "image003.jpg" (often scanned documents)
+      
+      const hasRelevantName = 
+        alt.includes("exhibit") || 
+        alt.includes("subsidiary") ||
+        src.includes("exhibit") ||
+        src.includes("subsidiary") ||
+        src.match(/^image[_\d]*\.(jpg|jpeg|png|gif)$/i) || // Match image.jpg, image_003.jpg, image123.jpg
+        src.match(/^[a-z]+[_\d]+\.(jpg|jpeg|png|gif)$/i); // Match generic patterns like img_001.jpg
+      
+      // Check dimensions from style or attributes
+      const style = $img.attr("style") || "";
+      const width = parseInt($img.attr("width") || "0", 10);
+      const height = parseInt($img.attr("height") || "0", 10);
+      
+      // Extract dimensions from style if present
+      const styleWidthMatch = style.match(/width:\s*(\d+)px/);
+      const styleHeightMatch = style.match(/height:\s*(\d+)px/);
+      const styleWidth = styleWidthMatch ? parseInt(styleWidthMatch[1], 10) : 0;
+      const styleHeight = styleHeightMatch ? parseInt(styleHeightMatch[1], 10) : 0;
+      
+      const actualWidth = Math.max(width, styleWidth);
+      const actualHeight = Math.max(height, styleHeight);
+      
+      const isSubstantial = actualWidth > 200 || actualHeight > 200;
+      
+      if (hasRelevantName || isSubstantial) {
+        hasSubstantialImage = true;
+        logger.debug(
+          `Found substantial image: src="${src}", alt="${alt}", dimensions=${actualWidth}x${actualHeight}`,
+        );
+        return false; // Stop iteration
+      }
+    });
+    
+    if (hasSubstantialImage) {
+      return DocumentClassification.IMAGE_BASED;
+    }
+  }
+  
+  // Check for embedded PDFs or PDF viewers
+  const embeds = $("embed, object, iframe");
+  if (embeds.length > 0) {
+    let hasPdfEmbed = false;
+    
+    embeds.each((_: number, element: any) => {
+      const $element = $(element);
+      const src = ($element.attr("src") || "").toLowerCase();
+      const data = ($element.attr("data") || "").toLowerCase();
+      const type = ($element.attr("type") || "").toLowerCase();
+      
+      if (
+        src.includes(".pdf") ||
+        data.includes(".pdf") ||
+        type.includes("pdf")
+      ) {
+        hasPdfEmbed = true;
+        logger.debug(`Found PDF embed: src="${src}", data="${data}", type="${type}"`);
+        return false; // Stop iteration
+      }
+    });
+    
+    if (hasPdfEmbed) {
+      return DocumentClassification.PDF_BASED;
+    }
+  }
+  
+  return null;
+}
+
+// ============================================================================
+// Main Structure Detection Function
+// ============================================================================
+
+/**
+ * Detect and analyze document structure.
+ * @param $ - Cheerio instance (parsed once by the caller)
  * @param config - Parser configuration
  * @returns DocumentStructure describing the detected structure
- * @throws ParserError if HTML parsing fails
+ * @throws ParserError if detection fails
  */
 export function detectDocumentStructure(
-  html: string,
-  config: ParserConfig
+  $: CheerioAPI,
+  config: ParserConfig,
 ): DocumentStructure {
   try {
-    // Parse HTML with Cheerio
-    const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
-    
     logger.debug("Starting structure detection");
+
+    // Step 0: Check for image-based or PDF-based content FIRST
+    const specialFormat = detectSpecialFormats($);
+    if (specialFormat) {
+      logger.debug(`Detected special format: ${specialFormat}`);
+      return {
+        classification: specialFormat,
+        tables: [],
+        totalTableCount: 0,
+      };
+    }
 
     // Step 1: Find all tables first to check if we have table-based structure
     const tables = $("table");
@@ -60,17 +167,21 @@ export function detectDocumentStructure(
     // Step 2: Process tables to find subsidiary tables
     let allTableInfos: TableInfo[] = [];
     let subsidiaryTables: TableInfo[] = [];
-    
+
     if (tables.length > 0) {
       allTableInfos = processAllTables($, tables);
-      subsidiaryTables = allTableInfos.filter((t) => t.type === TableType.SUBSIDIARY);
+      subsidiaryTables = allTableInfos.filter(
+        (t) => t.type === TableType.SUBSIDIARY,
+      );
     }
 
     // Step 3: Only check for text-based if we don't have any subsidiary tables
     if (subsidiaryTables.length === 0) {
       const textBasedInfo = detectTextBasedSubsidiaries($);
       if (textBasedInfo && textBasedInfo.entryCount > 0) {
-        logger.debug(`Found text-based subsidiary listing with ${textBasedInfo.entryCount} entries`);
+        logger.debug(
+          `Found text-based subsidiary listing with ${textBasedInfo.entryCount} entries`,
+        );
         return {
           classification: DocumentClassification.TEXT_BASED,
           tables: [],
@@ -92,23 +203,27 @@ export function detectDocumentStructure(
     // Step 4: Determine classification
     const classification = classifyDocument(subsidiaryTables);
 
-    logger.debug(`Final classification: ${classification}, ${subsidiaryTables.length} subsidiary tables`);
+    logger.debug(
+      `Final classification: ${classification}, ${subsidiaryTables.length} subsidiary tables`,
+    );
 
     return {
       classification,
       tables: allTableInfos,
       totalTableCount: tables.length,
     };
-
   } catch (error: any) {
     logger.error(`Structure detection failed: ${error.message}`);
-    
+
     // Catch Cheerio parsing errors and throw ParserError
-    if (error.name === "CheerioError" || error.message?.includes("Invalid HTML")) {
+    if (
+      error.name === "CheerioError" ||
+      error.message?.includes("Invalid HTML")
+    ) {
       throw new ParserError(
         `HTML parsing failed: ${error.message}`,
         "HTML_PARSE_ERROR",
-        { originalError: error }
+        { originalError: error },
       );
     }
     // Re-throw other errors
@@ -117,49 +232,56 @@ export function detectDocumentStructure(
 }
 
 // ============================================================================
-// Helper Functions (Simplified)
+// Helper Functions
 // ============================================================================
 
 /**
  * Detect text-based subsidiary listings in HTML (SIMPLIFIED)
- * 
+ *
  * Looks for patterns like:
  * - Company Name (Jurisdiction)
  * - Company Name - Jurisdiction
- * 
+ *
  * @param $ - Cheerio instance
  * @returns TextBasedInfo if text-based subsidiaries found, null otherwise
  */
-function detectTextBasedSubsidiaries($: CheerioAPI): import("./types-refactored").TextBasedInfo | null {
-  const candidateElements: any[] = [];
-  
+function detectTextBasedSubsidiaries(
+  $: CheerioAPI,
+): import("./parser-types").TextBasedInfo | null {
+  const candidateEntries: string[] = [];
+
   // Look for div or p elements that might contain subsidiary information
   $("div, p").each((_: number, element: any) => {
     const $element = $(element);
     const text = $element.text().trim();
-    
+
     // Skip empty or very short text
     if (text.length < 5) return;
-    
+
     // Skip headers/titles
     if (isHeaderOrTitle(text)) return;
-    
+
     // Look for patterns that suggest subsidiary information
     if (isSubsidiaryPattern(text)) {
-      candidateElements.push($element);
+      candidateEntries.push(normalizeTextEntry(text));
     }
   });
-  
+
   // Need at least 2 entries to consider it a subsidiary list
-  if (candidateElements.length >= 2) {
-    logger.debug(`Found ${candidateElements.length} text-based subsidiary entries`);
+  const uniqueEntries = Array.from(new Set(candidateEntries));
+  if (uniqueEntries.length >= 2) {
+    logger.debug(`Found ${uniqueEntries.length} text-based subsidiary entries`);
     return {
-      elements: candidateElements,
-      entryCount: candidateElements.length,
+      entries: uniqueEntries,
+      entryCount: uniqueEntries.length,
     };
   }
-  
+
   return null;
+}
+
+function normalizeTextEntry(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 /**
@@ -170,22 +292,31 @@ function isSubsidiaryPattern(text: string): boolean {
   if (/\([^)]+\)\s*$/.test(text)) {
     return true;
   }
-  
+
   // Pattern 2: Text with dash separator (Company - Country)
   if (/\s-\s/.test(text)) {
     return true;
   }
-  
+
   // Pattern 3: Text with comma separator (Company, Country)
   if (/,\s+[A-Z]/.test(text)) {
     return true;
   }
-  
+
   // Pattern 4: Text containing common business entity suffixes
-  const entitySuffixes = ['LLC', 'Inc', 'Corp', 'Ltd', 'Limited', 'Company', 'GmbH', 'S.A.'];
+  const entitySuffixes = [
+    "LLC",
+    "Inc",
+    "Corp",
+    "Ltd",
+    "Limited",
+    "Company",
+    "GmbH",
+    "S.A.",
+  ];
   const upperText = text.toUpperCase();
-  
-  return entitySuffixes.some(suffix => upperText.includes(suffix));
+
+  return entitySuffixes.some((suffix) => upperText.includes(suffix));
 }
 
 /**
@@ -198,10 +329,7 @@ function isHeaderOrTitle(text: string): boolean {
 /**
  * Calculate column count from table rows (accounting for colspan)
  */
-function calculateColumnCount(
-  $: CheerioAPI,
-  rows: any
-): number {
+function calculateColumnCount($: CheerioAPI, rows: any): number {
   let columnCount = 0;
 
   rows.each((_: number, tr: any) => {
@@ -240,7 +368,7 @@ function calculateColumnCount(
 
 /**
  * Process all tables to identify subsidiary tables and their characteristics
- * 
+ *
  * @param $ - Cheerio instance
  * @param tables - jQuery collection of table elements
  * @returns Array of TableInfo objects describing each table
@@ -257,8 +385,13 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
     // Check for single-row footnote tables first
     if (rows.length === 1) {
       const text = $table.text().trim().toLowerCase();
-      if (containsAny(text, SUBSIDIARY_KEYWORDS.FOOTNOTE_MARKERS) || text.length > 50) {
-        logger.debug(`Table ${tableIndex}: Single row table with note-like content, treating as footnote`);
+      if (
+        containsAny(text, SUBSIDIARY_KEYWORDS.FOOTNOTE_MARKERS) ||
+        text.length > 50
+      ) {
+        logger.debug(
+          `Table ${tableIndex}: Single row table with note-like content, treating as footnote`,
+        );
         allTableInfos.push({
           index: tableIndex,
           type: TableType.FOOTNOTE,
@@ -266,7 +399,6 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
           columnCount: calculateColumnCount($, rows),
           headers: [],
           isContinuation: false,
-          cheerioElement: $table,
         });
         return;
       }
@@ -281,7 +413,6 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
         columnCount: 0,
         headers: [],
         isContinuation: false,
-        cheerioElement: $table,
       });
       return;
     }
@@ -304,18 +435,21 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
           columnCount: calculateColumnCount($, rows),
           headers: [],
           isContinuation: false,
-          cheerioElement: $table,
         });
         return;
       }
 
       // Check if this could be a continuation table
       if (lastHeaders === null) {
-        logger.debug(`Table ${tableIndex}: No headers and no previous headers available`);
-        
+        logger.debug(
+          `Table ${tableIndex}: No headers and no previous headers available`,
+        );
+
         // Before giving up, check if this table has subsidiary data without headers
         if (hasSubsidiaryData($, $table)) {
-          logger.debug(`Table ${tableIndex}: Found subsidiary data without explicit headers`);
+          logger.debug(
+            `Table ${tableIndex}: Found subsidiary data without explicit headers`,
+          );
           allTableInfos.push({
             index: tableIndex,
             type: TableType.SUBSIDIARY,
@@ -323,11 +457,10 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
             columnCount: calculateColumnCount($, rows),
             headers: null, // No explicit headers
             isContinuation: false,
-            cheerioElement: $table,
           });
           return;
         }
-        
+
         allTableInfos.push({
           index: tableIndex,
           type: TableType.UNKNOWN,
@@ -335,7 +468,6 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
           columnCount: calculateColumnCount($, rows),
           headers: [],
           isContinuation: false,
-          cheerioElement: $table,
         });
         return;
       }
@@ -343,11 +475,15 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
       // Check column count compatibility
       const currentColumnCount = calculateColumnCount($, rows);
       if (currentColumnCount !== lastColumnCount) {
-        logger.debug(`Table ${tableIndex}: Column count mismatch (${currentColumnCount} vs ${lastColumnCount})`);
+        logger.debug(
+          `Table ${tableIndex}: Column count mismatch (${currentColumnCount} vs ${lastColumnCount})`,
+        );
         // If column count doesn't match and it looks like a footnote, classify as footnote
         const text = $table.text().trim().toLowerCase();
         if (containsAny(text, SUBSIDIARY_KEYWORDS.FOOTNOTE_MARKERS)) {
-          logger.debug(`Table ${tableIndex}: Column mismatch with note-like content, treating as footnote`);
+          logger.debug(
+            `Table ${tableIndex}: Column mismatch with note-like content, treating as footnote`,
+          );
           allTableInfos.push({
             index: tableIndex,
             type: TableType.FOOTNOTE,
@@ -355,7 +491,6 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
             columnCount: currentColumnCount,
             headers: [],
             isContinuation: false,
-            cheerioElement: $table,
           });
           return;
         }
@@ -379,7 +514,7 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
 
       if (hasSubsidiaryKeywords) {
         tableType = TableType.SUBSIDIARY;
-        
+
         // Calculate actual column count with colspan
         const $headerRow = $(rows[headerRowIndex]);
         const headerCells = $headerRow.find("td, th");
@@ -392,10 +527,12 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
         // Save headers for continuation tables
         lastHeaders = headers;
         lastColumnCount = actualColumnCount;
-        
+
         // Count data rows (total rows minus header row)
         dataRowCount = rows.length - 1;
-        logger.debug(`Table ${tableIndex}: Identified as subsidiary table (${actualColumnCount} columns, ${dataRowCount} data rows)`);
+        logger.debug(
+          `Table ${tableIndex}: Identified as subsidiary table (${actualColumnCount} columns, ${dataRowCount} data rows)`,
+        );
       } else {
         // Not a subsidiary table
         dataRowCount = rows.length - 1; // Exclude header row
@@ -407,11 +544,12 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
       index: tableIndex,
       type: tableType,
       rowCount: dataRowCount,
-      columnCount: isContinuation ? lastColumnCount : calculateColumnCount($, rows),
+      columnCount: isContinuation
+        ? lastColumnCount
+        : calculateColumnCount($, rows),
       headers,
       isContinuation,
       cachedHeaders: isContinuation ? (lastHeaders as any) : undefined,
-      cheerioElement: $table,
     });
   });
 
@@ -424,18 +562,20 @@ function processAllTables($: CheerioAPI, tables: any): TableInfo[] {
 
 /**
  * Classify document based on subsidiary tables found
- * 
+ *
  * @param subsidiaryTables - Array of subsidiary table info
  * @returns Document classification
  */
-function classifyDocument(subsidiaryTables: TableInfo[]): DocumentClassification {
+function classifyDocument(
+  subsidiaryTables: TableInfo[],
+): DocumentClassification {
   if (subsidiaryTables.length === 0) {
     return DocumentClassification.HAS_TABLE_NO_DATA;
   }
 
   // Check if we have any tables with actual data rows
-  const tablesWithData = subsidiaryTables.filter(t => t.rowCount > 0); // At least 1 data row
-  
+  const tablesWithData = subsidiaryTables.filter((t) => t.rowCount > 0); // At least 1 data row
+
   if (tablesWithData.length === 0) {
     return DocumentClassification.HAS_TABLE_NO_DATA;
   }

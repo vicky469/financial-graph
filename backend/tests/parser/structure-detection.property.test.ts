@@ -7,8 +7,8 @@
 
 import fc from "fast-check";
 import { detectDocumentStructure } from "../../src/parser/subsidiary/structure-detection";
-import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/types-refactored";
-import type { ParserConfig } from "../../src/parser/subsidiary/types-refactored";
+import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/parser-types";
+import type { ParserConfig } from "../../src/parser/subsidiary/parser-types";
 
 // ============================================================================
 // Helper Functions for Generating Test HTML

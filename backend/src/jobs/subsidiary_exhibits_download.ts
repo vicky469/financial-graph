@@ -8,7 +8,7 @@ import { createLogger } from "../utils/logger";
 import { parseCliYears } from "../utils/cli";
 import { runWorkerPool } from "../utils/worker-pool";
 import { WORKLOAD_PRESETS } from "../utils/workload-config";
-import { fetchSecPageWithRetry } from "../integration/sec";
+import { fetchSecPageWithRetry, SecFetchMode } from "../integration/sec";
 import {
   SUBSIDIARY_EXHIBITS,
   type SubsidiaryExhibit,
@@ -124,10 +124,15 @@ function collectDownloadTasks(
 }
 
 async function downloadTask(task: DownloadTask): Promise<void> {
-  const page = await fetchSecPageWithRetry(task.url);
-  const buf = Buffer.from(page, "utf-8");
+  const isPDF = task.url.toLowerCase().endsWith(".pdf");
+
+  const content = isPDF
+    ? await fetchSecPageWithRetry(task.url, SecFetchMode.PDF)
+    : await fetchSecPageWithRetry(task.url, SecFetchMode.TEXT);
+  const buffer = typeof content === "string" ? Buffer.from(content, "utf-8") : content;
+
   await fs.mkdir(path.dirname(task.destPath), { recursive: true });
-  const gz = await import("node:zlib").then((z) => z.gzipSync(buf));
+  const gz = await import("node:zlib").then((z) => z.gzipSync(buffer));
   await fs.writeFile(task.destPath, gz);
 }
 

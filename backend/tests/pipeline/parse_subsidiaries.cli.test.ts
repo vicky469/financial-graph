@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { resolveSp500Flags } from "../../src/pipeline/subsidiary/cli";
+import { parsePipelineArgs, resolveSp500Flags } from "../../src/pipeline/subsidiary/cli";
 
 describe("resolveSp500Flags", () => {
   test("defaults to false/false", () => {
@@ -28,5 +28,19 @@ describe("resolveSp500Flags", () => {
       sp500Only: false,
       excludeSp500: true,
     });
+  });
+});
+
+describe("parsePipelineArgs", () => {
+  test("sink=all expands to db + excel", () => {
+    const args = ["--sink=all"];
+    const parsed = parsePipelineArgs(args);
+    expect(parsed.sinks).toEqual(["db", "excel"]);
+  });
+
+  test("sink=both expands to db + excel", () => {
+    const args = ["--sink=both"];
+    const parsed = parsePipelineArgs(args);
+    expect(parsed.sinks).toEqual(["db", "excel"]);
   });
 });

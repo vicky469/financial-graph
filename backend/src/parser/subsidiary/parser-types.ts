@@ -1,10 +1,9 @@
 /**
- * Type definitions for refactored subsidiary parser
- *
- * This file contains types for the two-phase parsing architecture:
- * 1. Structure Detection Phase - Analyzes HTML to identify tables
- * 2. Content Extraction Phase - Parses table rows and extracts subsidiary records
+ * Type definitions for the subsidiary parser.
+ * Used by structure detection and content extraction.
  */
+
+import type { SubsidiaryFallbackPolicy } from "../../pipeline/subsidiary/types";
 
 // ============================================================================
 // Configuration Types
@@ -32,6 +31,12 @@ export interface ParserConfig {
    * @default false
    */
   strictHeaderMatching: boolean;
+
+  /**
+   * Whether to use LLM fallback when heuristic parsing is empty or invalid
+   * @default \"llm\"
+   */
+  fallbackPolicy?: SubsidiaryFallbackPolicy;
 }
 
 /**
@@ -41,6 +46,7 @@ export const DEFAULT_CONFIG: ParserConfig = {
   processFootnotes: true,
   maxDepth: 10,
   strictHeaderMatching: false,
+  fallbackPolicy: "llm",
 };
 
 // ============================================================================
@@ -52,10 +58,12 @@ export const DEFAULT_CONFIG: ParserConfig = {
  */
 export enum DocumentClassification {
   SINGLE_TABLE = "single-table",
-  MULTI_TABLE = "multi-table", 
+  MULTI_TABLE = "multi-table",
   NO_TABLE = "no-table",
   HAS_TABLE_NO_DATA = "has-table-no-data",
-  TEXT_BASED = "text-based"
+  TEXT_BASED = "text-based",
+  IMAGE_BASED = "image-based",
+  PDF_BASED = "pdf-based",
 }
 
 /**
@@ -63,8 +71,8 @@ export enum DocumentClassification {
  */
 export enum TableType {
   SUBSIDIARY = "subsidiary",
-  FOOTNOTE = "footnote", 
-  UNKNOWN = "unknown"
+  FOOTNOTE = "footnote",
+  UNKNOWN = "unknown",
 }
 
 /**
@@ -106,11 +114,6 @@ export interface TableInfo {
    * Number of data rows in the table (excluding header)
    */
   rowCount: number;
-
-  /**
-   * Reference to the Cheerio table element (used during structure detection)
-   */
-  cheerioElement: any;
 }
 
 /**
@@ -118,9 +121,9 @@ export interface TableInfo {
  */
 export interface TextBasedInfo {
   /**
-   * Array of Cheerio elements containing subsidiary information
+   * Text entries containing subsidiary information
    */
-  elements: any[];
+  entries: string[];
 
   /**
    * Total number of text-based subsidiary entries found
@@ -167,9 +170,9 @@ export interface ContentExtractionInput {
   structure: DocumentStructure;
 
   /**
-   * Original HTML content (needed to re-parse and find tables)
+   * Cheerio instance (parsed once, shared across phases)
    */
-  html: string;
+  $: any;
 
   /**
    * Parser configuration
@@ -205,7 +208,11 @@ export class ParserError extends Error {
    */
   context?: Record<string, any>;
 
-  constructor(message: string, code: string = "PARSER_ERROR", context?: Record<string, any>) {
+  constructor(
+    message: string,
+    code: string = "PARSER_ERROR",
+    context?: Record<string, any>,
+  ) {
     super(message);
     this.name = "ParserError";
     this.code = code;

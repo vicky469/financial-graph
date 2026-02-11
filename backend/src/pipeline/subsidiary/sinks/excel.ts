@@ -257,8 +257,8 @@ export class SubsidiariesExcelSink {
       for (const f of filings) {
         try {
           const llmAttempted =
-            (f.parseResult?.telemetry?.fallback?.used ??
-              f.parseResult?.method === "llm-fallback")
+            f.parseResult?.llmApplied === true ||
+            f.parseResult?.telemetry?.fallback?.used === true
               ? "YES"
               : "NO";
           const row = `"\`${f.accessionNumberNoDashes || ""}","${f.url || ""}","${f.cachePath || ""}","${f.parseResult?.classification || ""}","${f.parseResult?.method || ""}","${llmAttempted}"`;
@@ -320,8 +320,8 @@ export class SubsidiariesExcelSink {
       filings.forEach((f) => {
         try {
           const llmAttempted =
-            (f.parseResult?.telemetry?.fallback?.used ??
-              f.parseResult?.method === "llm-fallback")
+            f.parseResult?.llmApplied === true ||
+            f.parseResult?.telemetry?.fallback?.used === true
               ? "YES"
               : "NO";
           sheet.addRow({

@@ -6,34 +6,77 @@
 
 import { createLogger } from "../../utils/logger";
 import { SUBSIDIARY_EXHIBITS } from "../../config/subsidiary-exhibits";
-import { shutdownLLMWorkerPool } from "../../utils/llm-worker-pool";
+import { getDefaultConcurrency } from "../../utils/concurrency";
 import {
-  readTargetsFromFile,
-  writeCachedTargetsFile,
-} from "../../jobs/parse_subsidiaries/cache";
+  getLLMWorkerPool,
+  shutdownLLMWorkerPool,
+} from "../../utils/llm-worker-pool";
+import { readTargetsFromFile, writeCachedTargetsFile } from "./cache";
 import { clearCompanyLookupCache } from "../../db/queries/company-lookup";
-import type {
-  ValidatedFiling,
-  SECFilingTarget,
-  SinkResult,
-} from "../../jobs/parse_subsidiaries/types";
+import { SubsidiariesDBSink } from "./sinks/db";
+import { SubsidiariesExcelSink } from "./sinks/excel";
+import type { ValidatedFiling, SECFilingTarget, SinkResult } from "./types";
 import type {
   ProcessingStats,
+  PipelineContext,
   SubsidiaryPipelineOptions,
   SubsidiaryPipelineResult,
   SubsidiarySink,
+  SubsidiarySinkName,
   SubsidiaryFallbackPolicy,
 } from "./types";
-import { parseSubsidiaryTarget, parseSubsidiaryTargetSafe } from "./target";
-import { initializePipeline } from "./init";
+import { parseSubsidiaryTarget } from "./target";
 import { parsePipelineArgs } from "./cli";
 
 const logger = createLogger("pipeline/subsidiary/run");
 
 const SINK_BATCH_SIZE = 20;
-const TARGET_BATCH_MULTIPLIER = 4;
 
 type Sink = SubsidiarySink;
+
+function buildSinks(names: SubsidiarySinkName[] = []): SubsidiarySink[] {
+  const sinks: SubsidiarySink[] = [];
+  for (const name of Array.from(new Set(names))) {
+    if (name === "db") sinks.push(new SubsidiariesDBSink());
+    else if (name === "excel") sinks.push(new SubsidiariesExcelSink());
+    else logger.warn(`Unknown sink "${name}" requested; skipping.`);
+  }
+  return sinks;
+}
+
+function initializePipeline(
+  options: SubsidiaryPipelineOptions,
+): PipelineContext {
+  const fallbackPolicy = options.fallbackPolicy ?? "llm";
+  const defaults = getDefaultConcurrency(options.limit);
+  const jobConcurrency = defaults.job;
+  const llmWorkers = defaults.llmWorkers;
+
+  if (fallbackPolicy === "llm") {
+    getLLMWorkerPool({ maxWorkers: llmWorkers });
+  }
+
+  const sinks = buildSinks(options.sinks ?? []);
+  const dryRun = options.dryRun || sinks.length === 0;
+
+  logger.info("\n" + "=".repeat(60));
+  logger.info("SUBSIDIARIES PARSE JOB");
+  logger.info("=".repeat(60));
+  logger.info("Args: " + JSON.stringify({ ...options }, null, 2));
+  logger.info(`⚙️  Concurrency: ${jobConcurrency} filings`);
+  logger.info(
+    fallbackPolicy === "llm"
+      ? `🤖 LLM Pool: ${llmWorkers} workers`
+      : "🤖 LLM Pool: disabled",
+  );
+  logger.info(`🧠 LLM Fallback: ${fallbackPolicy}`);
+  
+  if (options.accessions && options.accessions.length > 0) {
+    logger.info(`🎯 Filtering by ${options.accessions.length} accession(s): ${options.accessions.join(', ')}`);
+  }
+
+  return { fallbackPolicy, jobConcurrency, llmWorkers, sinks, dryRun };
+}
 
 async function sinkBatch(
   results: ValidatedFiling[],
@@ -71,60 +114,6 @@ async function sinkBatch(
   }
 }
 
-async function processTargetBatch(
-  targets: SECFilingTarget[],
-  options: {
-    dryRun: boolean;
-    concurrency: number;
-    fallbackPolicy: SubsidiaryFallbackPolicy;
-  },
-  sinks: Sink[],
-  stats: ProcessingStats,
-  totalTargets: number,
-): Promise<void> {
-  const concurrency = Math.max(1, options.concurrency);
-
-  for (let i = 0; i < targets.length; i += concurrency) {
-    const batch = targets.slice(i, i + concurrency);
-
-    const parseTarget =
-      options.fallbackPolicy === "none"
-        ? parseSubsidiaryTarget
-        : parseSubsidiaryTargetSafe;
-
-    const batchResults = await Promise.all(
-      batch.map((target) =>
-        parseTarget(target, {
-          fallbackPolicy: options.fallbackPolicy,
-        }),
-      ),
-    );
-
-    stats.processed += batchResults.length;
-
-    for (const result of batchResults) {
-      const status = result.parseResult?.status;
-      if (status === "success") {
-        stats.successCount += 1;
-      } else if (status === "empty") {
-        stats.emptyCount += 1;
-      } else {
-        stats.failedCount += 1;
-      }
-    }
-
-    if (!options.dryRun && sinks.length > 0) {
-      await sinkBatch(batchResults, sinks, stats.sinkResults);
-    }
-
-    const pct =
-      totalTargets > 0
-        ? ((stats.processed / totalTargets) * 100).toFixed(1)
-        : "100.0";
-    logger.info(`Progress: ${stats.processed}/${totalTargets} (${pct}%)`);
-  }
-}
-
 export async function runSubsidiaryParsingPipeline(
   options: SubsidiaryPipelineOptions,
 ): Promise<SubsidiaryPipelineResult> {
@@ -142,6 +131,7 @@ export async function runSubsidiaryParsingPipeline(
           : "all",
     },
     limit: options.limit,
+    accessions: options.accessions,
   });
 
   if (targetsFile.targetCount === 0) {
@@ -177,28 +167,67 @@ export async function runSubsidiaryParsingPipeline(
     sinkResults,
   };
 
-  const batchSize = Math.max(1, jobConcurrency) * TARGET_BATCH_MULTIPLIER;
+  const concurrency = Math.max(1, jobConcurrency);
   const totalToProcess = targetsFile.targetCount;
-
   let limitedTargetCount = 0;
 
-  for await (const batch of readTargetsFromFile({
-    filePath: targetsFile.filePath,
-    batchSize,
-  })) {
-    if (batch.length === 0) continue;
-    limitedTargetCount += batch.length;
-    await processTargetBatch(
-      batch,
-      {
-        dryRun,
-        concurrency: jobConcurrency,
-        fallbackPolicy,
-      },
-      sinks,
-      stats,
-      totalToProcess,
-    );
+  // Flatten the chunked stream into a single async iterator of targets
+  async function* allTargets(): AsyncGenerator<SECFilingTarget> {
+    for await (const chunk of readTargetsFromFile({
+      filePath: targetsFile.filePath,
+      batchSize: concurrency * 4,
+    })) {
+      for (const target of chunk) {
+        yield target;
+      }
+    }
+  }
+
+  // Shared iterator — each worker pulls the next target as soon as it's free
+  const iterator = allTargets();
+  const pendingResults: ValidatedFiling[] = [];
+
+  async function worker(): Promise<void> {
+    for (;;) {
+      const { value: target, done } = await iterator.next();
+      if (done) break;
+
+      limitedTargetCount += 1;
+      const result = await parseSubsidiaryTarget(target, { fallbackPolicy });
+
+      // Update stats
+      stats.processed += 1;
+      const status = result.parseResult?.status;
+      if (status === "success") stats.successCount += 1;
+      else if (status === "empty") stats.emptyCount += 1;
+      else stats.failedCount += 1;
+
+      pendingResults.push(result);
+
+      // Flush to sinks when buffer is full
+      if (
+        !dryRun &&
+        sinks.length > 0 &&
+        pendingResults.length >= SINK_BATCH_SIZE
+      ) {
+        const batch = pendingResults.splice(0, pendingResults.length);
+        await sinkBatch(batch, sinks, stats.sinkResults);
+      }
+
+      const pct =
+        totalToProcess > 0
+          ? ((stats.processed / totalToProcess) * 100).toFixed(1)
+          : "100.0";
+      logger.info(`Progress: ${stats.processed}/${totalToProcess} (${pct}%)`);
+    }
+  }
+
+  // Launch workers — each pulls from the shared iterator independently
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+  // Flush remaining results
+  if (!dryRun && sinks.length > 0 && pendingResults.length > 0) {
+    await sinkBatch(pendingResults, sinks, stats.sinkResults);
   }
 
   if (fallbackPolicy === "llm") {
@@ -267,6 +296,7 @@ async function main() {
     dryRun: args.dryRun,
     sinks: args.sinks as ("db" | "excel")[],
     fallbackPolicy: args.fallbackPolicy,
+    accessions: args.accessions,
   });
 }
 

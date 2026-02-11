@@ -1,42 +1,35 @@
 /**
  * Subsidiary Parser - Main Entry Point
  *
- * Pure parsing functions for SEC Exhibit 21 (10-K) and Exhibit 8 (20-F) files
- * Extracts subsidiary information with hierarchical parent-child relationships
- *
- * Parsing Strategy:
- * 1. Heuristic Table Parser - Extracts structure from HTML tables
- *    - Finds columns via keyword matching
- *    - Analyzes indentation for nesting detection
- *    - Extracts name, jurisdiction, ownership from cells
- *    - Processes all tables in document
- * 
- * 2. Footnotes Preprocessing - Prepares footnotes HTML for later LLM enrichment
- *    - Strips unnecessary HTML elements (scripts, styles, navigation)
- *    - Keeps content-bearing elements (tables, paragraphs, lists)
- *    - Preserves footnote markers and ownership data
+ * Parses Exhibit 21/8 HTML and returns subsidiaries with parent-child relationships.
+ * Flow: detect document structure, then extract subsidiary records.
  */
 
-import { load } from "cheerio";
+import * as cheerio from "cheerio";
 import { createLogger } from "../../utils/logger";
 
-import type { ParseResult, SubsidiaryRecord } from "./types";
-import { extractDocumentFootnotes } from "./footnotes";
-import { findHeaderRow, extractHeaders, isLikelyFooterTable } from "./table-detection";
-import { extractSubsidiaries } from "./extraction";
-import { preprocessFootnotesHtml } from "./footnotes-preprocessor";
-import { SUBSIDIARY_KEYWORDS, containsAny } from "../../config/subsidiary-keywords";
-
-// Refactored parser imports
-import { detectDocumentStructure } from "./structure-detection";
-import { extractSubsidiaryRecords, type ContentExtractionResult } from "./content-extraction";
 import type {
-  ParserConfig,
-  DocumentStructure,
-} from "./types-refactored";
-import { DEFAULT_CONFIG, ParserError } from "./types-refactored";
+  ParseResult,
+  ParseTelemetry,
+  SubsidiaryFallbackPolicy,
+  SubsidiaryParseMethod,
+} from "./types";
+import {
+  validateSubsidiaries,
+  filterValidSubsidiaries,
+} from "../../validation/subsidiary-validator";
+import { llmFallbackParse } from "../../validation/llm-fallback";
 
-// Re-export refactored types
+import { detectDocumentStructure } from "./structure-detection";
+import {
+  extractSubsidiaryRecords,
+  extractFootnotesHtml,
+} from "./content-extraction";
+import type { ParserConfig, DocumentStructure } from "./parser-types";
+import { DocumentClassification, TableType } from "./parser-types";
+import { DEFAULT_CONFIG, ParserError } from "./parser-types";
+
+// Re-export parser types
 export type {
   ParserConfig,
   DocumentStructure,
@@ -44,318 +37,557 @@ export type {
   DocumentClassification,
   TableType,
   ContentExtractionInput,
-} from "./types-refactored";
-export { DEFAULT_CONFIG, ParserError } from "./types-refactored";
+} from "./parser-types";
+export { DEFAULT_CONFIG, ParserError } from "./parser-types";
 
 // Re-export content extraction types
-export type { ContentExtractionResult } from "./content-extraction";
+export type { ContentExtractionResult } from "./types";
 
 const logger = createLogger("parsers/subsidiary");
 
+type ValidationSummary = ReturnType<typeof validateSubsidiaries> | null;
+
+type ParseDecision = {
+  shouldFallback: boolean;
+  reason: string;
+};
+
 // ============================================================================
-// Main Parser Entry Point
+// Two-Phase Parser
 // ============================================================================
 
+/**
+ * Parse a single SEC exhibit HTML using the two-phase parser.
+ *
+ * Returns a fully finalized ParseResult:
+ * - Invalid subsidiaries are pruned
+ * - Parent info is backfilled on all subsidiaries
+ * - Telemetry is attached
+ */
 export async function parseExhibit(
   html: string,
-  filing: { accession_number: string; cik: string; filingCompanyId: string }
+  filing: {
+    accession_number: string;
+    cik: string;
+    filingCompanyId: string;
+    filingCompanyName?: string;
+  },
+  config: ParserConfig = DEFAULT_CONFIG,
 ): Promise<ParseResult> {
+  const fallbackPolicy = config.fallbackPolicy ?? "llm";
+  const startedAt = Date.now();
+  const timingsMs: ParseTelemetry["timingsMs"] = {};
+  let validation: ParseTelemetry["validation"];
+
+  let fallback: ParseTelemetry["fallback"] = {
+    policy: fallbackPolicy,
+    used: false,
+  };
+
+  const assembleTelemetry = (): ParseTelemetry => ({
+    timingsMs: { ...timingsMs, total: Date.now() - startedAt },
+    validation,
+    fallback,
+  });
+
+  const finalizeResult = (result: ParseResult): ParseResult =>
+    finalize(result, filing, assembleTelemetry());
+
+  // Detect PDF files early - they need vision model processing
+  let isPDF = false;
+  if (html.trim().startsWith("%PDF-")) {
+    logger.info(
+      `[${filing.accession_number}] PDF file detected - will use vision model for parsing`,
+    );
+    isPDF = true;
+  }
 
   try {
-    // Parse all tables using heuristic approach
-    const parseResult = parseTable(html, filing);
-
-    if (parseResult && parseResult.subsidiaries.length > 0) {
-      logger.info(
-        `[${filing.accession_number}] Heuristic parser succeeded: ${parseResult.subsidiaries.length} subsidiaries (maxNesting: ${parseResult.maxNestingLevel})`
-      );
-
-      return {
-        ...parseResult,
-        method: "heuristic",
-        status: "success",
-      };
-    }
-
-    // No subsidiaries found (not an error, just empty data)
-    logger.info(`[${filing.accession_number}] No subsidiaries found in document`);
-    return {
-      subsidiaries: [],
-      method: "heuristic",
-      status: "empty",
-      classification: "unknown",
-      tableCount: parseResult?.tableCount ?? 0,
-      maxNestingLevel: 0,
-      footnotesHtml: parseResult?.footnotesHtml ?? "",
-    };
-  } catch (error: any) {
-    // Only catch Cheerio/HTML parsing errors - everything else should fail
-    if (error.name === "CheerioError" || error.message?.includes("Invalid HTML")) {
-      logger.error(`[${filing.accession_number}] HTML parsing failed: ${error.message}`);
-      return {
+    // For PDFs, skip heuristic parsing and go straight to fallback
+    if (isPDF) {
+      const pdfResult: ParseResult = {
         subsidiaries: [],
-        method: "heuristic",
-        status: "failed",
-        classification: "failed",
+        method: "unknown",
+        status: "empty",
+        classification: DocumentClassification.PDF_BASED,
         tableCount: 0,
         maxNestingLevel: 0,
         footnotesHtml: "",
-        errorMessage: error.message,
+        llmApplied: false,
+        llmModified: false,
       };
+      
+      if (fallbackPolicy === "none") {
+        return finalizeResult(pdfResult);
+      }
+      
+      logger.warn(
+        `no_subsidiaries for ${filing.accession_number}, attempting LLM fallback`,
+      );
+      const { result: fbResult, elapsedMs: fbMs } = await runFallback(
+        html,
+        filing,
+        pdfResult,
+        fallbackPolicy,
+        "no_subsidiaries",
+      );
+      timingsMs.llmFallback = fbMs;
+      fallback = {
+        policy: fallbackPolicy,
+        used: true,
+        reason: "no_subsidiaries",
+        provider: "qwen-vl",
+      };
+      return finalizeResult(fbResult);
     }
 
-    // All other errors (ParserError, system errors, etc.) - let them fail
-    throw error;
+    const { result: heuristicResult, elapsedMs: heuristicMs } =
+      await runHeuristicParse(html, filing, config);
+    timingsMs.heuristic = heuristicMs;
+
+    const {
+      summary: validationSummary,
+      elapsedMs: validationMs,
+      metrics: validationMetrics,
+    } = validateHeuristicResult(filing, heuristicResult);
+    timingsMs.validation = validationMs;
+    validation = validationMetrics;
+
+    if (fallbackPolicy === "none") {
+      return finalizeResult(heuristicResult);
+    }
+
+    const decision = decideFallback(heuristicResult, validationSummary);
+    if (decision.shouldFallback) {
+      logger.warn(
+        `${decision.reason} for ${filing.accession_number}, attempting LLM fallback`,
+      );
+      const { result: fbResult, elapsedMs: fbMs } = await runFallback(
+        html,
+        filing,
+        heuristicResult,
+        fallbackPolicy,
+        decision.reason,
+      );
+      timingsMs.llmFallback = fbMs;
+      fallback = {
+        policy: fallbackPolicy,
+        used: true,
+        reason: decision.reason,
+        provider: heuristicResult.classification === DocumentClassification.IMAGE_BASED ? "qwen-vl-plus" : "deepseek",
+      };
+      return finalizeResult(fbResult);
+    }
+
+    return finalizeResult(heuristicResult);
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof ParserError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : String(error);
+
+    logger.error(`[${filing.accession_number}] Parsing failed:`, {
+      error: errorMessage,
+    });
+
+    if (fallbackPolicy === "none") {
+      throw error;
+    }
+
+    const failedResult = buildFailedParseResult(errorMessage);
+
+    logger.warn(
+      `Parsing error for ${filing.accession_number}, attempting LLM fallback`,
+    );
+
+    try {
+      const { result: fbResult, elapsedMs: fbMs } = await runFallback(
+        html,
+        filing,
+        failedResult,
+        fallbackPolicy,
+        "heuristic_error",
+      );
+      timingsMs.llmFallback = fbMs;
+      fallback = {
+        policy: fallbackPolicy,
+        used: true,
+        reason: "heuristic_error",
+        provider: "deepseek",
+      };
+      return finalizeResult(fbResult);
+    } catch (llmError) {
+      logger.error(`[${filing.accession_number}] LLM fallback also failed:`, {
+        error: llmError instanceof Error ? llmError.message : String(llmError),
+      });
+      return finalizeResult(failedResult);
+    }
   }
 }
 
 // ============================================================================
-// Heuristic Table Parser
+// Post-Processing (prune + parent info + telemetry)
 // ============================================================================
 
-function parseTable(
-  html: string,
-  filing: { accession_number: string; cik: string; filingCompanyId: string }
-): Omit<ParseResult, "method" | "status" | "errorMessage"> | null {
-  const $ = load(html, { xmlMode: false, decodeEntities: true });
-  const tables = $("table");
+function finalize(
+  result: ParseResult,
+  filing: {
+    accession_number: string;
+    filingCompanyId: string;
+    filingCompanyName?: string;
+  },
+  telemetry: ParseTelemetry,
+): ParseResult {
+  const pruned = pruneInvalidSubsidiaries(filing.accession_number, result);
+  const withParent = ensureParentInfo(
+    pruned,
+    filing.filingCompanyId,
+    filing.filingCompanyName,
+  );
+  return { ...withParent, telemetry };
+}
 
-  if (tables.length === 0) return null;
-
-  // Extract footnotes from the entire document first
-  const rawFootnotesHtml = extractDocumentFootnotes($);
-  
-  // Preprocess footnotes HTML for later LLM enrichment
-  const footnotesHtml = preprocessFootnotesHtml(rawFootnotesHtml);
-
-  // Process ALL tables (not just those with keywords)
-  // We'll filter out non-subsidiary tables during processing
-  const allTables: any[] = [];
-  tables.each((_: number, tbl: any) => {
-    allTables.push($(tbl));
-  });
-
-  if (allTables.length === 0) return null;
-
-  // Process all tables and combine subsidiaries
-  const allSubsidiaries: SubsidiaryRecord[] = [];
-  
-  // Track headers and column count from the last successful table for continuation tables
-  let lastHeaders: string[] | null = null;
-  let lastColumnCount = 0;
-  
-  for (const table of allTables) {
-    const rows = table.find("tr");
-    
-    // Skip tables with too few rows
-    if (rows.length < 2) continue;
-    
-    const headerRowIndex = findHeaderRow($, rows);
-
-    let headers: string[];
-    let startRowIndex: number;
-
-    if (headerRowIndex === -1) {
-      // No header row found - could be continuation table or footer
-      
-      // Check if this looks like a footer table
-      if (isLikelyFooterTable($, table)) {
-        logger.info(`[${filing.accession_number}] Skipping footer table`);
-        continue;
-      }
-      
-      // This is a continuation table
-      if (lastHeaders === null) {
-        // No previous headers to reuse, skip this table
-        logger.debug(`[${filing.accession_number}] Skipping table without headers (no previous headers available)`);
-        continue;
-      }
-      
-      // Check if column count matches the previous table
-      // Find first non-empty row to count columns (skip width definition rows)
-      // Account for colspan attributes
-      let currentColumnCount = 0;
-      rows.each((_: any, tr: any) => {
-        if (currentColumnCount > 0) return false; // Already found
-        const $tr = $(tr);
-        const cells = $tr.find("td, th");
-        // Check if this row has actual content (not just width definitions)
-        let hasContent = false;
-        let colCount = 0;
-        cells.each((_: any, cell: any) => {
-          const $cell = $(cell);
-          const text = $cell.text().trim();
-          if (text.length > 0) {
-            hasContent = true;
-          }
-          // Count colspan
-          const colspan = parseInt($cell.attr("colspan") || "1", 10);
-          colCount += colspan;
-        });
-        if (hasContent) {
-          currentColumnCount = colCount;
-          return false;
-        }
-      });
-      
-      // If column count doesn't match and this looks like a footer, skip it
-      if (currentColumnCount !== lastColumnCount) {
-        if (isLikelyFooterTable($, table)) {
-          logger.info(`[${filing.accession_number}] Skipping footer table with mismatched column count (${currentColumnCount} vs ${lastColumnCount})`);
-          continue;
-        }
-        // Otherwise, treat as continuous if we have previous headers
-        logger.info(`[${filing.accession_number}] Column count mismatch (${currentColumnCount} vs ${lastColumnCount}), but treating as continuation table`);
-      }
-      
-      // Reuse headers from previous table and start from row 0
-      headers = lastHeaders;
-      startRowIndex = -1; // Will become rows.slice(0) in extractSubsidiaries
-      logger.info(`[${filing.accession_number}] Using previous headers for continuation table (${rows.length} rows)`);
-    } else {
-      // Header row found - extract headers
-      headers = extractHeaders($, rows[headerRowIndex]);
-      
-      // Check if this table has subsidiary keywords (name + jurisdiction)
-      const headerText = headers.join(" ").toLowerCase();
-      const hasSubsidiaryKeywords = 
-        containsAny(headerText, SUBSIDIARY_KEYWORDS.SUBSIDIARY_NAME) &&
-        containsAny(headerText, SUBSIDIARY_KEYWORDS.JURISDICTION);
-      
-      if (!hasSubsidiaryKeywords) {
-        // Not a subsidiary table, skip it
-        logger.debug(`[${filing.accession_number}] Skipping table without subsidiary keywords`);
-        continue;
-      }
-      
-      // This is a valid subsidiary table - save headers for continuation tables
-      // Calculate actual column count with colspan
-      const $headerRow = $(rows[headerRowIndex]);
-      const headerCells = $headerRow.find("td, th");
-      let actualColumnCount = 0;
-      headerCells.each((_: any, cell: any) => {
-        const colspan = parseInt($(cell).attr("colspan") || "1", 10);
-        actualColumnCount += colspan;
-      });
-      
-      startRowIndex = headerRowIndex;
-      lastHeaders = headers;
-      lastColumnCount = actualColumnCount;
-      logger.info(`[${filing.accession_number}] Found subsidiary table with ${rows.length} rows (${actualColumnCount} columns)`);
-    }
-
-    const subsidiaries = extractSubsidiaries(
-      $,
-      rows,
-      startRowIndex,
-      headers,
-      filing
-    );
-    
-    allSubsidiaries.push(...subsidiaries);
+function pruneInvalidSubsidiaries(
+  accessionNumber: string,
+  parseResult: ParseResult,
+): ParseResult {
+  if (!parseResult.subsidiaries || parseResult.subsidiaries.length === 0) {
+    return parseResult;
   }
 
-  if (allSubsidiaries.length === 0) return null;
+  const { validSubsidiaries, invalidSubsidiaries, results } =
+    filterValidSubsidiaries(parseResult.subsidiaries);
 
-  const maxNestingLevel = Math.max(
-    ...allSubsidiaries.map((s) => s.nestingLevel),
-    0
+  if (invalidSubsidiaries.length === 0) {
+    return parseResult;
+  }
+
+  const invalidSamples = parseResult.subsidiaries
+    .map((sub, index) => ({
+      sub,
+      validation: results[index],
+    }))
+    .filter(({ validation }) => !validation.isValid)
+    .slice(0, 5)
+    .map(({ sub, validation }) => ({
+      name: sub.name,
+      jurisdiction: sub.jurisdiction,
+      issues: validation.issues,
+      issueTypes: validation.issueTypes,
+    }));
+
+  logger.warn(
+    `[${accessionNumber}] Dropping ${invalidSubsidiaries.length} invalid subsidiaries from parse results`,
+    { invalidSamples },
   );
 
+  const nextStatus =
+    validSubsidiaries.length === 0 && parseResult.status === "success"
+      ? "empty"
+      : parseResult.status;
+
   return {
-    subsidiaries: allSubsidiaries,
-    tableCount: tables.length,
-    maxNestingLevel,
+    ...parseResult,
+    subsidiaries: validSubsidiaries,
+    status: nextStatus,
+  };
+}
+
+function ensureParentInfo(
+  parseResult: ParseResult,
+  filingCompanyId: string,
+  filingCompanyName?: string,
+): ParseResult {
+  if (!parseResult.subsidiaries || parseResult.subsidiaries.length === 0) {
+    return parseResult;
+  }
+
+  const normalizedCompanyName = filingCompanyName?.trim();
+
+  const updatedSubsidiaries = parseResult.subsidiaries.map((sub) => ({
+    ...sub,
+    parentId: sub.parentId || filingCompanyId,
+    parentName: sub.parentName || normalizedCompanyName,
+  }));
+
+  return {
+    ...parseResult,
+    subsidiaries: updatedSubsidiaries,
+  };
+}
+
+function resolveParseMethod(
+  classification: DocumentClassification,
+): SubsidiaryParseMethod {
+  switch (classification) {
+    case DocumentClassification.TEXT_BASED:
+      return "text";
+    case DocumentClassification.SINGLE_TABLE:
+    case DocumentClassification.MULTI_TABLE:
+      return "table";
+    default:
+      return "unknown";
+  }
+}
+
+function buildNonTableResult(
+  $: any,
+  config: ParserConfig,
+  structure: DocumentStructure,
+  filing: { accession_number: string },
+): ParseResult {
+  if (structure.classification === DocumentClassification.TEXT_BASED) {
+    logger.info(
+      `[${filing.accession_number}] Detected text-based subsidiaries (${structure.textBased?.entryCount ?? 0}); deferring to LLM`,
+    );
+  } else {
+    logger.info(
+      `[${filing.accession_number}] No extractable content: ${structure.classification}`,
+    );
+  }
+
+  const footnotesHtml = extractFootnotesHtml($, config.processFootnotes);
+
+  const expectedRowCount = structure.tables
+    .filter((table) => table.type === TableType.SUBSIDIARY)
+    .reduce((sum, table) => sum + table.rowCount, 0);
+
+  return {
+    subsidiaries: [],
+    method: resolveParseMethod(structure.classification),
+    llmApplied: false,
+    llmModified: false,
+    status: "empty",
+    classification: structure.classification,
+    tableCount: structure.totalTableCount,
+    expectedRowCount,
+    maxNestingLevel: 0,
     footnotesHtml,
   };
 }
 
-// ============================================================================
-// Refactored Two-Phase Parser (New Architecture)
-// ============================================================================
+function buildFailedParseResult(errorMessage: string): ParseResult {
+  return {
+    subsidiaries: [],
+    method: "unknown",
+    llmApplied: false,
+    llmModified: false,
+    status: "failed",
+    classification: "failed",
+    tableCount: 0,
+    maxNestingLevel: 0,
+    footnotesHtml: "",
+    errorMessage,
+  };
+}
 
-/**
- * Parse SEC exhibit using refactored two-phase architecture
- *
- * Phase 1: Structure Detection - Analyzes HTML to identify tables and their types
- * Phase 2: Content Extraction - Extracts subsidiary records using battle-tested logic
- *
- * This produces the same ParseResult format as parseExhibit for compatibility,
- * but uses the two-phase architecture for better maintainability.
- *
- * @param html - HTML content to parse
- * @param filing - Filing information for logging and ID generation
- * @param config - Parser configuration (optional, defaults to DEFAULT_CONFIG)
- * @returns ParseResult containing subsidiaries and metadata
- * @throws ParserError if parsing fails
- */
-export async function parseExhibitRefactored(
+async function runHeuristicParse(
   html: string,
-  filing: { accession_number: string; cik: string; filingCompanyId: string; filingCompanyName?: string },
-  config: ParserConfig = DEFAULT_CONFIG
-): Promise<ParseResult> {
-  try {
-    const structure = detectDocumentStructure(html, config);
+  filing: {
+    accession_number: string;
+    cik: string;
+    filingCompanyId: string;
+    filingCompanyName?: string;
+  },
+  config: ParserConfig,
+): Promise<{ result: ParseResult; elapsedMs: number }> {
+  const start = Date.now();
 
-    // Log detailed table information for debugging
+  try {
+    const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+    const structure = detectDocumentStructure($, config);
+
+    if (
+      structure.classification === DocumentClassification.TEXT_BASED ||
+      structure.classification === DocumentClassification.NO_TABLE ||
+      structure.classification === DocumentClassification.HAS_TABLE_NO_DATA
+    ) {
+      return {
+        result: buildNonTableResult($, config, structure, filing),
+        elapsedMs: Date.now() - start,
+      };
+    }
+
     if (structure.tables.length > 0) {
       logger.info(`[${filing.accession_number}] Table details:`);
       structure.tables.forEach((table, i) => {
-        const headerInfo = table.headers ? `headers: [${table.headers.join(', ')}]` : 'continuation table';
-        logger.info(`[${filing.accession_number}]   Table ${i + 1} (index ${table.index}): ${table.rowCount} rows × ${table.columnCount} cols, ${headerInfo}`);
+        const headerInfo = table.headers
+          ? `headers: [${table.headers.join(", ")}]`
+          : "continuation table";
+        logger.info(
+          `[${filing.accession_number}]   Table ${i + 1} (index ${table.index}): ${table.rowCount} rows × ${table.columnCount} cols, ${headerInfo}`,
+        );
       });
     }
-  
-    // Phase 2: Extract subsidiary records
+
     logger.debug(`[${filing.accession_number}] Phase 2: Content extraction`);
     const result = extractSubsidiaryRecords({
       structure,
-      html,
+      $,
       config,
       filing,
     });
 
-    // Determine status
-    const status: ParseResult["status"] = result.subsidiaries.length > 0 ? "success" : "empty";
-    
-    logger.info(`[${filing.accession_number}] Parsing complete: ${status}, ${result.subsidiaries.length} subsidiaries extracted`);
+    const status: ParseResult["status"] =
+      result.subsidiaries.length > 0 ? "success" : "empty";
 
-    // Log detailed info for empty results to help debug
+    logger.info(
+      `[${filing.accession_number}] Parsing complete: ${status}, ${result.subsidiaries.length} subsidiaries extracted`,
+    );
+
     if (result.subsidiaries.length === 0) {
-      logger.info(`[${filing.accession_number}] EMPTY RESULT DETAILS: classification=${structure.classification}, totalTables=${structure.totalTableCount}, subsidiaryTables=${structure.tables.length}, textBased=${structure.textBased ? structure.textBased.entryCount : 0}`);
+      logger.info(
+        `[${filing.accession_number}] EMPTY RESULT DETAILS: classification=${structure.classification}, totalTables=${structure.totalTableCount}, subsidiaryTables=${structure.tables.length}, textBased=${structure.textBased ? structure.textBased.entryCount : 0}`,
+      );
     }
 
     return {
-      subsidiaries: result.subsidiaries,
-      method: "heuristic",
-      status,
-      classification: structure.classification,
-      tableCount: result.tableCount,
-      maxNestingLevel: result.maxNestingLevel,
-      footnotesHtml: result.footnotesHtml,
+      result: {
+        subsidiaries: result.subsidiaries,
+        method: resolveParseMethod(structure.classification),
+        llmApplied: false,
+        llmModified: false,
+        status,
+        classification: structure.classification,
+        tableCount: result.tableCount,
+        expectedRowCount: structure.tables
+          .filter((table) => table.type === TableType.SUBSIDIARY)
+          .reduce((sum, table) => sum + table.rowCount, 0),
+        maxNestingLevel: result.maxNestingLevel,
+        footnotesHtml: result.footnotesHtml,
+      },
+      elapsedMs: Date.now() - start,
     };
   } catch (error: any) {
-    logger.error(`[${filing.accession_number}] Parsing failed: ${error.message}`);
-    
-    // If it's already a ParserError, re-throw it
+    if (
+      error.name === "CheerioError" ||
+      error.message?.includes("Invalid HTML")
+    ) {
+      throw new ParserError(
+        `HTML parsing failed: ${error.message}`,
+        "HTML_PARSE_ERROR",
+        { originalError: error },
+      );
+    }
+
     if (error instanceof ParserError) {
       throw error;
     }
 
-    // Catch Cheerio/HTML parsing errors and wrap them
-    if (error.name === "CheerioError" || error.message?.includes("Invalid HTML")) {
-      throw new ParserError(
-        `HTML parsing failed: ${error.message}`,
-        "HTML_PARSE_ERROR",
-        { originalError: error }
+    throw new ParserError(`Parsing failed: ${error.message}`, "UNKNOWN_ERROR", {
+      originalError: error,
+    });
+  }
+}
+
+function validateHeuristicResult(
+  filing: { accession_number: string },
+  parseResult: ParseResult,
+): {
+  summary: ValidationSummary;
+  elapsedMs: number;
+  metrics: ParseTelemetry["validation"];
+} {
+  if (
+    parseResult.status !== "success" ||
+    parseResult.subsidiaries.length === 0
+  ) {
+    return { summary: null, elapsedMs: 0, metrics: undefined };
+  }
+
+  const validationStart = Date.now();
+  const validationResult = validateSubsidiaries(
+    parseResult.subsidiaries.map((sub) => ({
+      name: sub.name,
+      jurisdiction: sub.jurisdiction,
+    })),
+  );
+  const elapsedMs = Date.now() - validationStart;
+
+  const metrics: ParseTelemetry["validation"] = {
+    total: parseResult.subsidiaries.length,
+    valid: validationResult.validCount,
+    overallValid: validationResult.overallValid,
+  };
+
+  if (parseResult.expectedRowCount && parseResult.expectedRowCount > 0) {
+    const coverage =
+      parseResult.subsidiaries.length / parseResult.expectedRowCount;
+    metrics.expectedCount = parseResult.expectedRowCount;
+    metrics.coverage = Number.isFinite(coverage) ? coverage : undefined;
+
+    if (parseResult.subsidiaries.length < parseResult.expectedRowCount) {
+      logger.warn(
+        `[${filing.accession_number}] Parsed ${parseResult.subsidiaries.length}/${parseResult.expectedRowCount} subsidiaries (row-count coverage ${(coverage * 100).toFixed(1)}%). Flagging for review.`,
       );
     }
+  }
 
-    // All other errors - wrap in ParserError
-    throw new ParserError(
-      `Parsing failed: ${error.message}`,
-      "UNKNOWN_ERROR",
-      { originalError: error }
+  if (!validationResult.overallValid || validationResult.invalidCount > 0) {
+    const invalidSamples = parseResult.subsidiaries
+      .map((sub, index) => ({
+        sub,
+        validation: validationResult.results[index],
+      }))
+      .filter(({ validation }) => !validation.isValid)
+      .slice(0, 5)
+      .map(({ sub, validation }) => ({
+        name: sub.name,
+        jurisdiction: sub.jurisdiction,
+        issues: validation.issues,
+        issueTypes: validation.issueTypes,
+      }));
+
+    logger.warn(
+      `[${filing.accession_number}] Validation failed: ${validationResult.invalidCount}/${validationResult.results.length} invalid subsidiaries`,
+      {
+        invalidSamples,
+      },
     );
   }
+
+  return { summary: validationResult, elapsedMs, metrics };
+}
+
+function decideFallback(
+  parseResult: ParseResult,
+  validationSummary: ValidationSummary,
+): ParseDecision {
+  if (parseResult.status === "failed") {
+    return { shouldFallback: true, reason: "parsing_failed" };
+  }
+
+  if (parseResult.status === "empty" || parseResult.subsidiaries.length === 0) {
+    return { shouldFallback: true, reason: "no_subsidiaries" };
+  }
+
+  if (validationSummary && !validationSummary.overallValid) {
+    return { shouldFallback: true, reason: "validation_failed" };
+  }
+
+  return { shouldFallback: false, reason: "heuristic_ok" };
+}
+
+async function runFallback(
+  html: string,
+  filing: {
+    accession_number: string;
+    cik: string;
+    filingCompanyId: string;
+    filingCompanyName?: string;
+  },
+  baseResult: ParseResult,
+  _policy: SubsidiaryFallbackPolicy,
+  _reason: string,
+): Promise<{ result: ParseResult; elapsedMs: number }> {
+  const llmStart = Date.now();
+  const llmResult = await llmFallbackParse(html, baseResult, {
+    accession_number: filing.accession_number,
+    cik: filing.cik,
+    filingCompanyId: filing.filingCompanyId,
+    filingCompanyName: filing.filingCompanyName || "",
+  });
+  return { result: llmResult, elapsedMs: Date.now() - llmStart };
 }

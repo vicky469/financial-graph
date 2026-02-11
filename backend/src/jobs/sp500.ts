@@ -1,6 +1,6 @@
 // Job: Scrape the S&P 500 constituents table from Wikipedia, save a JSON copy,
-// and flag matching companies in the database (adding sp500/founded metadata
-// and unmarking companies that have fallen out of the index).
+// and flag matching companies in the database (setting sp500 and unmarking
+// companies that have fallen out of the index).
 import fs from "node:fs/promises";
 import { createLogger } from "../utils/logger";
 import { db } from "../db/client";
@@ -191,12 +191,11 @@ export async function markSP500InDB(sp500Companies: SP500Company[]) {
 
   for (let i = 0; i < matched.length; i += BATCH_SIZE) {
     const batch = matched.slice(i, i + BATCH_SIZE);
-    const transactions = batch.map(({ company, sp500 }) =>
+    const transactions = batch.map(({ company }) =>
       db.tx.company[company.id].update({
         identity: {
           ...company.identity,
           sp500: true,
-          founded: sp500.founded || company.identity?.founded,
         },
         updated_at: new Date().toISOString(),
       }),

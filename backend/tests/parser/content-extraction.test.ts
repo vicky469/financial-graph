@@ -7,11 +7,11 @@
 
 import { extractSubsidiaryRecords } from "../../src/parser/subsidiary/content-extraction";
 import { detectDocumentStructure } from "../../src/parser/subsidiary/structure-detection";
-import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/types-refactored";
+import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/parser-types";
 import type {
   ParserConfig,
   ContentExtractionInput,
-} from "../../src/parser/subsidiary/types-refactored";
+} from "../../src/parser/subsidiary/parser-types";
 
 function createInput(
   html: string,

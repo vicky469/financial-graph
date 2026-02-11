@@ -3,7 +3,6 @@ import {
   CompanyType,
   CompanySchema,
   validate,
-  ParentOfSource,
   generateCompanyId,
   generateCompanyInfoId,
   generateParentOfId,
@@ -80,7 +79,6 @@ export async function linkParentChild(
     ownership_percent: customProps.ownership_percent ?? undefined,
     established_date,
     ended_date: customProps.ended_date ?? undefined,
-    source: customProps.source || ParentOfSource.MANUAL,
     updated_at: new Date().toISOString(),
   };
 

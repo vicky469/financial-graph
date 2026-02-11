@@ -8,47 +8,20 @@
  * by reusing the existing extractSubsidiaries() function which has battle-tested
  * column swapping and parsing logic.
  *
- * IMPORTANT: This module re-parses HTML and finds tables by index rather than using
- * stored cheerio elements, because cheerio elements from different load() calls
- * are incompatible.
+ * Receives a shared Cheerio instance ($) from the caller — HTML is parsed once.
  */
 
-import { load } from "cheerio";
 import { createLogger } from "../../utils/logger";
 
-import type {
-  TableInfo,
-  ContentExtractionInput,
-} from "./types-refactored";
-import { ParserError, DocumentClassification } from "./types-refactored";
-import type { SubsidiaryRecord } from "./types";
+import type { TableInfo, ContentExtractionInput } from "./parser-types";
+import { ParserError, DocumentClassification } from "./parser-types";
+import type { SubsidiaryRecord, ContentExtractionResult } from "./types";
 import { extractSubsidiaries } from "./extraction";
 import { findHeaderRow, extractHeaders } from "./table-detection";
 import { extractDocumentFootnotes } from "./footnotes";
 import { preprocessFootnotesHtml } from "./footnotes-preprocessor";
 
-type CheerioAPI = ReturnType<typeof load>;
-
 const logger = createLogger("parsers/subsidiary/content-extraction");
-
-// ============================================================================
-// Types
-// ============================================================================
-
-/**
- * Result of content extraction phase
- * Directly produces the record format consumers expect
- */
-export interface ContentExtractionResult {
-  /** Extracted subsidiary records */
-  subsidiaries: SubsidiaryRecord[];
-  /** Maximum nesting level found */
-  maxNestingLevel: number;
-  /** Preprocessed footnotes HTML for LLM enrichment */
-  footnotesHtml: string;
-  /** Number of tables processed */
-  tableCount: number;
-}
 
 // ============================================================================
 // Main Content Extraction Function
@@ -67,47 +40,27 @@ export interface ContentExtractionResult {
  * @returns ContentExtractionResult with subsidiaries and metadata
  * @throws ParserError if extraction fails
  */
-export function extractSubsidiaryRecords(input: ContentExtractionInput): ContentExtractionResult {
-  const { structure, html, config, filing } = input;
+export function extractSubsidiaryRecords(
+  input: ContentExtractionInput,
+): ContentExtractionResult {
+  const { structure, $, config, filing } = input;
 
   try {
-    logger.debug(`[${filing.accession_number}] Starting content extraction for ${structure.classification}`);
+    logger.debug(
+      `[${filing.accession_number}] Starting content extraction for ${structure.classification}`,
+    );
 
-    // Parse HTML with Cheerio
-    const $ = load(html, { xmlMode: false, decodeEntities: true });
-
-    // Extract footnotes from the entire document
-    const rawFootnotesHtml = config.processFootnotes ? extractDocumentFootnotes($) : "";
-    const footnotesHtml = config.processFootnotes ? preprocessFootnotesHtml(rawFootnotesHtml) : "";
-
-    // Handle no-table, no-data, or text-based cases
-    if (structure.classification === DocumentClassification.NO_TABLE || structure.classification === DocumentClassification.HAS_TABLE_NO_DATA) {
-      logger.info(`[${filing.accession_number}] No extractable content: ${structure.classification}`);
-      return {
-        subsidiaries: [],
-        maxNestingLevel: 0,
-        footnotesHtml,
-        tableCount: structure.totalTableCount,
-      };
-    }
-
-    // Handle text-based subsidiary listings
-    if (structure.classification === DocumentClassification.TEXT_BASED && structure.textBased) {
-      logger.info(`[${filing.accession_number}] Skipping text-based subsidiaries: ${structure.textBased.entryCount} entries`);
-      // Return empty result to force classification as empty
-      return {
-        subsidiaries: [],
-        maxNestingLevel: 0,
-        footnotesHtml,
-        tableCount: structure.totalTableCount,
-      };
-    }
+    const footnotesHtml = extractFootnotesHtml($, config.processFootnotes);
 
     // Filter subsidiary tables
-    const subsidiaryTables = structure.tables.filter((t) => t.type === "subsidiary");
+    const subsidiaryTables = structure.tables.filter(
+      (t) => t.type === "subsidiary",
+    );
 
     if (subsidiaryTables.length === 0) {
-      logger.info(`[${filing.accession_number}] No subsidiary tables found in structure`);
+      logger.info(
+        `[${filing.accession_number}] No subsidiary tables found in structure`,
+      );
       return {
         subsidiaries: [],
         maxNestingLevel: 0,
@@ -116,10 +69,11 @@ export function extractSubsidiaryRecords(input: ContentExtractionInput): Content
       };
     }
 
-    logger.info(`[${filing.accession_number}] Processing ${subsidiaryTables.length} subsidiary tables`);
+    logger.info(
+      `[${filing.accession_number}] Processing ${subsidiaryTables.length} subsidiary tables`,
+    );
 
-    // Re-find all tables in the document (we can't use stored cheerioElement)
-    const allTables: ReturnType<CheerioAPI>[] = [];
+    const allTables: any[] = [];
     $("table").each((_: number, tbl: any) => {
       allTables.push($(tbl));
     });
@@ -128,12 +82,16 @@ export function extractSubsidiaryRecords(input: ContentExtractionInput): Content
     const allSubsidiaries: SubsidiaryRecord[] = [];
 
     for (const tableInfo of subsidiaryTables) {
-      logger.debug(`[${filing.accession_number}] Processing table ${tableInfo.index} (${tableInfo.isContinuation ? 'continuation' : 'main'}, ${tableInfo.rowCount} rows)`);
-      
+      logger.debug(
+        `[${filing.accession_number}] Processing table ${tableInfo.index} (${tableInfo.isContinuation ? "continuation" : "main"}, ${tableInfo.rowCount} rows)`,
+      );
+
       // Find the table by index in our freshly-parsed DOM
       const $table = allTables[tableInfo.index];
       if (!$table) {
-        logger.warn(`[${filing.accession_number}] Table ${tableInfo.index} not found in DOM`);
+        logger.warn(
+          `[${filing.accession_number}] Table ${tableInfo.index} not found in DOM`,
+        );
         continue;
       }
 
@@ -142,27 +100,42 @@ export function extractSubsidiaryRecords(input: ContentExtractionInput): Content
       // Determine headers to use
       const headers = getHeadersForTable($, rows, tableInfo);
       if (headers.length === 0) {
-        logger.debug(`[${filing.accession_number}] Table ${tableInfo.index}: No headers available, skipping`);
+        logger.debug(
+          `[${filing.accession_number}] Table ${tableInfo.index}: No headers available, skipping`,
+        );
         continue;
       }
 
       // Determine start row index
-      const headerRowIndex = tableInfo.isContinuation ? -1 : findHeaderRow($, rows);
+      const headerRowIndex = tableInfo.isContinuation
+        ? -1
+        : findHeaderRow($, rows);
 
       // Use the existing extractSubsidiaries function - it has all the proper
       // column swapping, fallback logic, and validation
-      const subsidiaries = extractSubsidiaries($, rows, headerRowIndex, headers, filing);
-      logger.debug(`[${filing.accession_number}] Table ${tableInfo.index}: Extracted ${subsidiaries.length} subsidiaries`);
-      
+      const subsidiaries = extractSubsidiaries(
+        $,
+        rows,
+        headerRowIndex,
+        headers,
+        { ...filing, filingCompanyName: filing.filingCompanyName ?? "" },
+      );
+      logger.debug(
+        `[${filing.accession_number}] Table ${tableInfo.index}: Extracted ${subsidiaries.length} subsidiaries`,
+      );
+
       allSubsidiaries.push(...subsidiaries);
     }
 
     // Calculate max nesting level
-    const maxNestingLevel = allSubsidiaries.length > 0
-      ? Math.max(...allSubsidiaries.map((s) => s.nestingLevel))
-      : 0;
+    const maxNestingLevel =
+      allSubsidiaries.length > 0
+        ? Math.max(...allSubsidiaries.map((s) => s.nestingLevel))
+        : 0;
 
-    logger.info(`[${filing.accession_number}] Content extraction complete: ${allSubsidiaries.length} subsidiaries (maxNesting: ${maxNestingLevel})`);
+    logger.info(
+      `[${filing.accession_number}] Content extraction complete: ${allSubsidiaries.length} subsidiaries (maxNesting: ${maxNestingLevel})`,
+    );
 
     return {
       subsidiaries: allSubsidiaries,
@@ -171,8 +144,10 @@ export function extractSubsidiaryRecords(input: ContentExtractionInput): Content
       tableCount: structure.totalTableCount,
     };
   } catch (error: any) {
-    logger.error(`[${filing.accession_number}] Content extraction failed: ${error.message}`);
-    
+    logger.error(
+      `[${filing.accession_number}] Content extraction failed: ${error.message}`,
+    );
+
     // If it's already a ParserError, re-throw
     if (error instanceof ParserError || error.name === "ParserError") {
       throw error;
@@ -190,6 +165,16 @@ export function extractSubsidiaryRecords(input: ContentExtractionInput): Content
   }
 }
 
+export function extractFootnotesHtml(
+  $: any,
+  processFootnotes: boolean,
+): string {
+  if (!processFootnotes) return "";
+
+  const rawFootnotesHtml = extractDocumentFootnotes($);
+  return preprocessFootnotesHtml(rawFootnotesHtml);
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -197,11 +182,7 @@ export function extractSubsidiaryRecords(input: ContentExtractionInput): Content
 /**
  * Get headers for a table, handling continuation tables
  */
-function getHeadersForTable(
-  $: CheerioAPI,
-  rows: ReturnType<ReturnType<CheerioAPI>["find"]>,
-  tableInfo: TableInfo
-): string[] {
+function getHeadersForTable($: any, rows: any, tableInfo: TableInfo): string[] {
   // For continuation tables, use cached headers from structure detection
   if (tableInfo.isContinuation && tableInfo.cachedHeaders) {
     return tableInfo.cachedHeaders;

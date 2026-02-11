@@ -7,9 +7,10 @@
  * 3. Parent stack doesn't leak between tables
  */
 
-import { parseExhibit } from "../../src/parser/subsidiary-parser";
+import { DEFAULT_CONFIG, parseExhibit } from "../../src/parser/subsidiary-parser";
 
 describe("Subsidiary Parent Assignment", () => {
+  const config = { ...DEFAULT_CONFIG, fallbackPolicy: "none" as const };
   // Generate the expected filing company ID from CIK
   const filingCompanyId = "aad81044-1ac5-58a9-b008-7265e5bb2b3b"; // This is deterministic based on CIK 0001234567
   
@@ -42,7 +43,7 @@ describe("Subsidiary Parent Assignment", () => {
         </table>
       `;
 
-      const result = await parseExhibit(html, mockFiling);
+      const result = await parseExhibit(html, mockFiling, config);
 
       expect(result.subsidiaries).toHaveLength(3);
       
@@ -89,7 +90,7 @@ describe("Subsidiary Parent Assignment", () => {
         </table>
       `;
 
-      const result = await parseExhibit(html, mockFiling);
+      const result = await parseExhibit(html, mockFiling, config);
 
       expect(result.subsidiaries).toHaveLength(4);
 
@@ -136,7 +137,7 @@ describe("Subsidiary Parent Assignment", () => {
         </table>
       `;
 
-      const result = await parseExhibit(html, mockFiling);
+      const result = await parseExhibit(html, mockFiling, config);
 
       const level0 = result.subsidiaries.find(s => s.name === "Level Zero Corp.");
       const level1 = result.subsidiaries.find(s => s.name === "Level One LLC");
@@ -187,7 +188,7 @@ describe("Subsidiary Parent Assignment", () => {
         </table>
       `;
 
-      const result = await parseExhibit(html, mockFiling);
+      const result = await parseExhibit(html, mockFiling, config);
 
       expect(result.subsidiaries).toHaveLength(4);
 
@@ -224,7 +225,7 @@ describe("Subsidiary Parent Assignment", () => {
         </table>
       `;
 
-      const result = await parseExhibit(html, mockFiling);
+      const result = await parseExhibit(html, mockFiling, config);
 
       // Even if first sub is indented, it should still be level 0 (no parent to nest under)
       const firstSub = result.subsidiaries[0];
@@ -259,7 +260,7 @@ describe("Subsidiary Parent Assignment", () => {
         </table>
       `;
 
-      const result = await parseExhibit(html, filingWithoutZeros);
+      const result = await parseExhibit(html, filingWithoutZeros, config);
 
       expect(result.subsidiaries).toHaveLength(1);
       

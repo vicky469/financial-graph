@@ -16,7 +16,7 @@
     "job:subsidiary_exhibits": "bun src/jobs/subsidiary_exhibits.ts",
     "job:company_info": "bun src/jobs/company_info_submissions.ts",
     "job:subsidiary_exhibits_download": "bun src/jobs/subsidiary_exhibits_download.ts",
-    "pipeline:parse_subsidiaries": "bun src/pipeline/subsidiary/run.ts"
+    "pipeline:subsidiary": "bun src/pipeline/subsidiary/run.ts"
   },
   "keywords": [],
   "author": "",

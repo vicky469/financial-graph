@@ -38,13 +38,26 @@ export type SubsidiaryPipelineCliArgs = {
   dryRun: boolean;
   sinks: string[];
   fallbackPolicy: SubsidiaryFallbackPolicy;
+  accessions: string[];
 };
+
+function normalizeSinks(sinks: string[]): string[] {
+  const normalized = sinks.map((sink) => sink.trim().toLowerCase()).filter(Boolean);
+  if (normalized.includes("all") || normalized.includes("both")) {
+    return ["db", "excel"];
+  }
+
+  return Array.from(new Set(normalized));
+}
 
 export function parsePipelineArgs(
   args: string[] = process.argv.slice(2),
 ): SubsidiaryPipelineCliArgs {
   const { sp500Only, excludeSp500 } = resolveSp500Flags(args);
   const fallbackPolicy = parseFallbackPolicy(getCliArg(args, "fallback"));
+  const accessions = getCliListArg(args, "accessions");
+
+  console.log(`DEBUG: Parsed accessions from CLI:`, accessions);
 
   return {
     year: getCliIntArg(args, "year"),
@@ -52,7 +65,8 @@ export function parsePipelineArgs(
     sp500Only,
     excludeSp500,
     dryRun: hasCliFlag(args, "dry-run"),
-    sinks: getCliListArg(args, "sink"),
+    sinks: normalizeSinks(getCliListArg(args, "sink")),
     fallbackPolicy: fallbackPolicy ?? "llm",
+    accessions,
   };
 }

@@ -34,7 +34,7 @@ export const ParentOfSource = {
   SPINOFF: 2,
   IPO: 3,
   MANUAL: 4,
-  SEC_FILING: 5,
+  SUBSIDIARY_FILING: 5,
 } as const;
 
 export type ParentOfSourceValue =

@@ -9,8 +9,9 @@
   - Example: `$ bun run job:subsidiary_exhibits -- -2025 --use-cache`
 - Run `$ bun run job:company_info_submissions` to ingest company info from SEC submissions JSON files.
 - Run `$ bun run job:subsidiary_exhibits_download -- -2025` to download EX-21/EX-8 files (requires years).
-- Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=excel --sp500 --dry-run` to run the subsidiaries parsing pipeline.
-- Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=excel --sp500 --fallback=none` to run without LLM fallback.
+- Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --dry-run` to run the subsidiaries parsing pipeline (both DB + Excel sinks).
+- Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --fallback=none` to run without LLM fallback.
+- Run `$ bun src/pipeline/subsidiary/run.ts --year=2025 --accessions=000001961725000270 --sink=db` to rerun specific accession numbers (comma-separated for multiple).
 
 ## Utilities
 

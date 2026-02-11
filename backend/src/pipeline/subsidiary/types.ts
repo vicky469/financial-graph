@@ -1,13 +1,19 @@
+import { z } from "zod";
 import type { QualityAssessment } from "../../validation/types";
 import type { SubsidiaryExhibit } from "../../config/subsidiary-exhibits";
 
 export const SUBSIDIARY_PARSE_STATUS = ["success", "empty", "failed"] as const;
 export type SubsidiaryParseStatus = (typeof SUBSIDIARY_PARSE_STATUS)[number];
 
-export const SUBSIDIARY_PARSE_METHOD = ["heuristic", "llm-fallback"] as const;
+export const SUBSIDIARY_PARSE_METHOD = ["table", "text", "unknown"] as const;
 export type SubsidiaryParseMethod = (typeof SUBSIDIARY_PARSE_METHOD)[number];
 
 export type SubsidiaryFallbackPolicy = "llm" | "none";
+
+const hasLetters = (value: string) => /[A-Za-z]/.test(value);
+const looksLikeDate = (value: string) =>
+  /^\s*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\s*$/.test(value) ||
+  /^\s*\d{4}-\d{2}-\d{2}\s*$/.test(value);
 
 export interface ParseTelemetry {
   timingsMs?: {
@@ -20,6 +26,8 @@ export interface ParseTelemetry {
     total: number;
     valid: number;
     overallValid: boolean;
+    expectedCount?: number;
+    coverage?: number;
   };
   fallback?: {
     policy: SubsidiaryFallbackPolicy;
@@ -42,6 +50,35 @@ export interface SubsidiaryRecord {
   isNested: boolean;
 }
 
+export const SubsidiaryRecordSchema = z.object({
+  id: z.string().min(1),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Company name is too short")
+    .refine(hasLetters, "Company name must include letters"),
+  jurisdiction: z
+    .string()
+    .trim()
+    .min(2, "Jurisdiction is too short")
+    .refine(hasLetters, "Jurisdiction must include letters")
+    .refine((value) => !looksLikeDate(value), "Jurisdiction looks like a date"),
+  nestingLevel: z.number().int().min(0),
+  parentName: z.string().trim().optional(),
+  parentId: z.string().optional(),
+  ownership: z.number().min(0).max(100).optional(),
+  footnoteRefs: z.array(z.string()),
+  indentationSpaces: z.number().int().min(0),
+  isNested: z.boolean(),
+});
+
+export const SubsidiaryDataSchema = SubsidiaryRecordSchema.pick({
+  name: true,
+  jurisdiction: true,
+});
+
+export type SubsidiaryData = z.infer<typeof SubsidiaryDataSchema>;
+
 export interface LLMModification {
   subsidiaryId: string;
   fieldChanges: {
@@ -54,9 +91,12 @@ export interface LLMModification {
 export interface SubsidiaryParseResult {
   subsidiaries: SubsidiaryRecord[];
   method: SubsidiaryParseMethod;
+  llmApplied?: boolean;
+  llmModified?: boolean;
   status: SubsidiaryParseStatus; // success=found data, empty=no subsidiaries found, failed=error occurred
   classification: string; // Document classification (text-based, single-table, multi-table, etc.)
   tableCount: number;
+  expectedRowCount?: number;
   maxNestingLevel: number;
   footnotesHtml: string; // Raw HTML of footnote sections
   llmModifications?: LLMModification[]; // Modifications made by LLM (if enrichment was used)
@@ -121,6 +161,7 @@ export type SubsidiarySink = {
 };
 
 export type SubsidiaryPipelineOptions = {
+  accessions?: string[];
   year: number;
   limit?: number;
   sp500Only?: boolean;

@@ -87,6 +87,8 @@ export function parseJurisdictionCell(text: string): ParsedJurisdictionCell {
     .replace(/\s+/g, " ")
     .trim();
 
+  jurisdiction_raw = stripLeadingSymbols(jurisdiction_raw);
+
   // If what's left is just a number, clear it
   // This likely means an ownership value shifted into jurisdiction column
   if (/^[\d.]+$/.test(jurisdiction_raw)) {
@@ -110,4 +112,8 @@ function cleanSubsidiaryName(name: string): string {
     .replace(/[—\-]+\s*/g, "") // Remove bullets and dashes
     .replace(/\s+/g, " ") // Normalize whitespace
     .trim();
+}
+
+function stripLeadingSymbols(value: string): string {
+  return value.replace(/^[\s\-–—•●▪■·\u2022\u25cf\u25aa\u25a0]+/g, "").trim();
 }

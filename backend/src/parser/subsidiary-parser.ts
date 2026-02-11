@@ -1,16 +1,8 @@
 /**
- * Subsidiary Parser - Backward Compatibility Re-export
- * 
- * This file maintains backward compatibility for code that imports from
- * the old monolithic subsidiary-parser.ts file.
- * 
- * New code should import directly from:
- * - src/parsers/subsidiary/index.ts (main parser)
- * - src/parsers/subsidiary/types.ts (type definitions)
+ * Subsidiary Parser - Public Re-export
  */
 
-// Re-export main parser functions
-export { parseExhibit, parseExhibitRefactored } from "./subsidiary/index";
+export { parseExhibit } from "./subsidiary/index";
 
 // Re-export types
 export type {
@@ -21,7 +13,7 @@ export type {
   ParsedColumns,
 } from "./subsidiary/types";
 
-// Re-export refactored types
+// Re-export parser types
 export type {
   ParserConfig,
   DocumentStructure,

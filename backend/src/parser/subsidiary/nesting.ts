@@ -95,11 +95,11 @@ export function analyzeIndentation(
   if (nbspCount > 0) {
     spaces = nbspCount; // Each &nbsp; = 1 unit of indentation
   } else if (paddingLeftPt > 0) {
-    // CSS padding-left in pt: ~12pt per indent level is common
-    // Use 10pt as threshold to be safe
-    spaces = Math.floor(paddingLeftPt / 10);
+    // Return the raw padding value in points
+    // We'll map unique values to levels dynamically in determineNestingLevel
+    spaces = paddingLeftPt;
   } else if (marginMatch) {
-    spaces = Math.floor(parseFloat(marginMatch[1]) / 10);
+    spaces = parseFloat(marginMatch[1]);
   } else if (leadingSpaces > 0) {
     spaces = leadingSpaces;
   }
@@ -112,6 +112,9 @@ export function analyzeIndentation(
 
 /**
  * Determine nesting level based on indentation relative to previous rows
+ * 
+ * Uses a dynamic approach: collects all unique indentation values and maps them to levels.
+ * This handles varying indentation schemes (e.g., 7.75pt, 30.25pt, 43.75pt).
  */
 export function determineNestingLevel(
   indentInfo: IndentationInfo,
@@ -119,15 +122,22 @@ export function determineNestingLevel(
 ): number {
   if (!indentInfo.hasIndentation) return 0;
 
-  // Find most recent subsidiary with less indentation
-  for (let i = existingSubsidiaries.length - 1; i >= 0; i--) {
-    const existing = existingSubsidiaries[i];
-    if (existing.indentationSpaces < indentInfo.spaces) {
-      return existing.nestingLevel + 1;
+  // Collect all unique indentation values we've seen so far
+  const uniqueIndents = new Set<number>();
+  for (const sub of existingSubsidiaries) {
+    if (sub.indentationSpaces > 0) {
+      uniqueIndents.add(sub.indentationSpaces);
     }
   }
+  uniqueIndents.add(indentInfo.spaces);
 
-  return 1;
+  // Sort to establish hierarchy order
+  const sortedIndents = Array.from(uniqueIndents).sort((a, b) => a - b);
+
+  // Find the level for current indentation
+  const level = sortedIndents.indexOf(indentInfo.spaces) + 1;
+
+  return level;
 }
 
 /**

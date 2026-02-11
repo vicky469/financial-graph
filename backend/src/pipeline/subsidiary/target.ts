@@ -1,67 +1,65 @@
 /**
- * Subsidiary parsing pipeline for cached SEC exhibits.
- *
- * Handles decompression, parsing, fallback policy, and safe error handling.
+ * Per-target execution: decompress cached HTML and run the parser.
  */
 
 import fs from "node:fs/promises";
 import { gunzip } from "node:zlib";
 import { promisify } from "node:util";
 import { createLogger } from "../../utils/logger";
+import { parseExhibit, DEFAULT_CONFIG } from "../../parser/subsidiary";
+import { buildFailedParseResult } from "./util";
 import type {
   ValidatedFiling,
   SECFilingTarget,
-  ParseResult,
-} from "../../jobs/parse_subsidiaries/types";
-import type { SubsidiaryFallbackPolicy } from "./types";
-import { parseFiling } from "./parse";
+  SubsidiaryFallbackPolicy,
+} from "./types";
 
-const logger = createLogger("pipeline/subsidiary");
+const logger = createLogger("pipeline/subsidiary/target");
 const gunzipAsync = promisify(gunzip);
 
-async function decompressHtml(cachePath: string): Promise<string> {
+async function decompressContent(cachePath: string): Promise<Buffer> {
   const compressedData = await fs.readFile(cachePath);
   const decompressed = await gunzipAsync(compressedData);
-  return decompressed.toString("utf-8");
-}
-
-function buildFailedParseResult(errorMessage: string): ParseResult {
-  return {
-    subsidiaries: [],
-    method: "heuristic",
-    status: "failed",
-    classification: "failed",
-    tableCount: 0,
-    maxNestingLevel: 0,
-    footnotesHtml: "",
-    errorMessage,
-  };
+  return decompressed;
 }
 
 export async function parseSubsidiaryTarget(
   target: SECFilingTarget,
   options: { fallbackPolicy?: SubsidiaryFallbackPolicy } = {},
 ): Promise<ValidatedFiling> {
-  const html = await decompressHtml(target.cachePath);
-  const parsed = await parseFiling({ ...target, html }, options);
-  const isSuccessful = parsed.parseResult.status !== "failed";
-
-  return {
-    ...parsed,
-    valid: isSuccessful,
-    issues: isSuccessful ? [] : [parsed.parseResult.errorMessage || "Parse failed"],
-  };
-}
-
-export async function parseSubsidiaryTargetSafe(
-  target: SECFilingTarget,
-  options: { fallbackPolicy?: SubsidiaryFallbackPolicy } = {},
-): Promise<ValidatedFiling> {
   try {
-    return await parseSubsidiaryTarget(target, options);
+    const contentBuffer = await decompressContent(target.cachePath);
+    const fallbackPolicy = options.fallbackPolicy ?? "llm";
+
+    // Check if it's a PDF or HTML
+    const header = contentBuffer.slice(0, 5).toString('utf-8');
+    const isPDF = header.startsWith('%PDF-');
+    
+    // Convert to string only for HTML, keep as buffer for PDF
+    const content = isPDF ? contentBuffer.toString('latin1') : contentBuffer.toString('utf-8');
+
+    const parseResult = await parseExhibit(
+      content,
+      {
+        accession_number: target.accessionNumberNoDashes,
+        cik: target.cik,
+        filingCompanyId: target.companyId,
+        filingCompanyName: target.companyName,
+      },
+      { ...DEFAULT_CONFIG, fallbackPolicy },
+    );
+
+    const isSuccessful = parseResult.status !== "failed";
+
+    return {
+      ...target,
+      parseResult,
+      valid: isSuccessful,
+      issues: isSuccessful ? [] : [parseResult.errorMessage || "Parse failed"],
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error(`Process step failed for ${target.accessionNumberNoDashes}:`, {
+    logger.error(`Parse failed for ${target.accessionNumberNoDashes}:`, {
       error: message,
     });
 

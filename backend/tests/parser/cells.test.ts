@@ -87,5 +87,13 @@ describe("Cell Parsing", () => {
       const result = parseJurisdictionCell("New York 100%");
       expect(result.jurisdiction_raw).toBe("New York");
     });
+
+    it("should trim leading bullets and dashes", () => {
+      const result = parseJurisdictionCell("● Westwind School of Aeronautics, Phoenix, LLC");
+      expect(result.jurisdiction_raw).toBe("Westwind School of Aeronautics, Phoenix, LLC");
+
+      const dashed = parseJurisdictionCell("- Delaware");
+      expect(dashed.jurisdiction_raw).toBe("Delaware");
+    });
   });
 });

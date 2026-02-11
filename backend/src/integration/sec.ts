@@ -6,16 +6,32 @@ const SEC_REQUEST_DELAY_MS = 200;
 
 const logger = createLogger("integration/sec");
 
-type AcceptType = "json" | "text" | "html";
+export enum SecFetchMode {
+  JSON = "json",
+  TEXT = "text",
+  HTML = "html",
+  PDF = "pdf",
+  HTM = "htm",
+}
 
-function buildSecHeaders(accept?: AcceptType): Headers {
+type SecTextMode = Exclude<SecFetchMode, SecFetchMode.JSON | SecFetchMode.PDF>;
+export type SecFetchResult<T, M extends SecFetchMode> = M extends SecFetchMode.PDF
+  ? Buffer
+  : M extends SecFetchMode.JSON
+    ? T
+    : string;
+
+function buildSecHeaders(mode: SecFetchMode = SecFetchMode.TEXT): Headers {
   let acceptHeader: string;
-  switch (accept) {
-    case "json":
+  switch (mode) {
+    case SecFetchMode.JSON:
       acceptHeader = "application/json";
       break;
+    case SecFetchMode.PDF:
+      acceptHeader = "application/pdf";
+      break;
     default:
-      // For plain text/htm we accept anything; SEC often returns text/html
+      // For plain text/htm we accept anything; SEC often returns text/html.
       acceptHeader = "*/*";
       break;
   }
@@ -40,36 +56,58 @@ export class SecFetchError extends Error {
   }
 }
 
-export async function fetchSecJSON<T>(url: string): Promise<T> {
-  const headers = buildSecHeaders("json");
-  const response = await fetch(url, { headers });
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(
-      `SEC fetch failed: ${response.status} ${response.statusText} | ${body.slice(
-        0,
-        200,
-      )}`,
-    );
+async function parseSecResponse<T, M extends SecFetchMode>(
+  response: Response,
+  mode: M,
+): Promise<SecFetchResult<T, M>> {
+  switch (mode) {
+    case SecFetchMode.PDF: {
+      const arrayBuffer = await response.arrayBuffer();
+      return Buffer.from(arrayBuffer) as SecFetchResult<T, M>;
+    }
+    case SecFetchMode.JSON: {
+      const raw = await response.text();
+      try {
+        return JSON.parse(raw) as SecFetchResult<T, M>;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`SEC JSON parse failed: ${message} | ${raw.slice(0, 200)}`);
+      }
+    }
+    default:
+      return (await response.text()) as SecFetchResult<T, M>;
   }
-
-  return (await response.json()) as T;
 }
 
-async function fetchSecPage(url: string): Promise<Response> {
-  const headers = buildSecHeaders();
-  return fetch(url, { headers });
+function normalizeMode(mode: SecFetchMode): SecFetchMode {
+  return mode === SecFetchMode.HTM ? SecFetchMode.HTML : mode;
 }
 
-export async function fetchSecPageWithRetry(url: string): Promise<string> {
+export async function fetchSecPageWithRetry<
+  T = string,
+  M extends SecFetchMode = SecFetchMode.TEXT,
+>(
+  url: string,
+  mode: M = SecFetchMode.TEXT as M,
+): Promise<SecFetchResult<T, M>> {
+  const resolvedMode = normalizeMode(mode);
+  const requestMode =
+    resolvedMode === SecFetchMode.JSON || resolvedMode === SecFetchMode.PDF
+      ? resolvedMode
+      : (SecFetchMode.TEXT as SecTextMode);
+  const headers = buildSecHeaders(requestMode);
+
   for (let attempt = 0; attempt < SEC_REQUEST_MAX_RETRIES; attempt++) {
     await new Promise((r) => setTimeout(r, SEC_REQUEST_DELAY_MS));
     try {
-      const response = await fetchSecPage(url);
+      const response = await fetch(url, { headers });
 
       if (response.ok) {
-        return await response.text();
+        return await parseSecResponse<T, M>(response, resolvedMode as M);
       }
 
       const body = await response.text();
@@ -79,7 +117,7 @@ export async function fetchSecPageWithRetry(url: string): Promise<string> {
         statusText: response.statusText,
       });
 
-      const retryable = response.status === 429 || response.status >= 500;
+      const retryable = isRetryableStatus(response.status);
       if (!retryable || attempt === SEC_REQUEST_MAX_RETRIES - 1) {
         throw new SecFetchError(
           response.status,
@@ -88,8 +126,14 @@ export async function fetchSecPageWithRetry(url: string): Promise<string> {
         );
       }
     } catch (err) {
-      // Network or other fetch error
-      if (attempt === SEC_REQUEST_MAX_RETRIES - 1) throw err;
+      if (err instanceof SecFetchError) {
+        const retryable = isRetryableStatus(err.status);
+        if (!retryable || attempt === SEC_REQUEST_MAX_RETRIES - 1) {
+          throw err;
+        }
+      } else if (attempt === SEC_REQUEST_MAX_RETRIES - 1) {
+        throw err;
+      }
     }
 
     const backoff =

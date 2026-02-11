@@ -1,9 +1,13 @@
 /**
  * Subsidiary Data Validator
- * 
+ *
  * Abstracted validation logic for subsidiary records that can be used
  * both in CSV validation and in-memory pipeline validation.
  */
+
+import type { SubsidiaryData } from "../pipeline/subsidiary/types";
+import { SubsidiaryDataSchema } from "../pipeline/subsidiary/types";
+import { isPossibleHeaderRowText } from "../parser/subsidiary/table-detection";
 
 export interface ValidationResult {
   isValid: boolean;
@@ -13,10 +17,7 @@ export interface ValidationResult {
   needsReview: boolean;
 }
 
-export interface SubsidiaryData {
-  name: string;
-  jurisdiction: string;
-}
+export type { SubsidiaryData };
 
 /**
  * Validates a single subsidiary record using rule-based validation
@@ -26,12 +27,24 @@ export function validateSubsidiary(subsidiary: SubsidiaryData): ValidationResult
   const issueTypes: string[] = [];
   let qualityScore = 100;
 
+  const schemaResult = SubsidiaryDataSchema.safeParse({
+    name: subsidiary.name,
+    jurisdiction: subsidiary.jurisdiction,
+  });
+
+  if (!schemaResult.success) {
+    schemaResult.error.issues.forEach((issue) => {
+      issues.push(issue.message);
+      issueTypes.push("CRITICAL:schema");
+    });
+    qualityScore -= 50;
+  }
+
   // Check for header rows that got mixed into the data
-  const isHeaderRow = 
-    subsidiary.jurisdiction.toLowerCase().includes('jurisdiction of incorporation') ||
-    subsidiary.jurisdiction.toLowerCase().includes('jurisdiction of organization') ||
-    subsidiary.jurisdiction.toLowerCase().includes('state of incorporation') ||
-    subsidiary.jurisdiction.toLowerCase().includes('country of incorporation');
+  const isHeaderRow = isPossibleHeaderRowText(
+    subsidiary.name,
+    subsidiary.jurisdiction,
+  );
     
   if (isHeaderRow) {
     issues.push("Header row detected in data - should be filtered during data processing");
@@ -153,4 +166,26 @@ export function validateSubsidiaries(subsidiaries: SubsidiaryData[]): {
     invalidCount,
     results
   };
+}
+
+export function filterValidSubsidiaries<T extends SubsidiaryData>(
+  subsidiaries: T[],
+): {
+  validSubsidiaries: T[];
+  invalidSubsidiaries: T[];
+  results: ValidationResult[];
+} {
+  const results = subsidiaries.map(validateSubsidiary);
+  const validSubsidiaries: T[] = [];
+  const invalidSubsidiaries: T[] = [];
+
+  subsidiaries.forEach((subsidiary, index) => {
+    if (results[index].isValid) {
+      validSubsidiaries.push(subsidiary);
+    } else {
+      invalidSubsidiaries.push(subsidiary);
+    }
+  });
+
+  return { validSubsidiaries, invalidSubsidiaries, results };
 }

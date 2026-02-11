@@ -4,7 +4,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { INDEX_DIR } from "../config/config";
-import { fetchSecJSON } from "../integration/sec";
+import { fetchSecPageWithRetry, SecFetchMode } from "../integration/sec";
 import { createLogger } from "../utils/logger";
 import { db } from "../db/client";
 import { writeJsonWithMeta } from "../utils/fs";
@@ -50,7 +50,10 @@ interface AggregatedCompany {
 export async function get(): Promise<TickerData> {
   logger.info(`Fetching tickers from ${TICKERS_URL}...`);
 
-  const data = await fetchSecJSON<TickerData>(TICKERS_URL);
+  const data = await fetchSecPageWithRetry<TickerData, SecFetchMode.JSON>(
+    TICKERS_URL,
+    SecFetchMode.JSON,
+  );
   const rows = Array.isArray(data?.data) ? data.data : [];
   logger.info(
     `Successfully fetched ${rows.length.toLocaleString()} companies.`,
