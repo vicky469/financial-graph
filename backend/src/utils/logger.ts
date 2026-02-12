@@ -81,7 +81,7 @@ const dailyTransport = new winston.transports.DailyRotateFile({
   dirname: LOG_DIR,
   datePattern: "YYYY-MM-DD",
   maxSize: "20m",
-  maxFiles: "3d", // Retention: 3 days (automatically deletes older files)
+  maxFiles: "7d", // Retention: 7 days (automatically deletes older files)
   format: fileFormat,
   auditFile: path.join(LOG_DIR, ".winston-audit.json"), // Track rotation metadata
 });
@@ -91,7 +91,7 @@ function cleanupOldLogs() {
   try {
     const files = fs.readdirSync(LOG_DIR);
     const now = new Date();
-    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     
     for (const file of files) {
       // Skip current files and directories
@@ -106,7 +106,7 @@ function cleanupOldLogs() {
       const stats = fs.statSync(filePath);
       
       // Delete old log files
-      if (stats.isFile() && stats.mtime < threeDaysAgo) {
+      if (stats.isFile() && stats.mtime < sevenDaysAgo) {
         fs.unlinkSync(filePath);
         console.log(`   - Cleaned up old log: ${file}`);
       }
@@ -172,5 +172,5 @@ dailyTransport.on("rotate", (oldFilename, newFilename) => {
 // Verify log directory and retention settings
 console.log(`📝 Logger initialized:`);
 console.log(`   - Log directory: ${LOG_DIR}`);
-console.log(`   - Retention: 3 days`);
+console.log(`   - Retention: 7 days`);
 console.log(`   - Latest log: ${LATEST_LOG_PATH}`);
