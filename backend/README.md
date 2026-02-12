@@ -3,15 +3,21 @@
 - Run `$ bun run job:tickers` to load tickers into the DB.
 - Run `$ bun run job:mark-sp500` to flag S&P 500 companies.
 - Run `$ bun run job:registrant -- -2025` to fetch SEC registrant index (requires years).
-- Run `$ bun run job:subsidiary_filings -- -2025` to fetch subsidiary filings (requires years).
-- Run `$ bun run job:subsidiary_exhibits -- -2025` to extract EX-21/EX-8 URLs and period_of_report from filing TXT (requires years).
-  - Add `--use-cache` to reuse cached filing text files instead of re-downloading (default: fresh download).
-  - Example: `$ bun run job:subsidiary_exhibits -- -2025 --use-cache`
+- Run `$ bun run job:subsidiary_filings_metadata -- -2025` to load subsidiary-relevant filing metadata (10-K/20-F family) from SEC registrant index JSON files into the DB (requires years).
+- Run `$ bun run job:subsidiary_filings -- -2025` to fetch subsidiary filings and extract EX-21/EX-8 URLs and period_of_report from filing TXT (requires years).
+  - Add `--use-cache` to reuse cached filing text files instead of re-downloading (default: fresh download). 
+  Example: `$ bun run job:subsidiary_filings -- -2025 --use-cache`
+  - Add `--skip-processing` to download filing TXT but skip parsing and DB updates.
+  Example: `$ bun run job:subsidiary_filings -- -2025 --skip-processing`
 - Run `$ bun run job:company_info_submissions` to ingest company info from SEC submissions JSON files.
-- Run `$ bun run job:subsidiary_exhibits_download -- -2025` to download EX-21/EX-8 files (requires years).
+- Run `$ bun run job:subsidiary_exhibits_download -- -2025` to download EX-21/EX-8 exhibit files (requires years).
 - Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --dry-run` to run the subsidiaries parsing pipeline (both DB + Excel sinks).
-- Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --fallback=none` to run without LLM fallback.
-- Run `$ bun src/pipeline/subsidiary/run.ts --year=2025 --accessions=000001961725000270 --sink=db` to rerun specific accession numbers (comma-separated for multiple).
+  - Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --fallback=none` to run without LLM fallback.
+  - Run `$ bun src/pipeline/subsidiary/run.ts --year=2025 --accessions="000001961725000270" --sink=db` to rerun specific accession numbers (comma-separated for multiple).
+- Run `$ bun run src/jobs/filings_download_htm_gz.ts -- -2025 10-K 20-F` to download primary HTM files from cached filing text (requires year and form types).
+  - Reads from `filing_text/{year}/{formType}/` cache
+  - Extracts primary HTM filename (SEQUENCE=1) from filing text
+  - Downloads and compresses to `output/data/filings_htm/{year}/{formType}/{cik}_{accession}_{filename}.gz`
 
 ## Utilities
 

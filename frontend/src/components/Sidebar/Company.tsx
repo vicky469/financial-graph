@@ -194,7 +194,7 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                     <TableHead style={{...tableHeadStyle, width: "20%"}}>Filing</TableHead>
                     <TableHead style={{...tableHeadStyle, width: "20%"}}>Period</TableHead>
                     <TableHead style={{...tableHeadStyle, width: "15%"}}>Type</TableHead>
-                    <TableHead style={{...tableHeadStyle, width: "15%"}}>Link</TableHead>
+                    <TableHead style={{...tableHeadStyle, width: "15%"}}>Index</TableHead>
                     <TableHead style={{...tableHeadStyle, width: "30%"}}>Attachments</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -222,19 +222,49 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                           )}
                         </TableCell>
                         <TableCell style={tableCellStyle}>
-                          <span
-                            style={{
-                              fontSize: "11px",
-                              fontWeight: 600,
-                              color: "rgba(255,255,255,0.8)",
-                              background: "rgba(99, 102, 241, 0.15)",
-                              padding: "3px 6px",
-                              borderRadius: "3px",
-                              display: "inline-block",
-                            }}
-                          >
-                            {filing.formType}
-                          </span>
+                          {filing.filingUrl ? (
+                            <a
+                              href={filing.filingUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                fontSize: "11px",
+                                fontWeight: 600,
+                                color: "rgba(255,255,255,0.8)",
+                                background: "rgba(99, 102, 241, 0.15)",
+                                padding: "3px 6px",
+                                borderRadius: "3px",
+                                display: "inline-block",
+                                textDecoration: "none",
+                                transition: "all 0.15s ease",
+                                cursor: "pointer",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "rgba(99, 102, 241, 0.25)";
+                                e.currentTarget.style.color = "rgba(255,255,255,0.95)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "rgba(99, 102, 241, 0.15)";
+                                e.currentTarget.style.color = "rgba(255,255,255,0.8)";
+                              }}
+                            >
+                              {filing.formType}
+                            </a>
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                fontWeight: 600,
+                                color: "rgba(255,255,255,0.8)",
+                                background: "rgba(99, 102, 241, 0.15)",
+                                padding: "3px 6px",
+                                borderRadius: "3px",
+                                display: "inline-block",
+                              }}
+                            >
+                              {filing.formType}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell style={tableCellStyle}>
                           <FilingLink url={filing.fileUrl} />

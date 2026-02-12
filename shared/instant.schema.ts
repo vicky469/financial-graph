@@ -31,6 +31,7 @@ const _schema = i.schema({
       accession_number: i.string().unique(),
       accession_number_nodashes: i.string().unique().indexed(),
       file_url: i.string(),
+      filingUrl: i.string().optional(), // Primary filing HTML URL resolved from filing text
       form_type: i.string().indexed(),
       source_quarter: i.number().indexed(), // When filed: 1-4
       source_year: i.number().indexed(), // When filed: e.g., 2025

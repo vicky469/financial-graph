@@ -1,12 +1,8 @@
-// Job: Extract EX-21/EX-8 exhibit URLs and period_of_report from filing text.
+// Job: Download filing forms and extract EX-21/EX-8 exhibit URLs and period_of_report.
 // Steps:
 // 1) Fetch candidate filings (by form prefix + year).
-// 2) Download TXT bodies (low concurrency for SEC) and store under cache dir.
+// 2) Download TXT bodies (low concurrency for SEC) and store under filing_text dir.
 // 3) Read TXT from disk, parse exhibits + period_of_report; batch update attachments in DB.
-//
-// CLI:
-//   bun run src/jobs/subsidiary_exhibits.ts -- -2025
-//     - always downloads fresh filing TXT and overwrites cache directory
 
 import { db } from "../db/client";
 import { createLogger } from "../utils/logger";
@@ -20,7 +16,7 @@ import {
   type SubsidiaryExhibit,
 } from "../config/subsidiary-exhibits";
 
-const logger = createLogger("jobs/subsidiary_exhibits");
+const logger = createLogger("jobs/subsidiary_filings");
 
 type FilingRow = {
   id: string;
@@ -68,11 +64,17 @@ function getCachePath(filing: FilingRow, exhibitPrefix: string): string {
       `Missing source_year for filing ${filing.accession_number_nodashes}; cannot cache`,
     );
   }
+  
+  // Extract CIK from file_url
+  // URL format: https://www.sec.gov/Archives/edgar/data/{cik}/{accession_number_nodashes}/{filename}
+  const cik = filing.file_url.split("/").slice(-2, -1)[0];
+  
+  const formType = EXHIBIT_FORM_PREFIX[exhibitPrefix as SubsidiaryExhibit];
   return path.join(
     CACHE_ROOT,
     String(filing.source_year),
-    exhibitPrefix,
-    `${filing.accession_number_nodashes}.txt`,
+    formType,
+    `${cik}_${filing.accession_number_nodashes}.txt`,
   );
 }
 
@@ -142,7 +144,8 @@ async function clearCacheDir(
   year: number,
   exhibitPrefix: string,
 ): Promise<string> {
-  const dir = path.join(CACHE_ROOT, String(year), exhibitPrefix);
+  const formType = EXHIBIT_FORM_PREFIX[exhibitPrefix as SubsidiaryExhibit];
+  const dir = path.join(CACHE_ROOT, String(year), formType);
   await fs.rm(dir, { recursive: true, force: true });
   await fs.mkdir(dir, { recursive: true });
   return dir;
@@ -265,8 +268,9 @@ async function main() {
   try {
     const args = process.argv.slice(2);
     const useCache = hasCliFlag(args, "use-cache");
+    const skipProcessing = hasCliFlag(args, "skip-processing");
     const years = parseCliYears(args);
-    logger.info("CLI parsed", { years, useCache });
+    logger.info("CLI parsed", { years, useCache, skipProcessing });
 
     for (const year of years) {
       for (const rule of EXHIBIT_RULES) {
@@ -288,18 +292,26 @@ async function main() {
             exhibitPrefix: rule.exhibitPrefix,
           });
         }
-        const { updated, failed } = await processFilings(
-          candidates,
-          rule.exhibitPrefix,
-        );
-        logger.info("Exhibit job finished", {
-          year,
-          formPrefix: rule.formPrefix,
-          exhibitPrefix: rule.exhibitPrefix,
-          updated,
-          failed,
-          candidates: candidates.length,
-        });
+        
+        if (skipProcessing) {
+          logger.info("Skipping processing (--skip-processing flag set)", {
+            year,
+            exhibitPrefix: rule.exhibitPrefix,
+          });
+        } else {
+          const { updated, failed } = await processFilings(
+            candidates,
+            rule.exhibitPrefix,
+          );
+          logger.info("Exhibit job finished", {
+            year,
+            formPrefix: rule.formPrefix,
+            exhibitPrefix: rule.exhibitPrefix,
+            updated,
+            failed,
+            candidates: candidates.length,
+          });
+        }
       }
     }
   } catch (error) {

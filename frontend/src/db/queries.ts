@@ -327,6 +327,7 @@ export const useCompanyFilings = (companyId: string | null) => {
         filingDate: f.filing_date,
         periodOfReport: f.period_of_report,
         fileUrl: f.file_url,
+        filingUrl: f.filingUrl,
         attachments: attachments || {},
       };
     })
