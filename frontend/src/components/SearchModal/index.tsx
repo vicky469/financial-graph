@@ -14,7 +14,6 @@ type SearchType = "accession" | "company";
 interface SelectedCompany {
   id: string;
   name: string;
-  ticker?: string;
 }
 
 export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProps) {
@@ -38,8 +37,10 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
     return allCompanies
       .filter((c) => {
         const name = c.name.toLowerCase();
-        const ticker = c.ticker?.toLowerCase() ?? "";
-        return name.includes(query) || ticker.includes(query);
+        const hasTickerMatch = c.tickers.some((ticker) =>
+          ticker.toLowerCase().includes(query),
+        );
+        return name.includes(query) || hasTickerMatch;
       })
       .slice(0, 8); // Limit to 8 results
   }, [allCompanies, companySearch, searchType]);
@@ -193,7 +194,7 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
         e.preventDefault();
         const company = filteredCompanies[highlightedIndex];
         if (company) {
-          handleSelectCompany({ id: company.id, name: company.name, ticker: company.ticker });
+          handleSelectCompany({ id: company.id, name: company.name });
         }
         return;
       }
@@ -377,7 +378,9 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
               {filteredCompanies.map((company, index) => (
                 <button
                   key={company.id}
-                  onClick={() => handleSelectCompany({ id: company.id, name: company.name, ticker: company.ticker })}
+                  onClick={() =>
+                    handleSelectCompany({ id: company.id, name: company.name })
+                  }
                   style={{
                     width: "100%",
                     display: "flex",
@@ -413,7 +416,7 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
                   >
                     {company.name}
                   </span>
-                  {company.ticker && (
+                  {company.tickers[0] && (
                     <span
                       style={{
                         fontSize: "11px",
@@ -421,7 +424,7 @@ export function SearchModal({ isOpen, onClose, onSearchFiling }: SearchModalProp
                         fontFamily: "monospace",
                       }}
                     >
-                      {company.ticker}
+                      {company.tickers[0]}
                     </span>
                   )}
                 </button>

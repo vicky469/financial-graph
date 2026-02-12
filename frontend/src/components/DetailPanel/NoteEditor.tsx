@@ -75,7 +75,9 @@ export function NoteEditor({
   const filteredCompanies = mentionQuery.trim()
     ? companies.filter(c => 
         c.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
-        (c.ticker && c.ticker.toLowerCase().includes(mentionQuery.toLowerCase()))
+        c.tickers.some((ticker) =>
+          ticker.toLowerCase().includes(mentionQuery.toLowerCase()),
+        )
       ).slice(0, 10) // Limit to 10 results
     : [];
 
@@ -713,9 +715,9 @@ export function NoteEditor({
               <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
                 {company.name}
               </div>
-              {company.ticker && (
+              {company.tickers.length > 0 && (
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
-                  {company.ticker}
+                  {company.tickers.join(', ')}
                 </div>
               )}
             </div>

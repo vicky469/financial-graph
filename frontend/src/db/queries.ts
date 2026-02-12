@@ -5,18 +5,56 @@ import { db } from "./client";
 import { companyToDetail } from "./adapters";
 import { CompanyType, type Company } from "financial-graph-shared";
 
-const CACHE_KEY = "companies_cache";
+const CACHE_KEY = "companies_cache_v2";
 
 type CompanyListItem = {
   id: string;
   name: string;
   type: "Company";
-  ticker: string | null;
+  tickers: string[];
   cik: string | null;
   sp500: boolean;
   category: string | null;
   ownerOrg: string | null;
   entityType: string | null;
+};
+
+const parseTickers = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .map((ticker) => String(ticker).trim())
+      .filter((ticker) => ticker.length > 0);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((ticker) => ticker.trim())
+      .filter((ticker) => ticker.length > 0);
+  }
+
+  return [];
+};
+
+const normalizeCompanyListItem = (raw: unknown): CompanyListItem | null => {
+  if (!raw || typeof raw !== "object") return null;
+
+  const record = raw as Record<string, unknown>;
+  const id = typeof record.id === "string" ? record.id : "";
+  const name = typeof record.name === "string" ? record.name : "";
+  if (!id || !name) return null;
+
+  return {
+    id,
+    name,
+    type: "Company",
+    tickers: parseTickers(record.tickers),
+    cik: typeof record.cik === "string" ? record.cik : null,
+    sp500: record.sp500 === true,
+    category: typeof record.category === "string" ? record.category : null,
+    ownerOrg: typeof record.ownerOrg === "string" ? record.ownerOrg : null,
+    entityType: typeof record.entityType === "string" ? record.entityType : null,
+  };
 };
 
 // Module-level state
@@ -28,7 +66,12 @@ const getCachedCompanies = (): CompanyListItem[] => {
   if (cachedCompanies !== null) return cachedCompanies;
   try {
     const cached = localStorage.getItem(CACHE_KEY);
-    cachedCompanies = cached ? JSON.parse(cached) : [];
+    const parsed = cached ? JSON.parse(cached) : [];
+    cachedCompanies = Array.isArray(parsed)
+      ? parsed
+          .map((item) => normalizeCompanyListItem(item))
+          .filter((item): item is CompanyListItem => item !== null)
+      : [];
     console.log(`[companies] Loaded ${cachedCompanies!.length} from cache`);
     return cachedCompanies!;
   } catch {
@@ -74,7 +117,7 @@ export const useAllCompanies = () => {
         id: c.id,
         name: c.name,
         type: "Company" as const,
-        ticker: c.identity?.tickers?.split(",")[0]?.trim() ?? null,
+        tickers: parseTickers(c.identity?.tickers),
         cik: c.identity?.primaryCIK ?? null,
         sp500: c.identity?.sp500 === true,
         category: c.identity?.category ?? null,

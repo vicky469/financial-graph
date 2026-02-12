@@ -66,8 +66,10 @@ export const CompanyList = memo(function CompanyList({
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((c) => {
         const name = c.name.toLowerCase();
-        const ticker = c.ticker?.toLowerCase() ?? "";
-        return name.includes(query) || ticker.includes(query);
+        const hasTickerMatch = c.tickers.some((ticker) =>
+          ticker.toLowerCase().includes(query),
+        );
+        return name.includes(query) || hasTickerMatch;
       });
     }
 
