@@ -265,9 +265,14 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
             letterSpacing: "0.05em",
           }}
         >
-          {selectedJurisdiction
-            ? `Companies in ${selectedJurisdiction}`
-            : "Subsidiaries by Jurisdiction"}
+          {selectedJurisdiction ? (
+            <>
+              <span style={{ color: "rgba(255,255,255,0.3)" }}>Companies in </span>
+              <span style={{ color: "rgba(255,255,255,0.75)" }}>{selectedJurisdiction}</span>
+            </>
+          ) : (
+            "Subsidiaries by Jurisdiction"
+          )}
         </h2>
       </div>
 

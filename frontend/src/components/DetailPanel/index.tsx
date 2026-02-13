@@ -100,6 +100,48 @@ function DetailContent({
               </div>
             )}
           </Section>
+
+          {/* Source Section - Show filing source information */}
+          {parentEdge?.sourceFiling && (
+            <Section title="Source">
+              {(() => {
+                const filing = parentEdge.sourceFiling;
+                const year = filing.source_year;
+                const attachments = filing.attachments || {};
+                const exhibitKeys = Object.keys(attachments).filter(key => key.startsWith("EX-"));
+                
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    {exhibitKeys.map((exhibitKey) => {
+                      const url = attachments[exhibitKey];
+                      return (
+                        <a
+                          key={exhibitKey}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontSize: "12px",
+                            color: "#818cf8",
+                            textDecoration: "none",
+                            transition: "color 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "#a5b4fc")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "#818cf8")}
+                        >
+                          {year}: {exhibitKey}
+                          <ExternalLink size={11} />
+                        </a>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </Section>
+          )}
         </>
       )}
       

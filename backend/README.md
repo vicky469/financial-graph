@@ -13,7 +13,11 @@
 - Run `$ bun run job:subsidiary_exhibits_download -- -2025` to download EX-21/EX-8 exhibit files (requires years).
 - Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --dry-run` to run the subsidiaries parsing pipeline (both DB + Excel sinks).
   - Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --fallback=none` to run without LLM fallback.
-  - Run `$ bun src/pipeline/subsidiary/run.ts --year=2025 --accessions="000001961725000270" --sink=db` to rerun specific accession numbers (comma-separated for multiple).
+  - If you split the command across lines, use `\` at line end:
+    `$ bun src/pipeline/subsidiary/run.ts \`
+    `--year=2025 \`
+    `--sink=excel \`
+    `--accessions=000095017025090161`
 - Run `$ bun run src/jobs/filings_download_htm_gz.ts -- -2025 10-K 20-F` to download primary HTM files from cached filing text (requires year and form types).
   - Reads from `filing_text/{year}/{formType}/` cache
   - Extracts primary HTM filename (SEQUENCE=1) from filing text

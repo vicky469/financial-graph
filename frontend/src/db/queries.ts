@@ -152,10 +152,11 @@ export const useCompanyDetail = (companyId: string | null, isSubsidiary: boolean
               },
             },
             companyInfo: {}, // Fetch company info for detail panel
-            // For subsidiaries, also fetch parent relationship
+            // For subsidiaries, also fetch parent relationship with source filing
             ...(isSubsidiary && {
               parents: {
                 parentCompany: {},
+                sourceFiling: {}, // Fetch source filing info
               },
             }),
           },
@@ -176,11 +177,12 @@ export const useCompanyDetail = (companyId: string | null, isSubsidiary: boolean
   // Convert to CompanyDetail with convenience fields
   const companyDetail = companyToDetail(company as Company & { companyInfo?: unknown });
 
-  // For subsidiaries, extract parent relationship
+  // For subsidiaries, extract parent relationship with source filing
   const parentEdge = isSubsidiary && company.parents?.[0]
     ? {
         ownership_percent: company.parents[0].ownership_percent,
         parentCompany: company.parents[0].parentCompany,
+        sourceFiling: company.parents[0].sourceFiling, // Include source filing
       }
     : null;
 
@@ -224,7 +226,7 @@ export const useCompanyHierarchy = (companyId: string | null) => {
   const directSubsidiaries = company?.subsidiaries || [];
 
   // Build a multi-level hierarchy tree from nested subsidiary relationships
-  const buildNestedHierarchy = (rootCompany: any, level = 0): any => {
+  const buildNestedHierarchy = (rootCompany: any, level = 0, parentOfEdge: any = null): any => {
     if (!rootCompany) return null;
 
     // Get subsidiaries at this level
@@ -241,7 +243,8 @@ export const useCompanyHierarchy = (companyId: string | null) => {
             ...child,
             subsidiaries: child.subsidiaries || [],
           },
-          level + 1
+          level + 1,
+          edge // Pass the parent_of edge
         );
       })
       .filter(Boolean);
@@ -252,7 +255,7 @@ export const useCompanyHierarchy = (companyId: string | null) => {
       jurisdiction: rootCompany.jurisdiction_raw || rootCompany.jurisdiction_iso || "Unknown",
       level,
       children,
-      ownership_percent: level > 0 ? rootCompany.ownership_percent : null,
+      ownership_percent: level > 0 && parentOfEdge ? parentOfEdge.ownership_percent : null,
     };
   };
 

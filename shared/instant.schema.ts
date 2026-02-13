@@ -42,7 +42,7 @@ const _schema = i.schema({
       updated_at: i.string(),
     }),
     parent_of: i.entity({
-      source: i.number().indexed(), // 1=ma_event, 2=spinoff, 3=ipo, 4=manual, 5=sec_filing
+      source: i.number().indexed(), // 1=ma_event, 2=spinoff, 3=ipo, 4=manual, 5=subsidiary_filing
       ownership_percent: i.number().optional(),
       established_date: i.string().optional(),
       ended_date: i.string().optional(),
@@ -138,7 +138,7 @@ const _schema = i.schema({
         label: "parents",
       },
     },
-    // Source filing link (parent_of.sourceFiling -> filing, when source=5/sec_filing)
+    // Source filing link (parent_of.sourceFiling -> filing, when source=5/subsidiary_filing)
     sourceFiling: {
       forward: {
         on: "parent_of",

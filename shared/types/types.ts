@@ -275,11 +275,11 @@ export const TrustCompanySchema = z.object({
   identity: CompanyIdentitySchema.optional(),
 });
 
-/** SUBSIDIARY company: requires name + jurisdiction, identity optional */
+/** SUBSIDIARY company: requires name, jurisdiction optional, identity optional */
 export const SubsidiaryCompanySchema = z.object({
   type: z.literal(CompanyType.SUBSIDIARY),
   name: NonEmptyString,
-  jurisdiction_raw: JurisdictionString,
+  jurisdiction_raw: JurisdictionString.optional(),
   identity: CompanyIdentitySchema.optional(),
 });
 
