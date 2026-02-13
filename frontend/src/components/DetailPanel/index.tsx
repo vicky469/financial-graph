@@ -492,7 +492,7 @@ export function DetailPanel({
     >
       {/* Header - only show if not hiding tabs (desktop mode) */}
       {!hideTabs && (
-        <div style={{ padding: `8px ${panelPadding} 0 ${panelPadding}` }}>
+        <div style={{ padding: `4px ${panelPadding} 0 ${panelPadding}` }}>
           <div className="flex items-center gap-2 mb-1 justify-between">
             <h2
               style={{

@@ -258,7 +258,14 @@ function HierarchyNodeItem({
         background: isSelected ? "rgba(99, 102, 241, 0.15)" : "transparent",
         border: isSelected ? "1px solid rgba(99, 102, 241, 0.3)" : "1px solid transparent",
       }}
-      onClick={onClick}
+      onClick={(e) => {
+        // If node has children and not searching, toggle expansion
+        if (hasChildren && !isSearching) {
+          onToggle();
+        }
+        // Always call onClick for selection/detail view
+        onClick();
+      }}
       onMouseEnter={(e) => {
         if (!isSelected) {
           e.currentTarget.style.background = "rgba(255,255,255,0.04)";
