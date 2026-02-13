@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { ArrowLeft, ExternalLink, Building2, Sparkles, FileText, ChevronDown } from "lucide-react";
 import type { CompanyDetail } from "../../types/domain";
 import { useCompanyHierarchy, useCompanyBrands, useCompanyFilings } from "../../db/queries";

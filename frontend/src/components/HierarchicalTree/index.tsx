@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { ChevronRight, ChevronDown, Building2, Search } from "lucide-react";
 import { getJurisdictionColor } from "../../utils/jurisdictionColors";
 
@@ -19,9 +19,6 @@ interface HierarchicalTreeProps {
 
 export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: HierarchicalTreeProps) {
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Track which root company we've initialized for
-  const rootId = hierarchy[0]?.id;
 
   // Filter hierarchy based on search query
   const filteredHierarchy = useMemo(() => {
