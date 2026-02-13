@@ -91,8 +91,8 @@ function squarify(
 }
 
 // Layout constraints
-const CHART_MIN_WIDTH = 280;
-const CHART_HEIGHT = 280;
+const CHART_MIN_WIDTH = 140;
+const CHART_HEIGHT = 100;
 const MOBILE_BREAKPOINT = 768;
 
 export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: JurisdictionTreemapProps) {
@@ -166,7 +166,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
   }, [flatHierarchy]);
 
   // Calculate chart height based on mobile state
-  const chartHeight = isMobile ? 200 : CHART_HEIGHT;
+  const chartHeight = isMobile ? 100 : CHART_HEIGHT;
 
   // Calculate treemap layout
   const rects = useMemo(() => {
@@ -230,10 +230,10 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
   }
 
   return (
-    <div ref={containerRef} style={{ padding: isMobile ? "16px" : "24px", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
+    <div ref={containerRef} style={{ padding: isMobile ? "16px" : "0 24px", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
       {/* Header */}
-      <div style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "12px" }}>
-        {selectedJurisdiction && (
+      {selectedJurisdiction && (
+        <div style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "12px" }}>
           <button
             onClick={() => setSelectedJurisdiction(null)}
             style={{
@@ -255,26 +255,20 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
           >
             ← Back
           </button>
-        )}
-        <h2
-          style={{
-            fontSize: "11px",
-            fontWeight: "600",
-            color: "rgba(255,255,255,0.5)",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
-        >
-          {selectedJurisdiction ? (
-            <>
-              <span style={{ color: "rgba(255,255,255,0.3)" }}>Companies in </span>
-              <span style={{ color: "rgba(255,255,255,0.75)" }}>{selectedJurisdiction}</span>
-            </>
-          ) : (
-            "Subsidiaries by Jurisdiction"
-          )}
-        </h2>
-      </div>
+          <h2
+            style={{
+              fontSize: "11px",
+              fontWeight: "600",
+              color: "rgba(255,255,255,0.5)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            <span style={{ color: "rgba(255,255,255,0.3)" }}>Companies in </span>
+            <span style={{ color: "rgba(255,255,255,0.75)" }}>{selectedJurisdiction}</span>
+          </h2>
+        </div>
+      )}
 
       {/* Main layout: Stack on mobile, side-by-side on desktop */}
       <div
@@ -410,11 +404,10 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    padding: isMobile ? "12px 8px" : "6px 8px", // Larger touch target
+                    padding: isMobile ? "4px 0" : "2px 0",
                     borderRadius: "4px",
                     cursor: "pointer",
                     transition: "background 0.15s",
-                    borderBottom: isMobile ? "1px solid rgba(255,255,255,0.05)" : "1px solid transparent",
                   }}
                   onMouseEnter={(e) =>
                     !isMobile && (e.currentTarget.style.background = "rgba(255,255,255,0.05)")
@@ -460,11 +453,11 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      padding: isMobile ? "12px 8px" : "6px 8px", // Larger touch target
+                      padding: isMobile ? "4px 0" : "2px 0",
                       borderRadius: "4px",
                       cursor: "pointer",
                       transition: "background 0.15s",
-                      borderBottom: isMobile ? "1px solid rgba(255,255,255,0.05)" : "1px solid transparent",
+                      gap: "4px",
                     }}
                     onMouseEnter={(e) =>
                       !isMobile && (e.currentTarget.style.background = "rgba(255,255,255,0.05)")
@@ -473,34 +466,33 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
                       !isMobile && (e.currentTarget.style.background = "transparent")
                     }
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-                      <div
-                        style={{
-                          width: "10px",
-                          height: "10px",
-                          borderRadius: "2px",
-                          backgroundColor: item.color,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          color: "rgba(255,255,255,0.8)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {item.jurisdiction}
-                      </span>
-                    </div>
+                    <div
+                      style={{
+                        width: "10px",
+                        height: "10px",
+                        borderRadius: "2px",
+                        backgroundColor: item.color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        color: "rgba(255,255,255,0.8)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        flex: "1 1 auto",
+                        minWidth: 0,
+                      }}
+                    >
+                      {item.jurisdiction}
+                    </span>
                     <span
                       style={{
                         fontSize: "11px",
                         fontWeight: "500",
                         color: "rgba(255,255,255,0.4)",
-                        marginLeft: "12px",
                         flexShrink: 0,
                         fontVariantNumeric: "tabular-nums",
                       }}
