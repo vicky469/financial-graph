@@ -18,7 +18,6 @@ interface HierarchicalTreeProps {
 }
 
 export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: HierarchicalTreeProps) {
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
 
   // Track which root company we've initialized for
@@ -45,19 +44,8 @@ export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: Hie
   const subsidiaryCount = hierarchy.filter(node => node.level > 0).length;
   const filteredSubsidiaryCount = filteredHierarchy.filter(node => node.level > 0).length;
 
-  // Auto-expand only the root node when hierarchy data loads or root changes
-  useEffect(() => {
-    if (filteredHierarchy.length > 0) {
-      const initialExpanded = new Set<string>();
-      // Only expand the root node (level 0) by default
-      filteredHierarchy.forEach((node) => {
-        if (node.level === 0 && node.hasChildren) {
-          initialExpanded.add(node.id);
-        }
-      });
-      setExpandedNodes(initialExpanded);
-    }
-  }, [rootId, filteredHierarchy]); // Re-run when root company changes or filter changes
+  // Initialize with all nodes collapsed by default
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   const toggleNode = (nodeId: string) => {
     setExpandedNodes((prev) => {

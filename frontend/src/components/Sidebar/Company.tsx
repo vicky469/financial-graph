@@ -16,7 +16,6 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
   const { flatHierarchy, isLoading: loadingHierarchy } = useCompanyHierarchy(node.id);
   const { brands, isLoading: loadingBrands } = useCompanyBrands(node.id);
   const { filings, isLoading: loadingFilings } = useCompanyFilings(node.id);
-  const [structureCollapsed, setStructureCollapsed] = useState(false);
 
   return (
     <div className="flex flex-col h-full">
@@ -77,8 +76,6 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
           title="Structure"
           count={Math.max(0, flatHierarchy.length - 1)} // Subtract 1 to exclude the root company
           loading={loadingHierarchy}
-          collapsed={structureCollapsed}
-          onToggle={() => setStructureCollapsed(!structureCollapsed)}
         >
           {loadingHierarchy ? (
             <LoadingState />
@@ -104,7 +101,7 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
         </Section>
 
         {/* Brands */}
-        <div onClick={() => setStructureCollapsed(true)}>
+        <div>
           <Section
             icon={<Sparkles size={14} />}
             title="Brands"
