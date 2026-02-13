@@ -23,6 +23,10 @@
   - Extracts primary HTM filename (SEQUENCE=1) from filing text
   - Downloads and compresses to `output/data/filings_htm/{year}/{formType}/{cik}_{accession}_{filename}.gz`
 
+## Documentation
+
+- Technical debt tracker: `technical debt.md`
+
 ## Utilities
 
 ### Worker Pool & Adaptive Workload Configuration

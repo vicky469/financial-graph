@@ -13,7 +13,7 @@ export function companyToDetail(company: Company & { companyInfo?: unknown }): C
     ...company,
     // Add convenience fields
     cik: company.identity?.primaryCIK,
-    jurisdiction: company.jurisdiction_iso || company.jurisdiction_raw,
+    jurisdiction: company.jurisdiction_raw || company.jurisdiction_iso,
     // Add companyInfo relation
     companyInfo: companyInfo
       ? {

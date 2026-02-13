@@ -21,7 +21,7 @@ export interface CompanyDetail extends SharedCompany {
   
   // Computed/convenience fields
   cik?: string; // Extracted from identity.primaryCIK for convenience
-  jurisdiction?: string; // Extracted from jurisdiction_raw or jurisdiction_iso
+  jurisdiction?: string; // Extracted from jurisdiction_raw (fallback: jurisdiction_iso)
 }
 
 // Simple type for field values in detail panels

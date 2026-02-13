@@ -136,8 +136,6 @@ async function processCompany(company: CompanyRow) {
 
   if (submission.stateOfIncorporationDescription)
     companyPatch.jurisdiction_raw = submission.stateOfIncorporationDescription;
-  if (submission.stateOfIncorporation)
-    companyPatch.jurisdiction_iso = submission.stateOfIncorporation;
 
   await db.transact([db.tx.company[company.id].update(companyPatch)]);
 

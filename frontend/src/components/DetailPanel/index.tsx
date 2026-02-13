@@ -60,7 +60,7 @@ function DetailContent({
               }}
             >
               <FieldRow label="CIK" value={subsidiary.cik} mono />
-              <FieldRow label="Jurisdiction" value={subsidiary.jurisdiction} />
+              <FieldRow label="Jurisdiction" value={subsidiary.jurisdiction_raw || subsidiary.jurisdiction_iso} />
               <FieldRow
                 label="Ownership %"
                 value={parentEdge?.ownership_percent ? `${parentEdge.ownership_percent}%` : "-"}
@@ -221,7 +221,7 @@ function DetailContent({
               
               <FieldRow label="Owner Org" value={companyNode.identity?.ownerOrg} />
               <FieldRow label="Category" value={getCleanCategory(companyNode.identity?.category)} />
-              <FieldRow label="Jurisdiction" value={companyNode.jurisdiction} />
+              <FieldRow label="Jurisdiction" value={companyNode.jurisdiction_raw || companyNode.jurisdiction_iso} />
             </div>
           </Section>
 
