@@ -258,7 +258,7 @@ function HierarchyNodeItem({
         background: isSelected ? "rgba(99, 102, 241, 0.15)" : "transparent",
         border: isSelected ? "1px solid rgba(99, 102, 241, 0.3)" : "1px solid transparent",
       }}
-      onClick={(e) => {
+      onClick={() => {
         // If node has children and not searching, toggle expansion
         if (hasChildren && !isSearching) {
           onToggle();
