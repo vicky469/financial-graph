@@ -1,5 +1,12 @@
 # LLM Fallback Architecture
 
+## Scope
+
+This file is the end-to-end fallback behavior guide (statuses, grounding, conversion, telemetry).
+
+For the current provider internals (router, registry, worker-pool task contract, provider classes), see:
+- `src/validation/llm-fallback/ARCHITECTURE_PROVIDER_PIPELINE.md`
+
 ## Diagram: Components
 
 ```mermaid

@@ -1,10 +1,10 @@
 import { createLogger } from "../utils/logger";
-import { parseSubsidiaryJsonResponse } from "./llm-json";
-import { buildSubsidiaryExtractionPrompt } from "./subsidiary-prompt";
+import { buildSubsidiaryTextPrompt } from "./subsidiary-prompt";
 import {
   buildRawResponsePreview,
-  writeRawResponseSnapshot,
 } from "./llm-debug";
+import { parseSubsidiaryContentOrThrow } from "./subsidiary-response";
+import { DEFAULT_LLM_REQUEST_TIMEOUT_MS } from "./llm-constants";
 
 const logger = createLogger("integration/deepseek");
 
@@ -74,14 +74,6 @@ const DEFAULT_MODEL = "deepseek-chat";
 const DEFAULT_TEMPERATURE = 0.1;
 const DEFAULT_MAX_TOKENS = 8000; // Output tokens limit
 const DEEPSEEK_MAX_OUTPUT_TOKENS_LIMIT = 8192; // DeepSeek API output token limit
-const MAX_HTML_CHARS = 50000;
-
-function buildPrompt(html: string): string {
-  return `${buildSubsidiaryExtractionPrompt("text")}
-
-HTML:
-${html.substring(0, MAX_HTML_CHARS)}`;
-}
 
 export async function callDeepSeekForSubsidiaries(
   html: string,
@@ -96,12 +88,13 @@ export async function callDeepSeekForSubsidiaries(
   }
 
   const {
-    requestTimeout = 30000,
+    requestTimeout,
     model = DEFAULT_MODEL,
     temperature = DEFAULT_TEMPERATURE,
     maxTokens = DEFAULT_MAX_TOKENS,
     accessionNumber,
   } = options;
+  const resolvedRequestTimeout = requestTimeout ?? DEFAULT_LLM_REQUEST_TIMEOUT_MS;
   const boundedMaxTokens = Math.min(
     DEEPSEEK_MAX_OUTPUT_TOKENS_LIMIT,
     Math.max(1, Math.floor(maxTokens)),
@@ -118,9 +111,9 @@ export async function callDeepSeekForSubsidiaries(
     });
   }
 
-  const prompt = buildPrompt(html);
+  const prompt = buildSubsidiaryTextPrompt(html);
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
+  const timeoutId = setTimeout(() => controller.abort(), resolvedRequestTimeout);
 
   try {
     const messages = [
@@ -233,46 +226,23 @@ export async function callDeepSeekForSubsidiaries(
       );
     }
 
-    try {
-      const parsed = parseSubsidiaryJsonResponse<DeepSeekParseResponse>(content);
-      if (parsed.recovered) {
-        logger.warn("DeepSeek response required JSON recovery", {
-          provider: "deepseek",
-          model,
-          requestType: "text",
-          accessionNumber,
-          recoveredCount: parsed.recoveredCount,
-        });
-      }
-      return parsed.value;
-    } catch (parseError) {
-      const rawResponsePath = await writeRawResponseSnapshot({
+    return parseSubsidiaryContentOrThrow<DeepSeekParseResponse, DeepSeekError>(
+      content,
+      {
         provider: "deepseek",
+        providerLabel: "DeepSeek",
         model,
         requestType: "text",
         accessionNumber,
-        reason: "json_parse_error",
-        content,
-      });
-      const rawResponsePreview = buildRawResponsePreview(content);
-      logger.error("DeepSeek JSON parse failed", {
-        provider: "deepseek",
-        model,
-        requestType: "text",
-        accessionNumber,
-        parseError:
-          parseError instanceof Error ? parseError.message : String(parseError),
-        rawResponsePreview,
-        rawResponsePath,
-      });
-      throw new DeepSeekError(
-        DeepSeekErrorCode.JSON_PARSE_ERROR,
-        `JSON Parse error: ${
-          parseError instanceof Error ? parseError.message : String(parseError)
-        }`,
-        parseError instanceof Error ? parseError : undefined,
-      );
-    }
+        logger,
+      },
+      (message, parseError) =>
+        new DeepSeekError(
+          DeepSeekErrorCode.JSON_PARSE_ERROR,
+          message,
+          parseError instanceof Error ? parseError : undefined,
+        ),
+    );
   } catch (error) {
     clearTimeout(timeoutId);
 
@@ -283,7 +253,7 @@ export async function callDeepSeekForSubsidiaries(
     if (error instanceof Error && error.name === "AbortError") {
       throw new DeepSeekError(
         DeepSeekErrorCode.TIMEOUT_ERROR,
-        `Request timeout after ${requestTimeout}ms`,
+        `Request timeout after ${resolvedRequestTimeout}ms`,
         error,
       );
     }

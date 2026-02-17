@@ -4,22 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { createLogger } from "../../utils/logger";
+import { parsePositiveInt } from "../../utils/env-parsing";
 import { stripHtmlToTextWithLineBreaks } from "./grounding";
 
 const logger = createLogger("validation/llm-fallback");
 const execFileAsync = promisify(execFile);
 
-function parsePositiveInt(value: string | undefined, fallback: number): number {
-  if (!value) return fallback;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-const LLM_FALLBACK_WRITE_SOURCE_MD = false;
-const LLM_FALLBACK_SOURCE_MAX_CHARS = parsePositiveInt(
-  process.env.LLM_FALLBACK_SOURCE_MAX_CHARS,
-  1_000_000,
-);
 const PDFTOTEXT_TIMEOUT_MS = parsePositiveInt(
   process.env.PDFTOTEXT_TIMEOUT_MS,
   30_000,
@@ -27,13 +17,6 @@ const PDFTOTEXT_TIMEOUT_MS = parsePositiveInt(
 const PDFTOTEXT_MAX_BUFFER_BYTES = parsePositiveInt(
   process.env.PDFTOTEXT_MAX_BUFFER_BYTES,
   30_000_000,
-);
-const LLM_FALLBACK_SOURCE_DIR = path.resolve(
-  import.meta.dirname,
-  "..",
-  "output",
-  "data",
-  "llm_source_markdown",
 );
 const LLM_FALLBACK_PDF_TEMP_DIR = path.resolve(
   os.tmpdir(),
@@ -111,47 +94,6 @@ async function extractPdfTextWithPdftotext(
   }
 }
 
-function truncateForSourceMarkdown(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text;
-  const omitted = text.length - maxChars;
-  return (
-    text.slice(0, maxChars) +
-    `\n\n[truncated ${omitted} chars for source markdown dump]\n`
-  );
-}
-
-async function writeSourceMarkdownFile(
-  accessionNumber: string,
-  classification: string,
-  markdown: string,
-): Promise<void> {
-  if (!LLM_FALLBACK_WRITE_SOURCE_MD || !markdown) return;
-
-  try {
-    const safeClassification =
-      classification
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "") || "unknown";
-    await fs.mkdir(LLM_FALLBACK_SOURCE_DIR, { recursive: true });
-    const filePath = path.join(
-      LLM_FALLBACK_SOURCE_DIR,
-      `${accessionNumber}_${safeClassification}.md`,
-    );
-    const finalContent = truncateForSourceMarkdown(
-      markdown,
-      LLM_FALLBACK_SOURCE_MAX_CHARS,
-    );
-    await fs.writeFile(filePath, finalContent, "utf8");
-  } catch (error) {
-    logger.warn(
-      `Failed writing canonical source markdown for ${accessionNumber}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-}
-
 export async function buildCanonicalSourceText(
   doc: string,
   classification: string,
@@ -178,7 +120,5 @@ export async function buildCanonicalSourceText(
     return "";
   }
 
-  const markdown = `# Canonical Source\n\n${normalizedText}`;
-  await writeSourceMarkdownFile(accessionNumber, classification, markdown);
   return normalizedText;
 }

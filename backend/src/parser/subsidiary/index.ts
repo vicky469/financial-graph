@@ -265,8 +265,11 @@ function pruneInvalidSubsidiaries(parseResult: ParseResult): ParseResult {
     return parseResult;
   }
 
+  const validationOptions = parseResult.llmApplied
+    ? {}
+    : { requireJurisdiction: true };
   const { validSubsidiaries, invalidSubsidiaries, results } =
-    filterValidSubsidiaries(parseResult.subsidiaries);
+    filterValidSubsidiaries(parseResult.subsidiaries, validationOptions);
 
   if (invalidSubsidiaries.length === 0) {
     return parseResult;
@@ -498,6 +501,7 @@ function validateHeuristicResult(
       name: sub.name,
       jurisdiction: sub.jurisdiction,
     })),
+    { requireJurisdiction: true },
   );
   const elapsedMs = Date.now() - validationStart;
 

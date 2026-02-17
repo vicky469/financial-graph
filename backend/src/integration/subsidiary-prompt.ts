@@ -45,3 +45,10 @@ Hard constraints (must follow):
 8. Keep output minimal: include only name, jurisdiction, ownership_percentage keys.
 9. If no subsidiaries are found, return {"subsidiaries":[]}.10. Ensure JSON is complete and valid (close all brackets/objects, no trailing commas, no ellipsis).`;
 }
+
+export function buildSubsidiaryTextPrompt(html: string): string {
+  return `${buildSubsidiaryExtractionPrompt("text")}
+
+HTML:
+${html}`;
+}

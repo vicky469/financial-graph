@@ -11,10 +11,14 @@ import {
   parseJurisdictionCell,
 } from "./cells";
 import { analyzeIndentation } from "./nesting";
-import { isLayoutOnlyCell } from "../shape/table-detection";
+import {
+  hasCompanyEntitySuffix,
+  isLayoutOnlyCell,
+} from "../shape/table-detection";
 
 const IS_PERCENTAGE_OR_EMPTY = /^\d+(?:\.\d+)?\s*%?$|^-+$|^—$/;
-const IS_COMPANY_KEYWORD = /(company|holding|vessel|service|investment)/i;
+const IS_OWNERSHIP_LIKE = /^\d+(?:\.\d+)?\s*%?$/;
+const IS_JURISDICTION_LIKE = /^[A-Za-z][A-Za-z\s\.\-&',]{1,80}$/;
 
 /**
  * Check if a cell contains a Roman numeral level indicator (I, II, III, IV, V, VI, VII, VIII)
@@ -24,6 +28,23 @@ function isRomanNumeralLevel(text: string): boolean {
   const trimmed = text.trim();
   // Match Roman numerals I through VIII (common nesting levels)
   return /^(I{1,3}|IV|VI{0,3}|I?X)$/i.test(trimmed);
+}
+
+function looksLikeCompanyText(text: string): boolean {
+  const value = text.trim();
+  return value.length > 0 && hasCompanyEntitySuffix(value);
+}
+
+function looksLikeOwnershipText(text: string): boolean {
+  const value = text.trim();
+  if (!value) return false;
+  return IS_PERCENTAGE_OR_EMPTY.test(value) || IS_OWNERSHIP_LIKE.test(value);
+}
+
+function looksLikeJurisdictionText(text: string): boolean {
+  const value = text.trim();
+  if (!value) return false;
+  return !looksLikeCompanyText(value) && !looksLikeOwnershipText(value) && IS_JURISDICTION_LIKE.test(value);
 }
 
 /**
@@ -166,8 +187,8 @@ export function parseColumns(
       // Skip percentage values, dashes, and common non-jurisdiction values
       if (
         cellText &&
-        !IS_PERCENTAGE_OR_EMPTY.test(cellText) &&
-        !IS_COMPANY_KEYWORD.test(cellText)
+        !looksLikeOwnershipText(cellText) &&
+        !looksLikeCompanyText(cellText)
       ) {
         adjustedJurColIdx = i;
         break;
@@ -177,6 +198,22 @@ export function parseColumns(
 
   // Parse jurisdiction
   const jurResult = parseJurisdictionCell($(cells[adjustedJurColIdx]).text());
+  let cleanName = nameParsed.cleanName;
+  let jurisdictionRaw = jurResult.jurisdiction_raw;
+
+  // Guard against shifted rows where a company name lands in jurisdiction column.
+  if (looksLikeCompanyText(jurisdictionRaw)) {
+    if (!looksLikeCompanyText(cleanName)) {
+      // Likely left-shift: move company-like value into name and keep only jurisdiction-like text.
+      cleanName = jurisdictionRaw;
+      jurisdictionRaw = looksLikeJurisdictionText(nameParsed.rawName)
+        ? nameParsed.rawName.trim()
+        : "";
+    } else {
+      // Both look company-like; keep detected name and drop suspicious jurisdiction.
+      jurisdictionRaw = "";
+    }
+  }
 
   // Parse ownership - handle multi-year columns (e.g., 2023, 2024)
   // When header has merged "Percentage Ownership" spanning multiple year columns,
@@ -206,10 +243,10 @@ export function parseColumns(
 
   return {
     rawName: nameParsed.rawName,
-    cleanName: nameParsed.cleanName,
+    cleanName,
     nameFootnoteRefs: nameParsed.footnoteRefs,
     indentationSpaces: indentInfo.spaces,
-    jurisdiction: jurResult.jurisdiction_raw,
+    jurisdiction: jurisdictionRaw,
     ownership,
     ownershipFootnoteRefs,
   };

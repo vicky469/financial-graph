@@ -1,11 +1,19 @@
 import { createLogger } from "../utils/logger";
 import { SEC_USER_AGENT } from "../config/config";
-import { parseSubsidiaryJsonResponse } from "./llm-json";
 import { buildSubsidiaryExtractionPrompt } from "./subsidiary-prompt";
 import {
   buildRawResponsePreview,
-  writeRawResponseSnapshot,
 } from "./llm-debug";
+import { parseSubsidiaryContentOrThrow } from "./subsidiary-response";
+import {
+  DEFAULT_LLM_HARD_REQUEST_TIMEOUT_MS,
+  DEFAULT_LLM_REQUEST_TIMEOUT_MS,
+} from "./llm-constants";
+import {
+  computeRetryDelayMs,
+  sleep,
+  withTimeout,
+} from "../utils/async-control";
 
 const logger = createLogger("integration/qwen");
 
@@ -75,50 +83,18 @@ export type QwenRequestOptions = {
   accessionNumber?: string;
 };
 
-const DEFAULT_VISION_MODEL = "qwen/qwen-2-vl-72b-instruct"; // Qwen vision model via OpenRouter
+const DEFAULT_VISION_MODEL = "qwen/qwen3.5-397b-a17b"; // Qwen vision model via OpenRouter
 const DEFAULT_TEMPERATURE = 0.1;
 const DEFAULT_MAX_TOKENS = 12000;
 const DEFAULT_QWEN_SEC_REQUESTS_PER_SECOND = 1000 / 1500;
 const DEFAULT_SEC_IMAGE_FETCH_TIMEOUT_MS = 12000;
 const DEFAULT_SEC_IMAGE_FETCH_DELAY_MS = 250;
 const SEC_IMAGE_FETCH_MAX_RETRIES = 3;
+const QWEN_INLINE_SEC_IMAGE_URLS = true;
 
 let qwenRequestQueue: Promise<void> = Promise.resolve();
 let lastQwenRequestStartedAt = 0;
-
-function parsePositiveInt(value: string | undefined, fallback: number): number {
-  if (!value) return fallback;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function parsePositiveNumber(value: string | undefined, fallback: number): number {
-  if (!value) return fallback;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function parseBoolean(value: string | undefined, fallback: boolean): boolean {
-  if (!value) return fallback;
-  const normalized = value.trim().toLowerCase();
-  if (["1", "true", "yes", "on"].includes(normalized)) return true;
-  if (["0", "false", "no", "off"].includes(normalized)) return false;
-  return fallback;
-}
-
-const qwenSecRequestsPerSecond = parsePositiveNumber(
-  process.env.QWEN_SEC_REQUESTS_PER_SECOND,
-  DEFAULT_QWEN_SEC_REQUESTS_PER_SECOND,
-);
-if (process.env.QWEN_SEC_REQUESTS_PER_SECOND) {
-  const configured = Number(process.env.QWEN_SEC_REQUESTS_PER_SECOND);
-  if (!Number.isFinite(configured) || configured <= 0) {
-    logger.warn("Invalid QWEN_SEC_REQUESTS_PER_SECOND; expected positive number", {
-      configuredValue: process.env.QWEN_SEC_REQUESTS_PER_SECOND,
-      fallback: String(DEFAULT_QWEN_SEC_REQUESTS_PER_SECOND),
-    });
-  }
-}
+const qwenSecRequestsPerSecond = DEFAULT_QWEN_SEC_REQUESTS_PER_SECOND;
 
 const resolvedQwenMinRequestIntervalMs = Math.max(
   1,
@@ -128,71 +104,13 @@ const resolvedQwenMinRequestIntervalMs = Math.max(
 const QWEN_EFFECTIVE_REQUESTS_PER_SECOND = Number(
   (1000 / resolvedQwenMinRequestIntervalMs).toFixed(4),
 );
-const SEC_IMAGE_FETCH_TIMEOUT_MS = parsePositiveInt(
-  process.env.SEC_IMAGE_FETCH_TIMEOUT_MS,
-  DEFAULT_SEC_IMAGE_FETCH_TIMEOUT_MS,
-);
-const SEC_IMAGE_FETCH_DELAY_MS = parsePositiveInt(
-  process.env.SEC_IMAGE_FETCH_DELAY_MS,
-  DEFAULT_SEC_IMAGE_FETCH_DELAY_MS,
-);
-const QWEN_INLINE_SEC_IMAGE_URLS = parseBoolean(
-  process.env.QWEN_INLINE_SEC_IMAGE_URLS,
-  true,
-);
-const OPENROUTER_MAX_RETRIES = parsePositiveInt(process.env.QWEN_MAX_RETRIES, 2);
-const OPENROUTER_RETRY_BASE_DELAY_MS = parsePositiveInt(
-  process.env.QWEN_RETRY_BASE_DELAY_MS,
-  1500,
-);
+const SEC_IMAGE_FETCH_TIMEOUT_MS = DEFAULT_SEC_IMAGE_FETCH_TIMEOUT_MS;
+const SEC_IMAGE_FETCH_DELAY_MS = DEFAULT_SEC_IMAGE_FETCH_DELAY_MS;
 
 logger.info("Configured Qwen SEC throttle", {
-  source: "QWEN_SEC_REQUESTS_PER_SECOND",
   requestsPerSecond: String(QWEN_EFFECTIVE_REQUESTS_PER_SECOND),
   minRequestIntervalMs: String(resolvedQwenMinRequestIntervalMs),
 });
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export async function callQwenWithRetries<T>(
-  accessionNumber: string,
-  requestType: OpenRouterRequestType,
-  request: () => Promise<T>,
-): Promise<T> {
-  let attempts = 0;
-
-  for (;;) {
-    try {
-      return await request();
-    } catch (error) {
-      if (
-        !(error instanceof QwenError) ||
-        !error.isRetryable ||
-        attempts >= OPENROUTER_MAX_RETRIES
-      ) {
-        throw error;
-      }
-
-      attempts += 1;
-      const delayMs = OPENROUTER_RETRY_BASE_DELAY_MS * 2 ** (attempts - 1);
-      logger.warn(
-        `Retrying OpenRouter ${requestType} request for ${accessionNumber} (attempt ${attempts}/${OPENROUTER_MAX_RETRIES}) in ${delayMs}ms due to ${error.code}`,
-        {
-          provider: "openrouter",
-          requestType,
-          accessionNumber,
-          retryAttempt: String(attempts),
-          maxRetries: String(OPENROUTER_MAX_RETRIES),
-          retryDelayMs: String(delayMs),
-          errorCode: error.code,
-        },
-      );
-      await sleep(delayMs);
-    }
-  }
-}
 
 async function withQwenRateLimit<T>(operation: () => Promise<T>): Promise<T> {
   let releaseQueue: (() => void) | undefined;
@@ -245,12 +163,12 @@ async function fetchSecImageAsDataUrl(url: string): Promise<string> {
   let lastError: Error | undefined;
 
   for (let attempt = 0; attempt < SEC_IMAGE_FETCH_MAX_RETRIES; attempt++) {
-    if (attempt > 0) {
-      const retryDelayMs = SEC_IMAGE_FETCH_DELAY_MS * 2 ** attempt;
-      await sleep(retryDelayMs);
-    } else {
-      await sleep(SEC_IMAGE_FETCH_DELAY_MS);
-    }
+    const retryDelayMs = computeRetryDelayMs(
+      SEC_IMAGE_FETCH_DELAY_MS,
+      attempt + 1,
+      "exponential",
+    );
+    await sleep(retryDelayMs);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(
@@ -387,261 +305,251 @@ export async function callQwenForSubsidiaries(
   }
 
   const {
-    requestTimeout = 30000,
+    requestTimeout,
     model = DEFAULT_VISION_MODEL,
     temperature = DEFAULT_TEMPERATURE,
     maxTokens = DEFAULT_MAX_TOKENS,
     pdfUrl,
     accessionNumber,
   } = options;
+  const resolvedRequestTimeout = requestTimeout ?? DEFAULT_LLM_REQUEST_TIMEOUT_MS;
   const requestType: OpenRouterRequestType = pdfUrl ? "pdf" : "vision";
+  const operationTimeout = Math.max(
+    resolvedRequestTimeout * 4,
+    DEFAULT_LLM_HARD_REQUEST_TIMEOUT_MS,
+  );
 
-  return withQwenRateLimit(async () => {
-    const prompt = buildVisionPrompt();
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
+  return withQwenRateLimit(() =>
+    withTimeout(
+      () => (async () => {
+        const prompt = buildVisionPrompt();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), resolvedRequestTimeout);
 
-    try {
-      // Build message content with text and images/PDF (OpenRouter format)
-      const content: any[] = [{ type: "text", text: prompt }];
+        try {
+          // Build message content with text and images/PDF (OpenRouter format)
+          const content: any[] = [{ type: "text", text: prompt }];
 
-      // Add PDF if provided
-      if (pdfUrl) {
-        content.push({
-          type: "file",
-          file: {
-            filename: "exhibit.pdf",
-            file_data: pdfUrl,
-          },
-        });
-      }
-
-      // Add all image URLs
-      const preparedImageUrls = await prepareImageInputs(imageUrls);
-      for (const url of preparedImageUrls) {
-        content.push({
-          type: "image_url",
-          image_url: { url },
-        });
-      }
-
-      const messages = [
-        {
-          role: "user",
-          content,
-        },
-      ];
-
-      // OpenRouter API endpoint
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": "https://github.com/your-repo", // Optional: for rankings
-          "X-Title": "Financial Graph Subsidiary Parser", // Optional: for rankings
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature,
-          max_tokens: maxTokens,
-          // Use mistral-ocr engine for better PDF parsing (especially for scanned documents)
-          plugins: pdfUrl ? [
-            {
-              id: "file-parser",
-              pdf: {
-                engine: "mistral-ocr", // Better for scanned/image-based PDFs
+          // Add PDF if provided
+          if (pdfUrl) {
+            content.push({
+              type: "file",
+              file: {
+                filename: "exhibit.pdf",
+                file_data: pdfUrl,
               },
+            });
+          }
+
+          // Add all image URLs
+          const preparedImageUrls = await prepareImageInputs(imageUrls);
+          for (const url of preparedImageUrls) {
+            content.push({
+              type: "image_url",
+              image_url: { url },
+            });
+          }
+
+          const messages = [
+            {
+              role: "user",
+              content,
             },
-          ] : undefined,
-        }),
-        signal: controller.signal,
-      });
+          ];
 
-      clearTimeout(timeoutId);
+          // OpenRouter API endpoint
+          const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+              "HTTP-Referer": "https://github.com/your-repo", // Optional: for rankings
+              "X-Title": "Financial Graph Subsidiary Parser", // Optional: for rankings
+            },
+            body: JSON.stringify({
+              model,
+              messages,
+              temperature,
+              max_tokens: maxTokens,
+              // Use mistral-ocr engine for better PDF parsing (especially for scanned documents)
+              plugins: pdfUrl ? [
+                {
+                  id: "file-parser",
+                  pdf: {
+                    engine: "mistral-ocr", // Better for scanned/image-based PDFs
+                  },
+                },
+              ] : undefined,
+            }),
+            signal: controller.signal,
+          });
 
-      if (!response.ok) {
-        const status = response.status;
-        const statusText = response.statusText;
-        const message = `Qwen API error: ${status} ${statusText}`;
-        const responseBody = await response.text();
-        const secUpstreamForbidden = isSecUpstreamForbidden(status, responseBody);
+          clearTimeout(timeoutId);
 
-        logger.error("Qwen API non-OK response", {
-          provider: "qwen-vl",
-          model,
-          requestType,
-          accessionNumber,
-          status,
-          statusText,
-          responseBodyPreview: buildRawResponsePreview(responseBody || "<empty>"),
-          secUpstreamForbidden,
-        });
+          if (!response.ok) {
+            const status = response.status;
+            const statusText = response.statusText;
+            const message = `Qwen API error: ${status} ${statusText}`;
+            const responseBody = await response.text();
+            const secUpstreamForbidden = isSecUpstreamForbidden(status, responseBody);
 
-        switch (status) {
-          case 400:
-            if (secUpstreamForbidden) {
-              throw new QwenError(
-                QwenErrorCode.RATE_LIMIT,
-                `${message} (provider failed to fetch SEC resource)`,
-                undefined,
-                status,
-              );
+            logger.error("Qwen API non-OK response", {
+              provider: "qwen-vl",
+              model,
+              requestType,
+              accessionNumber,
+              status,
+              statusText,
+              responseBodyPreview: buildRawResponsePreview(responseBody || "<empty>"),
+              secUpstreamForbidden,
+            });
+
+            switch (status) {
+              case 400:
+                if (secUpstreamForbidden) {
+                  throw new QwenError(
+                    QwenErrorCode.RATE_LIMIT,
+                    `${message} (provider failed to fetch SEC resource)`,
+                    undefined,
+                    status,
+                  );
+                }
+                throw new QwenError(
+                  QwenErrorCode.INVALID_FORMAT,
+                  message,
+                  undefined,
+                  status,
+                );
+              case 401:
+                throw new QwenError(
+                  QwenErrorCode.AUTH_FAILED,
+                  message,
+                  undefined,
+                  status,
+                );
+              case 402:
+                throw new QwenError(
+                  QwenErrorCode.INSUFFICIENT_BALANCE,
+                  message,
+                  undefined,
+                  status,
+                );
+              case 403:
+                if (secUpstreamForbidden) {
+                  throw new QwenError(
+                    QwenErrorCode.RATE_LIMIT,
+                    `${message} (provider failed to fetch SEC resource)`,
+                    undefined,
+                    status,
+                  );
+                }
+                throw new QwenError(
+                  QwenErrorCode.AUTH_FAILED,
+                  message,
+                  undefined,
+                  status,
+                );
+              case 422:
+                throw new QwenError(
+                  QwenErrorCode.INVALID_PARAMS,
+                  message,
+                  undefined,
+                  status,
+                );
+              case 429:
+                throw new QwenError(
+                  QwenErrorCode.RATE_LIMIT,
+                  message,
+                  undefined,
+                  status,
+                );
+              case 500:
+                throw new QwenError(
+                  QwenErrorCode.SERVER_ERROR,
+                  message,
+                  undefined,
+                  status,
+                );
+              case 503:
+                throw new QwenError(
+                  QwenErrorCode.SERVER_OVERLOADED,
+                  message,
+                  undefined,
+                  status,
+                );
+              default:
+                throw new QwenError(
+                  QwenErrorCode.UNKNOWN_ERROR,
+                  message,
+                  undefined,
+                  status,
+                );
             }
-            throw new QwenError(
-              QwenErrorCode.INVALID_FORMAT,
-              message,
-              undefined,
-              status,
-            );
-          case 401:
-            throw new QwenError(
-              QwenErrorCode.AUTH_FAILED,
-              message,
-              undefined,
-              status,
-            );
-          case 402:
-            throw new QwenError(
-              QwenErrorCode.INSUFFICIENT_BALANCE,
-              message,
-              undefined,
-              status,
-            );
-          case 403:
-            if (secUpstreamForbidden) {
-              throw new QwenError(
-                QwenErrorCode.RATE_LIMIT,
-                `${message} (provider failed to fetch SEC resource)`,
-                undefined,
-                status,
-              );
-            }
-            throw new QwenError(
-              QwenErrorCode.AUTH_FAILED,
-              message,
-              undefined,
-              status,
-            );
-          case 422:
-            throw new QwenError(
-              QwenErrorCode.INVALID_PARAMS,
-              message,
-              undefined,
-              status,
-            );
-          case 429:
-            throw new QwenError(
-              QwenErrorCode.RATE_LIMIT,
-              message,
-              undefined,
-              status,
-            );
-          case 500:
-            throw new QwenError(
-              QwenErrorCode.SERVER_ERROR,
-              message,
-              undefined,
-              status,
-            );
-          case 503:
-            throw new QwenError(
-              QwenErrorCode.SERVER_OVERLOADED,
-              message,
-              undefined,
-              status,
-            );
-          default:
-            throw new QwenError(
-              QwenErrorCode.UNKNOWN_ERROR,
-              message,
-              undefined,
-              status,
-            );
-        }
-      }
+          }
 
-      const data = await response.json();
-      const content_response = data.choices?.[0]?.message?.content;
+          const data = await response.json();
+          const content_response = data.choices?.[0]?.message?.content;
 
-      if (!content_response) {
-        throw new QwenError(
-          QwenErrorCode.NO_CONTENT_ERROR,
-          "No content in Qwen API response",
-        );
-      }
+          if (!content_response) {
+            throw new QwenError(
+              QwenErrorCode.NO_CONTENT_ERROR,
+              "No content in Qwen API response",
+            );
+          }
 
-      try {
-        const parsed = parseSubsidiaryJsonResponse<QwenParseResponse>(
-          content_response,
-        );
-        if (parsed.recovered) {
-          logger.warn("Qwen response required JSON recovery", {
+          return parseSubsidiaryContentOrThrow<QwenParseResponse, QwenError>(
+            content_response,
+            {
+              provider: "qwen-vl",
+              providerLabel: "Qwen",
+              model,
+              requestType,
+              accessionNumber,
+              logger,
+            },
+            (message, parseError) =>
+              new QwenError(
+                QwenErrorCode.JSON_PARSE_ERROR,
+                message,
+                parseError instanceof Error ? parseError : undefined,
+              ),
+          );
+        } catch (error) {
+          clearTimeout(timeoutId);
+
+          if (error instanceof QwenError) {
+            throw error;
+          }
+
+          if (error instanceof Error && error.name === "AbortError") {
+            throw new QwenError(
+              QwenErrorCode.TIMEOUT_ERROR,
+              `Request timeout after ${resolvedRequestTimeout}ms`,
+              error,
+            );
+          }
+
+          logger.warn("Qwen request failed", {
             provider: "qwen-vl",
             model,
             requestType,
             accessionNumber,
-            recoveredCount: parsed.recoveredCount,
+            error: error instanceof Error ? error.message : String(error),
           });
+
+          throw new QwenError(
+            QwenErrorCode.NETWORK_ERROR,
+            error instanceof Error ? error.message : String(error),
+            error instanceof Error ? error : undefined,
+          );
         }
-        return parsed.value;
-      } catch (parseError) {
-        const rawResponsePath = await writeRawResponseSnapshot({
-          provider: "qwen-vl",
-          model,
-          requestType,
-          accessionNumber,
-          reason: "json_parse_error",
-          content: content_response,
-        });
-        const rawResponsePreview = buildRawResponsePreview(content_response);
-        logger.error("Qwen JSON parse failed", {
-          provider: "qwen-vl",
-          model,
-          requestType,
-          accessionNumber,
-          parseError:
-            parseError instanceof Error ? parseError.message : String(parseError),
-          rawResponsePreview,
-          rawResponsePath,
-        });
-        throw new QwenError(
-          QwenErrorCode.JSON_PARSE_ERROR,
-          `JSON Parse error: ${
-            parseError instanceof Error ? parseError.message : String(parseError)
-          }`,
-          parseError instanceof Error ? parseError : undefined,
-        );
-      }
-    } catch (error) {
-      clearTimeout(timeoutId);
-
-      if (error instanceof QwenError) {
-        throw error;
-      }
-
-      if (error instanceof Error && error.name === "AbortError") {
-        throw new QwenError(
+      })(),
+      operationTimeout,
+      () =>
+        new QwenError(
           QwenErrorCode.TIMEOUT_ERROR,
-          `Request timeout after ${requestTimeout}ms`,
-          error,
-        );
-      }
-
-      logger.warn("Qwen request failed", {
-        provider: "qwen-vl",
-        model,
-        requestType,
-        accessionNumber,
-        error: error instanceof Error ? error.message : String(error),
-      });
-
-      throw new QwenError(
-        QwenErrorCode.NETWORK_ERROR,
-        error instanceof Error ? error.message : String(error),
-        error instanceof Error ? error : undefined,
-      );
-    }
-  });
+          `Qwen operation timeout after ${operationTimeout}ms`,
+        ),
+    ),
+  );
 }

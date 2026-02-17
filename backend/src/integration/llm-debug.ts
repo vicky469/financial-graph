@@ -1,17 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createLogger } from "../utils/logger";
+import { parsePositiveInt } from "../utils/env-parsing";
 
 const logger = createLogger("integration/llm-debug");
 
 const DEFAULT_RAW_RESPONSE_PREVIEW_MAX = 8000;
 const DEFAULT_LLM_RAW_RESPONSE_LOG_MAX_CHARS = 40_000;
-
-function parsePositiveInt(value: string | undefined, fallback: number): number {
-  if (!value) return fallback;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   if (!value) return fallback;

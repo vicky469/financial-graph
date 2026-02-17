@@ -3,10 +3,10 @@
  *
  * Lightweight validation logic used by the pipeline.
  *
- * Current policy (intentional simplification):
+ * Current policy:
  * - name is required
- * - jurisdiction is optional
- * - avoid hard-coded jurisdiction/company heuristics
+ * - jurisdiction can be required by caller (heuristic flow enables this)
+ * - reject placeholder and malformed values that commonly leak from parsing
  */
 
 import { isPossibleHeaderRowText } from "../parser/subsidiary/shape/table-detection";
@@ -37,15 +37,58 @@ export interface SubsidiaryData {
   jurisdiction?: string | null | undefined;
 }
 
+export interface ValidationOptions {
+  requireJurisdiction?: boolean;
+}
+
 function normalizeText(value: unknown): string {
   if (typeof value !== "string") return "";
   return value.trim();
 }
 
+const MISSING_NAME_MARKERS = new Set([
+  "none",
+  "null",
+  "nil",
+  "n/a",
+  "na",
+  "not applicable",
+  "unknown",
+]);
+
+const COMPANY_SUFFIX_REGEX =
+  /\b(?:inc|inc\.|corp|corp\.|corporation|co|co\.|company|llc|l\.l\.c\.|llp|l\.l\.p\.|lp|l\.p\.|ltd|ltd\.|limited|plc|gmbh|ag|sa|s\.a\.|bv|n\.v\.|nv)\b/i;
+const OWNS_WORD_REGEX = /\bowns\b/i;
+const MIN_VALID_RATIO = 0.9;
+
+function normalizeMarkerToken(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isMissingMarker(value: string): boolean {
+  if (!value) return false;
+  return MISSING_NAME_MARKERS.has(normalizeMarkerToken(value));
+}
+
+function isNumericOrSymbolOnly(value: string): boolean {
+  return value.length > 0 && /^[\d\W_]+$/.test(value);
+}
+
+function containsCompanySuffix(value: string): boolean {
+  return value.length > 0 && COMPANY_SUFFIX_REGEX.test(value);
+}
+
+function containsOwnsWord(value: string): boolean {
+  return value.length > 0 && OWNS_WORD_REGEX.test(value);
+}
+
 /**
  * Validates a single subsidiary record using essential checks only.
  */
-export function validateSubsidiary(subsidiary: SubsidiaryData): ValidationResult {
+export function validateSubsidiary(
+  subsidiary: SubsidiaryData,
+  options: ValidationOptions = {},
+): ValidationResult {
   const issues: string[] = [];
   const issueTypes: string[] = [];
   const issueDetails: ValidationIssueDetail[] = [];
@@ -56,6 +99,7 @@ export function validateSubsidiary(subsidiary: SubsidiaryData): ValidationResult
 
   const name = normalizeText(subsidiary.name);
   const jurisdiction = normalizeText(subsidiary.jurisdiction);
+  const hasJurisdiction = jurisdiction.length > 0;
 
   const addIssue = (
     severity: ValidationSeverity,
@@ -86,7 +130,16 @@ export function validateSubsidiary(subsidiary: SubsidiaryData): ValidationResult
     addIssue("CRITICAL", "name", "Company name is required");
   }
 
-  // Rule 2: Header rows should not leak into data.
+  // Rule 2: Placeholder names are invalid.
+  if (isMissingMarker(name)) {
+    addIssue(
+      "CRITICAL",
+      "name",
+      `Company name is a placeholder value ("${name}")`,
+    );
+  }
+
+  // Rule 3: Header rows should not leak into data.
   const isHeaderRow = isPossibleHeaderRowText(
     name,
     jurisdiction,
@@ -100,8 +153,8 @@ export function validateSubsidiary(subsidiary: SubsidiaryData): ValidationResult
     );
   }
 
-  // Rule 3: Name should not be numeric/symbol-only.
-  const nameIsJustNumbersOrSymbols = /^\s*[\d\(\)\-\s]+\s*$/.test(name);
+  // Rule 4: Name should not be numeric/symbol-only.
+  const nameIsJustNumbersOrSymbols = isNumericOrSymbolOnly(name);
   if (nameIsJustNumbersOrSymbols) {
     addIssue(
       "CRITICAL",
@@ -110,15 +163,43 @@ export function validateSubsidiary(subsidiary: SubsidiaryData): ValidationResult
     );
   }
 
-  // Rule 4: Jurisdiction is optional. If provided but numeric/symbol-only, flag for review.
-  const hasJurisdiction = jurisdiction.length > 0;
+  // Rule 5: Narrative sentence fragments should not be treated as company names.
+  if (containsOwnsWord(name)) {
+    addIssue(
+      "CRITICAL",
+      "name",
+      `Company name contains narrative keyword "owns" ("${name}")`,
+    );
+  }
+
+  // Rule 6: Optionally require jurisdiction (used by heuristic validation gate).
+  if (options.requireJurisdiction && !hasJurisdiction) {
+    addIssue(
+      "CRITICAL",
+      "jurisdiction",
+      "Jurisdiction is required",
+    );
+  }
+
+  // Rule 7: If jurisdiction is provided, reject numeric/symbol-only values.
   const jurisdictionIsJustNumbersOrSymbols =
-    hasJurisdiction && /^\s*[\d\(\)\-\s]+\s*$/.test(jurisdiction);
+    hasJurisdiction && isNumericOrSymbolOnly(jurisdiction);
   if (jurisdictionIsJustNumbersOrSymbols) {
     addIssue(
       "CRITICAL",
       "jurisdiction",
       "Jurisdiction contains only numbers and symbols - likely parsing noise",
+    );
+  }
+
+  // Rule 8: Jurisdiction should not contain company suffixes (likely shifted company name).
+  const jurisdictionLooksLikeCompanyName =
+    hasJurisdiction && containsCompanySuffix(jurisdiction);
+  if (jurisdictionLooksLikeCompanyName) {
+    addIssue(
+      "CRITICAL",
+      "jurisdiction",
+      `Jurisdiction appears to contain a company suffix ("${jurisdiction}")`,
     );
   }
 
@@ -141,18 +222,26 @@ export function validateSubsidiary(subsidiary: SubsidiaryData): ValidationResult
 /**
  * Validates multiple subsidiary records and returns overall validation result
  */
-export function validateSubsidiaries(subsidiaries: SubsidiaryData[]): {
+export function validateSubsidiaries(
+  subsidiaries: SubsidiaryData[],
+  options: ValidationOptions = {},
+): {
   overallValid: boolean;
   validCount: number;
   invalidCount: number;
   results: ValidationResult[];
 } {
-  const results = subsidiaries.map(validateSubsidiary);
+  const results = subsidiaries.map((subsidiary) =>
+    validateSubsidiary(subsidiary, options),
+  );
   const validCount = results.filter(r => r.isValid).length;
   const invalidCount = results.length - validCount;
-  
-  // Consider overall valid if more than 80% of records are valid
-  const overallValid = subsidiaries.length === 0 || (validCount / subsidiaries.length) >= 0.8;
+  const invalidRatio =
+    subsidiaries.length === 0 ? 0 : invalidCount / subsidiaries.length;
+
+  // overallValid means at least 90% of rows pass validation.
+  const overallValid =
+    subsidiaries.length === 0 || invalidRatio <= 1 - MIN_VALID_RATIO;
 
   return {
     overallValid,
@@ -164,12 +253,15 @@ export function validateSubsidiaries(subsidiaries: SubsidiaryData[]): {
 
 export function filterValidSubsidiaries<T extends SubsidiaryData>(
   subsidiaries: T[],
+  options: ValidationOptions = {},
 ): {
   validSubsidiaries: T[];
   invalidSubsidiaries: T[];
   results: ValidationResult[];
 } {
-  const results = subsidiaries.map(validateSubsidiary);
+  const results = subsidiaries.map((subsidiary) =>
+    validateSubsidiary(subsidiary, options),
+  );
   const validSubsidiaries: T[] = [];
   const invalidSubsidiaries: T[] = [];
 

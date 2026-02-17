@@ -1,27 +1,23 @@
 import { createLogger } from "../utils/logger";
-import { parseSubsidiaryJsonResponse } from "./llm-json";
-import { buildSubsidiaryExtractionPrompt } from "./subsidiary-prompt";
+import { buildSubsidiaryTextPrompt } from "./subsidiary-prompt";
 import { QwenError, QwenErrorCode, QwenParseResponse, QwenRequestOptions } from "./qwen";
+import { sleep } from "../utils/async-control";
 import {
   buildRawResponsePreview,
-  writeRawResponseSnapshot,
 } from "./llm-debug";
+import { parseSubsidiaryContentOrThrow } from "./subsidiary-response";
+import { DEFAULT_LLM_REQUEST_TIMEOUT_MS } from "./llm-constants";
 
 const logger = createLogger("integration/gpt");
 
 const DEFAULT_GPT_MODEL = "openai/gpt-4.1";
 const DEFAULT_TEMPERATURE = 0.1;
 const DEFAULT_MAX_TOKENS = 12000;
-const MAX_HTML_CHARS = 50000;
 
 // Rate limiting state (shared with qwen.ts for now)
 let gptRequestQueue: Promise<void> = Promise.resolve();
 let lastGptRequestStartedAt = 0;
 const GPT_MIN_REQUEST_INTERVAL_MS = 1500;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function withGptRateLimit<T>(operation: () => Promise<T>): Promise<T> {
   let releaseQueue: (() => void) | undefined;
@@ -46,13 +42,6 @@ async function withGptRateLimit<T>(operation: () => Promise<T>): Promise<T> {
   }
 }
 
-function buildTextPrompt(html: string): string {
-  return `${buildSubsidiaryExtractionPrompt("text")}
-
-HTML:
-${html.substring(0, MAX_HTML_CHARS)}`;
-}
-
 export async function callGPT4ForSubsidiaries(
   html: string,
   options: QwenRequestOptions = {},
@@ -66,17 +55,18 @@ export async function callGPT4ForSubsidiaries(
   }
 
   const {
-    requestTimeout = 45000,
+    requestTimeout,
     model = process.env.OPENROUTER_TEXT_MODEL || DEFAULT_GPT_MODEL,
     temperature = DEFAULT_TEMPERATURE,
     maxTokens = DEFAULT_MAX_TOKENS,
     accessionNumber,
   } = options;
+  const resolvedRequestTimeout = requestTimeout ?? DEFAULT_LLM_REQUEST_TIMEOUT_MS;
 
   return withGptRateLimit(async () => {
-    const prompt = buildTextPrompt(html);
+    const prompt = buildSubsidiaryTextPrompt(html);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
+    const timeoutId = setTimeout(() => controller.abort(), resolvedRequestTimeout);
 
     try {
       const messages = [
@@ -198,45 +188,23 @@ export async function callGPT4ForSubsidiaries(
         );
       }
 
-      try {
-        const parsed = parseSubsidiaryJsonResponse<QwenParseResponse>(content);
-        if (parsed.recovered) {
-          logger.warn("GPT response required JSON recovery", {
-            provider: "gpt",
-            requestType: "text",
-            accessionNumber,
-            model,
-            recoveredCount: parsed.recoveredCount,
-          });
-        }
-        return parsed.value;
-      } catch (parseError) {
-        const rawResponsePath = await writeRawResponseSnapshot({
+      return parseSubsidiaryContentOrThrow<QwenParseResponse, QwenError>(
+        content,
+        {
           provider: "gpt",
+          providerLabel: "GPT",
           model,
           requestType: "text",
           accessionNumber,
-          reason: "json_parse_error",
-          content,
-        });
-        logger.error("GPT JSON parse failed", {
-          provider: "gpt",
-          requestType: "text",
-          accessionNumber,
-          model,
-          parseError:
-            parseError instanceof Error ? parseError.message : String(parseError),
-          rawResponsePreview: buildRawResponsePreview(content),
-          rawResponsePath,
-        });
-        throw new QwenError(
-          QwenErrorCode.JSON_PARSE_ERROR,
-          `JSON Parse error: ${
-            parseError instanceof Error ? parseError.message : String(parseError)
-          }`,
-          parseError instanceof Error ? parseError : undefined,
-        );
-      }
+          logger,
+        },
+        (message, parseError) =>
+          new QwenError(
+            QwenErrorCode.JSON_PARSE_ERROR,
+            message,
+            parseError instanceof Error ? parseError : undefined,
+          ),
+      );
     } catch (error) {
       clearTimeout(timeoutId);
 
@@ -247,7 +215,7 @@ export async function callGPT4ForSubsidiaries(
       if (error instanceof Error && error.name === "AbortError") {
         throw new QwenError(
           QwenErrorCode.TIMEOUT_ERROR,
-          `Request timeout after ${requestTimeout}ms`,
+          `Request timeout after ${resolvedRequestTimeout}ms`,
           error,
         );
       }
