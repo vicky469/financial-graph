@@ -1,6 +1,6 @@
 import { load } from "cheerio";
-import { parseColumns } from "../../src/parser/subsidiary/columns";
-import { extractSubsidiaries } from "../../src/parser/subsidiary/extraction";
+import { parseColumns } from "../../src/parser/subsidiary/data/columns";
+import { extractSubsidiaries } from "../../src/parser/subsidiary/data/extraction";
 import fs from "fs";
 import path from "path";
 

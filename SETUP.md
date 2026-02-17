@@ -55,6 +55,7 @@ Root `.env` (frontend + `/api/contact`):
 
 Backend `.env` (InstantDB admin, pipelines, jobs):
 - `INSTANTDB_ADMIN_TOKEN`
+- `QWEN_SEC_REQUESTS_PER_SECOND` (optional Qwen vision/PDF throttle; decimal allowed)
 
 ## Deployment (Vercel)
 

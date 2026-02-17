@@ -11,15 +11,16 @@
  * Receives a shared Cheerio instance ($) from the caller — HTML is parsed once.
  */
 
-import { createLogger } from "../../utils/logger";
+import { createLogger } from "../../../utils/logger";
 
-import type { TableInfo, ContentExtractionInput } from "./parser-types";
-import { ParserError, DocumentClassification } from "./parser-types";
-import type { SubsidiaryRecord, ContentExtractionResult } from "./types";
+import type { TableInfo, ContentExtractionInput } from "../parser-types";
+import { ParserError, DocumentClassification } from "../parser-types";
+import type { SubsidiaryRecord } from "../../../pipeline/subsidiary/types";
+import type { ContentExtractionResult } from "../parser-types";
 import { extractSubsidiaries } from "./extraction";
-import { findHeaderRow, extractHeaders } from "./table-detection";
-import { extractDocumentFootnotes } from "./footnotes";
-import { preprocessFootnotesHtml } from "./footnotes-preprocessor";
+import { findHeaderRow, extractHeaders } from "../shape/table-detection";
+import { extractDocumentFootnotes } from "../footnote/footnotes";
+import { preprocessFootnotesHtml } from "../footnote/footnotes-preprocessor";
 
 const logger = createLogger("parsers/subsidiary/content-extraction");
 
@@ -47,7 +48,7 @@ export function extractSubsidiaryRecords(
 
   try {
     logger.debug(
-      `[${filing.accession_number}] Starting content extraction for ${structure.classification}`,
+      `Starting content extraction for ${structure.classification}`,
     );
 
     const footnotesHtml = extractFootnotesHtml($, config.processFootnotes);
@@ -58,9 +59,7 @@ export function extractSubsidiaryRecords(
     );
 
     if (subsidiaryTables.length === 0) {
-      logger.info(
-        `[${filing.accession_number}] No subsidiary tables found in structure`,
-      );
+      logger.info("No subsidiary tables found in structure");
       return {
         subsidiaries: [],
         maxNestingLevel: 0,
@@ -69,9 +68,7 @@ export function extractSubsidiaryRecords(
       };
     }
 
-    logger.info(
-      `[${filing.accession_number}] Processing ${subsidiaryTables.length} subsidiary tables`,
-    );
+    logger.info(`Processing ${subsidiaryTables.length} subsidiary tables`);
 
     const allTables: any[] = [];
     $("table").each((_: number, tbl: any) => {
@@ -83,15 +80,13 @@ export function extractSubsidiaryRecords(
 
     for (const tableInfo of subsidiaryTables) {
       logger.debug(
-        `[${filing.accession_number}] Processing table ${tableInfo.index} (${tableInfo.isContinuation ? "continuation" : "main"}, ${tableInfo.rowCount} rows)`,
+        `Processing table ${tableInfo.index} (${tableInfo.isContinuation ? "continuation" : "main"}, ${tableInfo.rowCount} rows)`,
       );
 
       // Find the table by index in our freshly-parsed DOM
       const $table = allTables[tableInfo.index];
       if (!$table) {
-        logger.warn(
-          `[${filing.accession_number}] Table ${tableInfo.index} not found in DOM`,
-        );
+        logger.warn(`Table ${tableInfo.index} not found in DOM`);
         continue;
       }
 
@@ -101,7 +96,7 @@ export function extractSubsidiaryRecords(
       const headers = getHeadersForTable($, rows, tableInfo);
       if (headers.length === 0) {
         logger.debug(
-          `[${filing.accession_number}] Table ${tableInfo.index}: No headers available, skipping`,
+          `Table ${tableInfo.index}: No headers available, skipping`,
         );
         continue;
       }
@@ -121,7 +116,7 @@ export function extractSubsidiaryRecords(
         { ...filing, filingCompanyName: filing.filingCompanyName ?? "" },
       );
       logger.debug(
-        `[${filing.accession_number}] Table ${tableInfo.index}: Extracted ${subsidiaries.length} subsidiaries`,
+        `Table ${tableInfo.index}: Extracted ${subsidiaries.length} subsidiaries`,
       );
 
       allSubsidiaries.push(...subsidiaries);
@@ -134,7 +129,7 @@ export function extractSubsidiaryRecords(
         : 0;
 
     logger.info(
-      `[${filing.accession_number}] Content extraction complete: ${allSubsidiaries.length} subsidiaries (maxNesting: ${maxNestingLevel})`,
+      `Content extraction complete: ${allSubsidiaries.length} subsidiaries (maxNesting: ${maxNestingLevel})`,
     );
 
     return {
@@ -144,9 +139,7 @@ export function extractSubsidiaryRecords(
       tableCount: structure.totalTableCount,
     };
   } catch (error: any) {
-    logger.error(
-      `[${filing.accession_number}] Content extraction failed: ${error.message}`,
-    );
+    logger.error(`Content extraction failed: ${error.message}`);
 
     // If it's already a ParserError, re-throw
     if (error instanceof ParserError || error.name === "ParserError") {

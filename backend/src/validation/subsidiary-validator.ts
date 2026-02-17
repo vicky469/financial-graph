@@ -1,146 +1,140 @@
 /**
  * Subsidiary Data Validator
  *
- * Abstracted validation logic for subsidiary records that can be used
- * both in CSV validation and in-memory pipeline validation.
+ * Lightweight validation logic used by the pipeline.
+ *
+ * Current policy (intentional simplification):
+ * - name is required
+ * - jurisdiction is optional
+ * - avoid hard-coded jurisdiction/company heuristics
  */
 
-import type { SubsidiaryData } from "../pipeline/subsidiary/types";
-import { SubsidiaryDataSchema } from "../pipeline/subsidiary/types";
-import { isPossibleHeaderRowText } from "../parser/subsidiary/table-detection";
+import { isPossibleHeaderRowText } from "../parser/subsidiary/shape/table-detection";
+
+export type ValidationSeverity = "CRITICAL" | "WARNING";
+export type ValidationField = "name" | "jurisdiction" | "data_quality";
+
+export interface ValidationIssueDetail {
+  severity: ValidationSeverity;
+  field: ValidationField;
+  type: string;
+  message: string;
+}
 
 export interface ValidationResult {
   isValid: boolean;
   qualityScore: number;
   issues: string[];
   issueTypes: string[];
+  issueDetails: ValidationIssueDetail[];
+  criticalIssues: string[];
+  warningIssues: string[];
   needsReview: boolean;
 }
 
-export type { SubsidiaryData };
+export interface SubsidiaryData {
+  name: string | null | undefined;
+  jurisdiction?: string | null | undefined;
+}
+
+function normalizeText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
 
 /**
- * Validates a single subsidiary record using rule-based validation
+ * Validates a single subsidiary record using essential checks only.
  */
 export function validateSubsidiary(subsidiary: SubsidiaryData): ValidationResult {
   const issues: string[] = [];
   const issueTypes: string[] = [];
+  const issueDetails: ValidationIssueDetail[] = [];
+  const criticalIssues: string[] = [];
+  const warningIssues: string[] = [];
   let qualityScore = 100;
+  let hasCriticalIssue = false;
 
-  const schemaResult = SubsidiaryDataSchema.safeParse({
-    name: subsidiary.name,
-    jurisdiction: subsidiary.jurisdiction,
-  });
+  const name = normalizeText(subsidiary.name);
+  const jurisdiction = normalizeText(subsidiary.jurisdiction);
 
-  if (!schemaResult.success) {
-    schemaResult.error.issues.forEach((issue) => {
-      issues.push(issue.message);
-      issueTypes.push("CRITICAL:schema");
+  const addIssue = (
+    severity: ValidationSeverity,
+    field: ValidationField,
+    message: string,
+  ): void => {
+    const type = `${severity}:${field}`;
+    issues.push(message);
+    issueTypes.push(type);
+    issueDetails.push({
+      severity,
+      field,
+      type,
+      message,
     });
-    qualityScore -= 50;
+    if (severity === "CRITICAL") {
+      criticalIssues.push(message);
+      hasCriticalIssue = true;
+      qualityScore -= 50;
+    } else {
+      warningIssues.push(message);
+      qualityScore -= 15;
+    }
+  };
+
+  // Rule 1: Name is required.
+  if (!name) {
+    addIssue("CRITICAL", "name", "Company name is required");
   }
 
-  // Check for header rows that got mixed into the data
+  // Rule 2: Header rows should not leak into data.
   const isHeaderRow = isPossibleHeaderRowText(
-    subsidiary.name,
-    subsidiary.jurisdiction,
+    name,
+    jurisdiction,
   );
-    
+
   if (isHeaderRow) {
-    issues.push("Header row detected in data - should be filtered during data processing");
-    issueTypes.push("CRITICAL:data_quality");
-    qualityScore = 0;
-    return {
-      isValid: false,
-      qualityScore,
-      issues,
-      issueTypes,
-      needsReview: true
-    };
+    addIssue(
+      "CRITICAL",
+      "data_quality",
+      "Header row detected in data - should be filtered during data processing",
+    );
   }
 
-  // Rule 1: Jurisdiction too long (should be country/state, not description)
-  if (subsidiary.jurisdiction.length > 50) {
-    issues.push(`Jurisdiction too long (${subsidiary.jurisdiction.length} chars) - likely contains company name or description`);
-    issueTypes.push("CRITICAL:jurisdiction");
-    qualityScore -= 40;
-  }
-
-  // Rule 2: Jurisdiction looks like a full company name (not just containing suffixes)
-  const jurisdictionLooksLikeCompanyName = 
-    subsidiary.jurisdiction.toLowerCase().includes('inc') ||
-    subsidiary.jurisdiction.toLowerCase().includes('corp') ||
-    subsidiary.jurisdiction.toLowerCase().includes('llc') ||
-    subsidiary.jurisdiction.toLowerCase().includes('ltd') ||
-    subsidiary.jurisdiction.toLowerCase().includes('limited') ||
-    subsidiary.jurisdiction.toLowerCase().includes('company') ||
-    subsidiary.jurisdiction.toLowerCase().includes('corporation');
-
-  const isActualCompanyName = jurisdictionLooksLikeCompanyName && (
-    // Must have multiple words AND end with a company suffix
-    subsidiary.jurisdiction.split(/\s+/).length > 2 &&
-    /\b(inc|corp|llc|ltd|limited|company|corporation)\.?\s*$/i.test(subsidiary.jurisdiction.trim())
-  );
-  
-  if (isActualCompanyName) {
-    issues.push("Jurisdiction appears to be a company name rather than geographic location");
-    issueTypes.push("CRITICAL:jurisdiction");
-    qualityScore -= 40;
-  }
-
-  // Rule 3: Jurisdiction is exact duplicate of company name (data corruption)
-  if (subsidiary.name.toLowerCase().trim() === subsidiary.jurisdiction.toLowerCase().trim()) {
-    issues.push("Jurisdiction is exact duplicate of company name - data corruption detected");
-    issueTypes.push("CRITICAL:jurisdiction");
-    qualityScore -= 40;
-  }
-
-  // Rule 4: Empty or suspicious fields
-  if (!subsidiary.name.trim()) {
-    issues.push("Company name is empty");
-    issueTypes.push("CRITICAL:name");
-    qualityScore -= 50;
-  }
-
-  if (!subsidiary.jurisdiction.trim()) {
-    issues.push("Jurisdiction is empty");
-    issueTypes.push("CRITICAL:jurisdiction");
-    qualityScore -= 50;
-  }
-
-  // Rule 5: Company name or jurisdiction is just numbers/symbols (data corruption)
-  const nameIsJustNumbersOrSymbols = /^\s*[\d\(\)\-\s]+\s*$/.test(subsidiary.name);
-  const jurisdictionIsJustNumbersOrSymbols = /^\s*[\d\(\)\-\s]+\s*$/.test(subsidiary.jurisdiction);
-  
+  // Rule 3: Name should not be numeric/symbol-only.
+  const nameIsJustNumbersOrSymbols = /^\s*[\d\(\)\-\s]+\s*$/.test(name);
   if (nameIsJustNumbersOrSymbols) {
-    issues.push("Company name contains only numbers and symbols (e.g., '123', '(2)', '-1') - likely data corruption or parsing error");
-    issueTypes.push("CRITICAL:name");
-    qualityScore -= 50;
+    addIssue(
+      "CRITICAL",
+      "name",
+      "Company name contains only numbers and symbols (e.g., '123', '(2)', '-1') - likely parsing error",
+    );
   }
-  
+
+  // Rule 4: Jurisdiction is optional. If provided but numeric/symbol-only, flag for review.
+  const hasJurisdiction = jurisdiction.length > 0;
+  const jurisdictionIsJustNumbersOrSymbols =
+    hasJurisdiction && /^\s*[\d\(\)\-\s]+\s*$/.test(jurisdiction);
   if (jurisdictionIsJustNumbersOrSymbols) {
-    issues.push("Jurisdiction contains only numbers and symbols (e.g., '123', '(2)', '-1') - likely data corruption or parsing error");
-    issueTypes.push("CRITICAL:jurisdiction");
-    qualityScore -= 50;
+    addIssue(
+      "CRITICAL",
+      "jurisdiction",
+      "Jurisdiction contains only numbers and symbols - likely parsing noise",
+    );
   }
 
-  // Rule 6: Jurisdiction contains numbers (unusual for geographic locations)
-  if (/\d/.test(subsidiary.jurisdiction) && !subsidiary.jurisdiction.toLowerCase().includes('hong kong')) {
-    issues.push("Jurisdiction contains numbers - unusual for geographic locations");
-    issueTypes.push("WARNING:jurisdiction");
-    qualityScore -= 20;
-  }
-
-  // Determine if needs review
-  const needsReview = qualityScore < 80 || issues.length > 0;
-  const isValid = qualityScore >= 80 && issues.length === 0;
+  const normalizedScore = Math.max(0, qualityScore);
+  const needsReview = issues.length > 0;
+  const isValid = !hasCriticalIssue;
 
   return {
     isValid,
-    qualityScore,
+    qualityScore: normalizedScore,
     issues,
     issueTypes,
-    needsReview
+    issueDetails,
+    criticalIssues,
+    warningIssues,
+    needsReview,
   };
 }
 

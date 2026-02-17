@@ -11,7 +11,7 @@ import {
   extractDocumentFootnotes,
   extractFootnoteRefFromName,
   parseOwnershipWithFootnoteRef,
-} from "../../src/parser/subsidiary/footnotes";
+} from "../../src/parser/subsidiary/footnote/footnotes";
 
 describe("extractFootnoteRefFromName", () => {
   it("extracts (n) style refs from name", () => {
@@ -199,7 +199,7 @@ describe("extractDocumentFootnotes", () => {
   });
 });
 
-import { preprocessFootnotesHtml } from "../../src/parser/subsidiary/footnotes-preprocessor";
+import { preprocessFootnotesHtml } from "../../src/parser/subsidiary/footnote/footnotes-preprocessor";
 
 describe("preprocessFootnotesHtml", () => {
   it("removes script tags", () => {

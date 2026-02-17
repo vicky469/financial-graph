@@ -12,12 +12,11 @@
  * - Preserves original data if LLM fails
  */
 
-import { createLogger } from "../../utils/logger";
-import type { SubsidiaryRecord } from "./types";
+import { createLogger } from "../../../utils/logger";
+import type { SubsidiaryRecord, LLMModification } from "../../../pipeline/subsidiary/types";
 import { createLLMProvider, type LLMProvider } from "./llm-provider";
-import type { LLMModification } from "./types";
 
-export type { LLMModification } from "./types";
+export type { LLMModification };
 
 const logger = createLogger("parsers/subsidiary/llm-enrichment");
 
@@ -80,18 +79,18 @@ export async function enrichWithLLM(
 
   if (needsEnrichment.length === 0 || !footnotesHtml) {
     logger.info(
-      `[${filing.accession_number}] Skipping LLM enrichment: ` +
+      `Skipping LLM enrichment: ` +
       `${needsEnrichment.length} subsidiaries with footnotes, ` +
       `footnotesHtml ${footnotesHtml ? 'present' : 'empty'} (${footnotesHtml?.length || 0} chars)`
     );
 
     // Still apply default ownership for subsidiaries with no footnotes
-    applyDefaultOwnership(subsidiaries, filing.accession_number);
+    applyDefaultOwnership(subsidiaries);
     return { subsidiaries, modifications };
   }
 
   logger.info(
-    `[${filing.accession_number}] Enriching ${needsEnrichment.length} subsidiaries with LLM ` +
+    `Enriching ${needsEnrichment.length} subsidiaries with LLM ` +
     `(footnotesHtml: ${footnotesHtml.length} chars)`
   );
 
@@ -157,7 +156,7 @@ export async function enrichWithLLM(
           fieldChanges: changes,
         });
         logger.info(
-          `[${filing.accession_number}] Enriched "${sub.name}": parent=${
+          `Enriched "${sub.name}": parent=${
             ownershipInfo.parentName || "unchanged"
           }, ownership=${ownershipInfo.ownership || "unchanged"}%`
         );
@@ -165,17 +164,17 @@ export async function enrichWithLLM(
     } catch (error: any) {
       failedCount++;
       logger.warn(
-        `[${filing.accession_number}] Failed to enrich "${sub.name}": ${error.message}`
+        `Failed to enrich "${sub.name}": ${error.message}`
       );
     }
   }
 
   logger.info(
-    `[${filing.accession_number}] LLM enrichment complete: ${enrichedCount} enriched, ${failedCount} failed`
+    `LLM enrichment complete: ${enrichedCount} enriched, ${failedCount} failed`
   );
 
   // Apply default ownership for subsidiaries with no footnotes
-  applyDefaultOwnership(subsidiaries, filing.accession_number);
+  applyDefaultOwnership(subsidiaries);
 
   return { subsidiaries, modifications };
 }
@@ -186,7 +185,6 @@ export async function enrichWithLLM(
  */
 function applyDefaultOwnership(
   subsidiaries: SubsidiaryRecord[],
-  accessionNumber: string
 ): void {
   let defaultCount = 0;
 
@@ -199,7 +197,7 @@ function applyDefaultOwnership(
 
   if (defaultCount > 0) {
     logger.info(
-      `[${accessionNumber}] Applied default 100% ownership to ${defaultCount} subsidiaries with no footnotes`
+      `Applied default 100% ownership to ${defaultCount} subsidiaries with no footnotes`
     );
   }
 }

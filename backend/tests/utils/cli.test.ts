@@ -85,13 +85,13 @@ describe("getCliIntArg", () => {
 
 describe("getCliListArg", () => {
   test("parses comma-separated list", () => {
-    const args = ["--sink=db,excel"];
-    expect(getCliListArg(args, "sink")).toEqual(["db", "excel"]);
+    const args = ["--sink=db,csv"];
+    expect(getCliListArg(args, "sink")).toEqual(["db", "csv"]);
   });
 
   test("trims whitespace and ignores empties", () => {
-    const args = ["--sink= db , , excel  "];
-    expect(getCliListArg(args, "sink")).toEqual(["db", "excel"]);
+    const args = ["--sink= db , , csv  "];
+    expect(getCliListArg(args, "sink")).toEqual(["db", "csv"]);
   });
 
   test("returns empty array when missing", () => {

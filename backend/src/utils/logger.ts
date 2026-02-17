@@ -2,6 +2,7 @@ import winston from "winston";
 import "winston-daily-rotate-file";
 import path from "path";
 import fs from "fs";
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { Logger, LogMetadata } from "@financial-graph/shared";
 
 // Use absolute path to ensure logs go to backend/logs
@@ -37,18 +38,30 @@ const formatLog = (
   message: string,
   meta: Record<string, any>,
 ) => {
+  const correlationId =
+    typeof meta.correlationId === "string" && meta.correlationId.trim().length > 0
+      ? meta.correlationId
+      : null;
+
+  const messageText = String(message);
+  const messageWithCorrelation =
+    correlationId && !messageText.includes(`[${correlationId}]`)
+      ? `[${correlationId}] ${messageText}`
+      : messageText;
+
+  const { correlationId: _correlationId, ...metaWithoutCorrelation } = meta;
   const lower = level.toLowerCase();
   const metaForLevel =
     lower.includes("warn") || lower.includes("error")
-      ? meta
+      ? metaWithoutCorrelation
       : (() => {
-          const { module, ...rest } = meta;
+          const { module, ...rest } = metaWithoutCorrelation;
           return rest;
         })();
 
   const metaStr =
     Object.keys(metaForLevel).length > 0 ? ` ${JSON.stringify(metaForLevel)}` : "";
-  return `${timestamp} [${level}]: ${message}${metaStr}`;
+  return `${timestamp} [${level}]: ${messageWithCorrelation}${metaStr}`;
 };
 
 // Custom format for console (readable, with colors)
@@ -141,22 +154,37 @@ const baseLogger = winston.createLogger({
   ],
 });
 
+const logMetadataStore = new AsyncLocalStorage<LogMetadata>();
+
+function getActiveLogMetadata(): LogMetadata {
+  return logMetadataStore.getStore() ?? {};
+}
+
+export function withLogMetadata<T>(
+  metadata: LogMetadata,
+  fn: () => T,
+): T {
+  const current = getActiveLogMetadata();
+  const mergedMetadata = { ...current, ...metadata };
+  return logMetadataStore.run(mergedMetadata, fn);
+}
+
 // Context-aware Logger Factory
 export const createLogger = (context: string): Logger => {
   const commonMeta = { module: context };
 
   return {
     debug: (msg: string, meta: LogMetadata = {}) => {
-      baseLogger.debug(msg, { ...commonMeta, ...meta });
+      baseLogger.debug(msg, { ...getActiveLogMetadata(), ...commonMeta, ...meta });
     },
     info: (msg: string, meta: LogMetadata = {}) => {
-      baseLogger.info(msg, { ...commonMeta, ...meta });
+      baseLogger.info(msg, { ...getActiveLogMetadata(), ...commonMeta, ...meta });
     },
     warn: (msg: string, meta: LogMetadata = {}) => {
-      baseLogger.warn(msg, { ...commonMeta, ...meta });
+      baseLogger.warn(msg, { ...getActiveLogMetadata(), ...commonMeta, ...meta });
     },
     error: (msg: string, meta: LogMetadata = {}) => {
-      baseLogger.error(msg, { ...commonMeta, ...meta });
+      baseLogger.error(msg, { ...getActiveLogMetadata(), ...commonMeta, ...meta });
     },
   };
 };

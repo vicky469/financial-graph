@@ -5,8 +5,8 @@
  */
 
 import { load } from "cheerio";
-import { extractSubsidiaries } from "../../src/parser/subsidiary/extraction";
-import { MissingColumnError } from "../../src/parser/subsidiary/errors";
+import { extractSubsidiaries } from "../../src/parser/subsidiary/data/extraction";
+import { MissingColumnError } from "../../src/parser/subsidiary/data/errors";
 
 describe("extractSubsidiaries", () => {
   const mockFiling = {

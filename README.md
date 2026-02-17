@@ -61,7 +61,6 @@ Visit `http://localhost:5173` and sign in with Google.
 - **Vite** for development and building
 - **InstantDB** for real-time data and authentication
 - **Tailwind CSS** for styling
-- **React Flow** for graph visualization
 
 ### Backend (`/backend`)
 

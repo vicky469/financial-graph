@@ -2,7 +2,7 @@ import {
   parseNameCell,
   parseOwnershipCell,
   parseJurisdictionCell,
-} from "../../src/parser/subsidiary/cells";
+} from "../../src/parser/subsidiary/data/cells";
 
 describe("Cell Parsing", () => {
   describe("parseNameCell", () => {

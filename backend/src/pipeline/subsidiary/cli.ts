@@ -41,10 +41,58 @@ export type SubsidiaryPipelineCliArgs = {
   accessions: string[];
 };
 
+const VALUE_ARG_PREFIXES = [
+  "--year=",
+  "--limit=",
+  "--sink=",
+  "--fallback=",
+  "--accessions=",
+] as const;
+
+const BOOLEAN_ARGS = new Set(["--sp500", "--exclude-sp500", "--dry-run"]);
+
+function validateArgs(args: string[]): void {
+  for (const arg of args) {
+    if (!arg.startsWith("--")) {
+      throw new Error(
+        `Unexpected positional argument "${arg}". Use --name=value format.`,
+      );
+    }
+
+    if (BOOLEAN_ARGS.has(arg)) continue;
+
+    const matchingPrefix = VALUE_ARG_PREFIXES.find((prefix) =>
+      arg.startsWith(prefix),
+    );
+
+    if (!matchingPrefix) {
+      throw new Error(
+        `Unknown argument "${arg}". Allowed args: --year=, --limit=, --sink=, --fallback=, --accessions=, --sp500, --exclude-sp500, --dry-run`,
+      );
+    }
+
+    if (arg.length <= matchingPrefix.length) {
+      throw new Error(`Missing value for argument "${matchingPrefix}"`);
+    }
+  }
+}
+
 function normalizeSinks(sinks: string[]): string[] {
   const normalized = sinks.map((sink) => sink.trim().toLowerCase()).filter(Boolean);
-  if (normalized.includes("all") || normalized.includes("both")) {
-    return ["db", "excel"];
+  const aliases = new Set(["all", "both"]);
+  const allowed = new Set(["db", "csv"]);
+
+  const invalid = normalized.filter(
+    (sink) => !aliases.has(sink) && !allowed.has(sink),
+  );
+  if (invalid.length > 0) {
+    throw new Error(
+      `Invalid sink value(s): ${invalid.join(", ")}. Use db, csv, all, or both.`,
+    );
+  }
+
+  if (normalized.some((sink) => aliases.has(sink))) {
+    return ["db", "csv"];
   }
 
   return Array.from(new Set(normalized));
@@ -53,6 +101,7 @@ function normalizeSinks(sinks: string[]): string[] {
 export function parsePipelineArgs(
   args: string[] = process.argv.slice(2),
 ): SubsidiaryPipelineCliArgs {
+  validateArgs(args);
   const { sp500Only, excludeSp500 } = resolveSp500Flags(args);
   const fallbackPolicy = parseFallbackPolicy(getCliArg(args, "fallback"));
   const accessions = getCliListArg(args, "accessions");

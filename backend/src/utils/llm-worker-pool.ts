@@ -9,7 +9,7 @@
  * across all pipeline workers and prevent API rate limit issues.
  */
 
-import { createLogger } from "./logger";
+import { createLogger, withLogMetadata } from "./logger";
 import {
   callDeepSeekForSubsidiaries,
   DeepSeekError,
@@ -107,53 +107,55 @@ export class LLMWorkerPool {
   private async startWorker(request: LLMRequest): Promise<void> {
     this.activeWorkers++;
 
-    try {
-      logger.debug(
-        `Worker started for ${request.id} (${this.activeWorkers}/${this.config.maxWorkers} active)`,
-      );
-
-      const result = await this.executeRequest(request);
-      request.resolve(result);
-    } catch (error) {
-      // Handle both DeepSeek and Qwen errors
-      let llmError: DeepSeekError | QwenError;
-      
-      if (error instanceof DeepSeekError || error instanceof QwenError) {
-        llmError = error;
-      } else {
-        llmError = new DeepSeekError(
-          DeepSeekErrorCode.UNKNOWN_ERROR,
-          error instanceof Error ? error.message : String(error),
-          error instanceof Error ? error : undefined,
-        );
-      }
-
-      if (llmError.isRetryable && request.retries < this.config.maxRetries) {
-        request.retries++;
-        logger.warn(
-          `Retrying ${request.id} (attempt ${request.retries}/${this.config.maxRetries}) - ${llmError.code}: ${llmError.message}`,
+    await withLogMetadata({ correlationId: request.id }, async () => {
+      try {
+        logger.debug(
+          `Worker started for ${request.id} (${this.activeWorkers}/${this.config.maxWorkers} active)`,
         );
 
-        setTimeout(() => {
-          this.queue.unshift(request);
-          this.processQueue();
-        }, this.config.retryDelay * request.retries);
-      } else {
-        if (!llmError.isRetryable) {
-          logger.error(
-            `Request ${request.id} failed with non-retryable error - ${llmError.code}: ${llmError.message}`,
-          );
+        const result = await this.executeRequest(request);
+        request.resolve(result);
+      } catch (error) {
+        // Handle both DeepSeek and Qwen errors
+        let llmError: DeepSeekError | QwenError;
+
+        if (error instanceof DeepSeekError || error instanceof QwenError) {
+          llmError = error;
         } else {
-          logger.error(
-            `Request ${request.id} failed after ${this.config.maxRetries} retries - ${llmError.code}: ${llmError.message}`,
+          llmError = new DeepSeekError(
+            DeepSeekErrorCode.UNKNOWN_ERROR,
+            error instanceof Error ? error.message : String(error),
+            error instanceof Error ? error : undefined,
           );
         }
-        request.reject(llmError);
+
+        if (llmError.isRetryable && request.retries < this.config.maxRetries) {
+          request.retries++;
+          logger.warn(
+            `Retrying ${request.id} (attempt ${request.retries}/${this.config.maxRetries}) - ${llmError.code}: ${llmError.message}`,
+          );
+
+          setTimeout(() => {
+            this.queue.unshift(request);
+            this.processQueue();
+          }, this.config.retryDelay * request.retries);
+        } else {
+          if (!llmError.isRetryable) {
+            logger.error(
+              `Request ${request.id} failed with non-retryable error - ${llmError.code}: ${llmError.message}`,
+            );
+          } else {
+            logger.error(
+              `Request ${request.id} failed after ${this.config.maxRetries} retries - ${llmError.code}: ${llmError.message}`,
+            );
+          }
+          request.reject(llmError);
+        }
+      } finally {
+        this.activeWorkers--;
+        this.processQueue();
       }
-    } finally {
-      this.activeWorkers--;
-      this.processQueue();
-    }
+    });
   }
 
   /**
@@ -164,11 +166,13 @@ export class LLMWorkerPool {
     if (request.isVisionModel && request.imageUrls && request.imageUrls.length > 0) {
       return callQwenForSubsidiaries(request.imageUrls, {
         requestTimeout: this.config.requestTimeout,
+        accessionNumber: request.id,
       });
     }
     
     return callDeepSeekForSubsidiaries(request.html, {
       requestTimeout: this.config.requestTimeout,
+      accessionNumber: request.id,
     });
   }
 

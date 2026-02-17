@@ -105,11 +105,17 @@ export class SubsidiariesDBSink {
       let failed: ValidatedFiling[] = [];
 
       try {
-        successful = filings.filter(
-          (f) => f?.parseResult?.status === "success",
-        );
-        empty = filings.filter((f) => f?.parseResult?.status === "empty");
-        failed = filings.filter((f) => f?.parseResult?.status === "failed");
+        for (const filing of filings) {
+          const status = filing?.parseResult?.status;
+          if (status === "success") {
+            successful.push(filing);
+          } else if (status === "empty") {
+            empty.push(filing);
+          } else {
+            // Keep unknown/missing runtime statuses visible as failures.
+            failed.push(filing);
+          }
+        }
 
         details.successFilings = successful.length;
         details.emptyFilings = empty.length;
@@ -143,15 +149,12 @@ export class SubsidiariesDBSink {
             } catch (error) {
               const errorMsg =
                 error instanceof Error ? error.message : String(error);
-              const errorType = classifyError(error as Error);
 
               const validSubsidiaries =
                 filing.parseResult?.subsidiaries?.filter(
                   (sub) =>
                     sub?.name &&
-                    sub.name.trim() &&
-                    sub?.jurisdiction &&
-                    sub.jurisdiction.trim(),
+                    sub.name.trim(),
                 ) || [];
 
               // Log error with subsidiary details
@@ -212,12 +215,7 @@ export class SubsidiariesDBSink {
       const subsidiaries = filing.parseResult?.subsidiaries || [];
 
       const validSubsidiaries = subsidiaries.filter((sub) => {
-        if (
-          !sub?.name ||
-          !sub.name.trim() ||
-          !sub?.jurisdiction ||
-          !sub.jurisdiction.trim()
-        ) {
+        if (!sub?.name || !sub.name.trim()) {
           logger.warn(
             `Skipping invalid subsidiary in DB: name="${sub?.name}", jurisdiction="${sub?.jurisdiction}" for filing ${filing.accessionNumberNoDashes}`,
           );
@@ -286,11 +284,7 @@ export class SubsidiariesDBSink {
 
       for (const subsidiary of subsidiaries) {
         try {
-          if (
-            !subsidiary.name ||
-            !subsidiary.jurisdiction ||
-            !subsidiary.parentId
-          ) {
+          if (!subsidiary.name || !subsidiary.name.trim()) {
             logger.warn(
               `Skipping subsidiary with missing data in DB: name="${subsidiary?.name}", jurisdiction="${subsidiary?.jurisdiction}", parentId="${subsidiary?.parentId}" for filing ${filing.accessionNumberNoDashes}`,
             );
@@ -298,18 +292,18 @@ export class SubsidiariesDBSink {
           }
 
           const subsidiaryId = generateCompanyId({
-            name: subsidiary.name,
+            name: subsidiary.name.trim(),
             type: CompanyType.SUBSIDIARY,
-            jurisdiction_raw: subsidiary.jurisdiction,
+            jurisdiction_raw: subsidiary.jurisdiction?.trim() || undefined,
           });
 
           const companyNode = {
             id: subsidiaryId,
-            name: subsidiary.name,
+            name: subsidiary.name.trim(),
             aliases: [],
             type: CompanyType.SUBSIDIARY,
             jurisdiction_iso: null,
-            jurisdiction_raw: subsidiary.jurisdiction ?? null,
+            jurisdiction_raw: subsidiary.jurisdiction?.trim() || null,
             identity: {},
             updated_at: now,
           };
@@ -326,18 +320,14 @@ export class SubsidiariesDBSink {
 
       for (const subsidiary of subsidiaries) {
         try {
-          if (
-            !subsidiary.name ||
-            !subsidiary.jurisdiction ||
-            !subsidiary.parentId
-          ) {
+          if (!subsidiary.name || !subsidiary.name.trim()) {
             continue;
           }
 
           const subsidiaryId = generateCompanyId({
-            name: subsidiary.name,
+            name: subsidiary.name.trim(),
             type: CompanyType.SUBSIDIARY,
-            jurisdiction_raw: subsidiary.jurisdiction,
+            jurisdiction_raw: subsidiary.jurisdiction?.trim() || undefined,
           });
 
           if (!subsidiaryIds.has(subsidiaryId)) continue;
@@ -355,13 +345,14 @@ export class SubsidiariesDBSink {
           txOps.push(db.tx.parent_of[edgeId].update(edgeNode));
           txOps.push(db.tx.company[parentId].link({ subsidiaries: edgeId }));
           txOps.push(db.tx.company[subsidiaryId].link({ parents: edgeId }));
+          txOps.push(db.tx.filing[filingId].link({ parentOfEdges: edgeId })); // Link parent_of edge to source filing
           createdLinks.add(edgeId);
 
-          // Only create enrichment if we have footnoteRefs or footnotesHtml
-          const hasFootnoteRefs = subsidiary.footnoteRefs && subsidiary.footnoteRefs.length > 0;
-          const hasFootnotesHtml = footnotesHtml && footnotesHtml.trim().length > 0;
-          
-          if (hasFootnoteRefs || hasFootnotesHtml) {
+          // Only create enrichment rows when this subsidiary has explicit footnote refs.
+          const hasFootnoteRefs =
+            subsidiary.footnoteRefs && subsidiary.footnoteRefs.length > 0;
+
+          if (hasFootnoteRefs) {
             const enrichmentId = generateSubsidiaryEnrichmentId(
               subsidiaryId,
               filingId,

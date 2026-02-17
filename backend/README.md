@@ -11,12 +11,12 @@
   Example: `$ bun run job:subsidiary_filings -- -2025 --skip-processing`
 - Run `$ bun run job:company_info_submissions` to ingest company info from SEC submissions JSON files.
 - Run `$ bun run job:subsidiary_exhibits_download -- -2025` to download EX-21/EX-8 exhibit files (requires years).
-- Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --dry-run` to run the subsidiaries parsing pipeline (both DB + Excel sinks).
+- Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --dry-run` to run the subsidiaries parsing pipeline (both DB + CSV sinks).
   - Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --fallback=none` to run without LLM fallback.
   - If you split the command across lines, use `\` at line end:
     `$ bun src/pipeline/subsidiary/run.ts \`
     `--year=2025 \`
-    `--sink=excel \`
+    `--sink=csv \`
     `--accessions=000095017025090161`
 - Run `$ bun run src/jobs/filings_download_htm_gz.ts -- -2025 10-K 20-F` to download primary HTM files from cached filing text (requires year and form types).
   - Reads from `filing_text/{year}/{formType}/` cache
@@ -26,6 +26,26 @@
 ## Documentation
 
 - Technical debt tracker: `technical debt.md`
+
+## LLM Throttle Configuration
+
+### Qwen SEC Throughput (vision/PDF)
+
+Use these env vars in `backend/.env` to control Qwen request pace when parsing SEC image/PDF sources:
+
+- `QWEN_SEC_REQUESTS_PER_SECOND`
+  - Positive number (supports decimals), e.g. `0.5`, `1`, `2`.
+  - Converted to `minIntervalMs = ceil(1000 / rps)`.
+
+Default:
+- If unset/invalid, falls back to `0.6667 req/s` (~`1500ms` interval).
+
+Examples:
+- `QWEN_SEC_REQUESTS_PER_SECOND=0.4` -> one request every `2500ms` (safer for large reruns)
+- `QWEN_SEC_REQUESTS_PER_SECOND=1.0` -> one request every `1000ms`
+
+The effective throttle is logged at startup under `integration/qwen`:
+- `Configured Qwen SEC throttle`
 
 ## Utilities
 

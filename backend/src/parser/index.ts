@@ -4,18 +4,17 @@
 
 export { parseExhibit } from "./subsidiary/index";
 
-// Re-export types
+// Re-export types from pipeline
 export type {
   SubsidiaryRecord,
   ParseResult,
-  FootnoteMap,
+} from "../pipeline/subsidiary/types";
+
+// Re-export parser-specific types
+export type {
   ColumnAnalysis,
   ParsedColumns,
-} from "./subsidiary/types";
-
-// Re-export parser types
-export type {
   ParserConfig,
   DocumentStructure,
   TableInfo,
-} from "./subsidiary/index";
+} from "./subsidiary/parser-types";

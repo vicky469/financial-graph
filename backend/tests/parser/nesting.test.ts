@@ -10,8 +10,8 @@ import {
   analyzeIndentation,
   determineNestingLevel,
   ParentStack,
-} from "../../src/parser/subsidiary/nesting";
-import type { SubsidiaryRecord } from "../../src/parser/subsidiary/types";
+} from "../../src/parser/subsidiary/data/nesting";
+import type { SubsidiaryRecord } from "../../src/pipeline/subsidiary/types";
 
 // Helper to create a mock Cheerio cell element
 function createMockCell(html: string, style?: string) {

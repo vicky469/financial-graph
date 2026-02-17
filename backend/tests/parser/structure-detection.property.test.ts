@@ -7,7 +7,7 @@
 
 import fc from "fast-check";
 import * as cheerio from "cheerio";
-import { detectDocumentStructure } from "../../src/parser/subsidiary/structure-detection";
+import { detectDocumentStructure } from "../../src/parser/subsidiary/shape/structure-detection";
 import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/parser-types";
 import type { ParserConfig } from "../../src/parser/subsidiary/parser-types";
 
@@ -164,6 +164,9 @@ describe("Structure Detection Property Tests", () => {
             "multi-table",
             "no-table",
             "has-table-no-data",
+            "text-based",
+            "image-based",
+            "pdf-based",
           ]).toContain(result.classification);
 
           // Verify tables is an array

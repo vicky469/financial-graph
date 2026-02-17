@@ -5,9 +5,6 @@ import type { SubsidiaryExhibit } from "../../config/subsidiary-exhibits";
 export const SUBSIDIARY_PARSE_STATUS = ["success", "empty", "failed"] as const;
 export type SubsidiaryParseStatus = (typeof SUBSIDIARY_PARSE_STATUS)[number];
 
-export const SUBSIDIARY_PARSE_METHOD = ["table", "text", "unknown"] as const;
-export type SubsidiaryParseMethod = (typeof SUBSIDIARY_PARSE_METHOD)[number];
-
 export type SubsidiaryFallbackPolicy = "llm" | "none";
 
 const hasLetters = (value: string) => /[A-Za-z]/.test(value);
@@ -60,9 +57,14 @@ export const SubsidiaryRecordSchema = z.object({
   jurisdiction: z
     .string()
     .trim()
-    .min(2, "Jurisdiction is too short")
-    .refine(hasLetters, "Jurisdiction must include letters")
-    .refine((value) => !looksLikeDate(value), "Jurisdiction looks like a date"),
+    .refine(
+      (value) => value === "" || hasLetters(value),
+      "Jurisdiction must include letters when provided",
+    )
+    .refine(
+      (value) => value === "" || !looksLikeDate(value),
+      "Jurisdiction looks like a date",
+    ),
   nestingLevel: z.number().int().min(0),
   parentName: z.string().trim().optional(),
   parentId: z.string().optional(),
@@ -90,7 +92,6 @@ export interface LLMModification {
 
 export interface SubsidiaryParseResult {
   subsidiaries: SubsidiaryRecord[];
-  method: SubsidiaryParseMethod;
   llmApplied?: boolean;
   llmModified?: boolean;
   status: SubsidiaryParseStatus; // success=found data, empty=no subsidiaries found, failed=error occurred
@@ -153,10 +154,11 @@ export type SinkResult = {
   details?: Record<string, any>;
 };
 
-export type SubsidiarySinkName = "db" | "excel";
+export type SubsidiarySinkName = "db" | "csv";
 
 export type SubsidiarySink = {
   name: string;
+  initialize?: () => Promise<void>;
   write: (filings: ValidatedFiling[]) => Promise<SinkResult>;
 };
 
@@ -177,6 +179,7 @@ export type PipelineContext = {
   llmWorkers: number;
   sinks: SubsidiarySink[];
   dryRun: boolean;
+  runTimestamp: string;
 };
 
 export type SubsidiaryPipelineResult = {

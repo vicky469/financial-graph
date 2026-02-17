@@ -68,6 +68,33 @@ describe("Text-Based Subsidiary Detection", () => {
     expect(result.classification).toBe("text-based");
   });
 
+  test("should detect Wdesk-style text list with company, jurisdiction clause", async () => {
+    const html = `
+      <html>
+        <body>
+          <div>Exhibit 21</div>
+          <div>SCHEDULE OF SUBSIDIARIES</div>
+          <div>Abacos Atlantic Holdings Ltd., a Bahamas international business company</div>
+          <div>Abacus Capital Group LLC, a Delaware limited liability company</div>
+        </body>
+      </html>
+    `;
+
+    const result = await parseExhibit(
+      html,
+      {
+        accession_number: "test-002b",
+        cik: "1234567890",
+        filingCompanyId: "test-company-id",
+      },
+      config,
+    );
+
+    expect(result.subsidiaries).toHaveLength(0);
+    expect(result.status).toBe("empty");
+    expect(result.classification).toBe("text-based");
+  });
+
   test("should detect footnote references in text-based entries", async () => {
     const html = `
       <html>

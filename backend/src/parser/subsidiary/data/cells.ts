@@ -7,7 +7,7 @@
 import {
   extractFootnoteRefFromName,
   parseOwnershipWithFootnoteRef,
-} from "./footnotes";
+} from "../footnote/footnotes";
 
 // ============================================================================
 // Types

@@ -3,7 +3,7 @@
  * Used by structure detection and content extraction.
  */
 
-import type { SubsidiaryFallbackPolicy } from "../../pipeline/subsidiary/types";
+import type { SubsidiaryFallbackPolicy, SubsidiaryRecord } from "../../pipeline/subsidiary/types";
 
 // ============================================================================
 // Configuration Types
@@ -61,9 +61,9 @@ export enum DocumentClassification {
   MULTI_TABLE = "multi-table",
   NO_TABLE = "no-table",
   HAS_TABLE_NO_DATA = "has-table-no-data",
-  TEXT_BASED = "text-based",
   IMAGE_BASED = "image-based",
   PDF_BASED = "pdf-based",
+  TEXT_BASED = "text-based",
 }
 
 /**
@@ -188,6 +188,44 @@ export interface ContentExtractionInput {
     filingCompanyId: string;
     filingCompanyName?: string;
   };
+}
+
+/**
+ * Column analysis result for parsing subsidiary data
+ */
+export interface ColumnAnalysis {
+  isJurisdiction: boolean;
+  isOwnership: boolean;
+  jurisdictionValue: string;
+  ownershipValue: number | undefined;
+}
+
+/**
+ * Parsed column data from a subsidiary table row
+ */
+export interface ParsedColumns {
+  rawName: string;
+  cleanName: string;
+  nameFootnoteRefs: string[];
+  indentationSpaces: number;
+  jurisdiction: string;
+  ownership: number | undefined;
+  ownershipFootnoteRefs: string[];
+}
+
+/**
+ * Result of content extraction phase
+ * Directly produces the record format consumers expect
+ */
+export interface ContentExtractionResult {
+  /** Extracted subsidiary records */
+  subsidiaries: SubsidiaryRecord[];
+  /** Maximum nesting level found */
+  maxNestingLevel: number;
+  /** Preprocessed footnotes HTML for LLM enrichment */
+  footnotesHtml: string;
+  /** Number of tables processed */
+  tableCount: number;
 }
 
 // ============================================================================

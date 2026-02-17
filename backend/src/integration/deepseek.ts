@@ -1,4 +1,10 @@
 import { createLogger } from "../utils/logger";
+import { parseSubsidiaryJsonResponse } from "./llm-json";
+import { buildSubsidiaryExtractionPrompt } from "./subsidiary-prompt";
+import {
+  buildRawResponsePreview,
+  writeRawResponseSnapshot,
+} from "./llm-debug";
 
 const logger = createLogger("integration/deepseek");
 
@@ -48,7 +54,7 @@ export class DeepSeekError extends Error {
 
 export interface DeepSeekSubsidiaryRecord {
   name: string;
-  jurisdiction: string;
+  jurisdiction?: string | null;
   ownership_percentage?: number | null;
 }
 
@@ -61,44 +67,19 @@ export type DeepSeekRequestOptions = {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  accessionNumber?: string;
 };
 
 const DEFAULT_MODEL = "deepseek-chat";
 const DEFAULT_TEMPERATURE = 0.1;
-const DEFAULT_MAX_TOKENS = 4000;
+const DEFAULT_MAX_TOKENS = 8000; // Output tokens limit
+const DEEPSEEK_MAX_OUTPUT_TOKENS_LIMIT = 8192; // DeepSeek API output token limit
 const MAX_HTML_CHARS = 50000;
 
 function buildPrompt(html: string): string {
-  return `You are parsing SEC Exhibit 21 (Subsidiaries of the Registrant) from HTML files. Extract subsidiary information with careful attention to separating company names from jurisdictions.
+  return `${buildSubsidiaryExtractionPrompt("text")}
 
-IMPORTANT PARSING RULES:
-1. Company names often contain jurisdictions in parentheses, or at the end
-2. Common patterns to parse:
-   - "Company Name (State)" → name: "Company Name", jurisdiction: "State"
-   - "Company Name, Inc. (Delaware)" → name: "Company Name, Inc.", jurisdiction: "Delaware"
-   - "Company Name Limited" → name: "Company Name Limited", jurisdiction: extract from context
-   - "Cui Yi Information Science and Technology (Shanghai) Company Limited" → name: "Cui Yi Information Science and Technology Company Limited", jurisdiction: "Shanghai"
-3. Jurisdictions are typically: US states, countries, or cities (like Shanghai, Hong Kong)
-4. Legal suffixes (Inc., LLC, Ltd., Limited, Corp., etc.) are part of the company name
-5. If jurisdiction appears within the company name, extract it separately
-
-For each entity, extract:
-- name: Clean company name without jurisdiction info in parentheses
-- jurisdiction: Geographic location (state, country, or city)
-- ownership_percentage: Number if explicitly stated, otherwise null
-
-Return ONLY a JSON object with this structure:
-{
-  "subsidiaries": [
-    {
-      "name": "Company Name",
-      "jurisdiction": "Delaware",
-      "ownership_percentage": 100
-    }
-  ]
-}
-
-HTML content:
+HTML:
 ${html.substring(0, MAX_HTML_CHARS)}`;
 }
 
@@ -119,7 +100,23 @@ export async function callDeepSeekForSubsidiaries(
     model = DEFAULT_MODEL,
     temperature = DEFAULT_TEMPERATURE,
     maxTokens = DEFAULT_MAX_TOKENS,
+    accessionNumber,
   } = options;
+  const boundedMaxTokens = Math.min(
+    DEEPSEEK_MAX_OUTPUT_TOKENS_LIMIT,
+    Math.max(1, Math.floor(maxTokens)),
+  );
+
+  if (boundedMaxTokens !== maxTokens) {
+    logger.warn("Adjusted DeepSeek max_tokens to provider limit", {
+      provider: "deepseek",
+      model,
+      requestType: "text",
+      accessionNumber,
+      requestedMaxTokens: maxTokens,
+      boundedMaxTokens,
+    });
+  }
 
   const prompt = buildPrompt(html);
   const controller = new AbortController();
@@ -143,7 +140,7 @@ export async function callDeepSeekForSubsidiaries(
         model,
         messages,
         temperature,
-        max_tokens: maxTokens,
+        max_tokens: boundedMaxTokens,
       }),
       signal: controller.signal,
     });
@@ -154,6 +151,17 @@ export async function callDeepSeekForSubsidiaries(
       const status = response.status;
       const statusText = response.statusText;
       const message = `DeepSeek API error: ${status} ${statusText}`;
+      const responseBody = await response.text();
+
+      logger.error("DeepSeek API non-OK response", {
+        provider: "deepseek",
+        model,
+        requestType: "text",
+        accessionNumber,
+        status,
+        statusText,
+        responseBodyPreview: buildRawResponsePreview(responseBody || "<empty>"),
+      });
 
       switch (status) {
         case 400:
@@ -225,17 +233,38 @@ export async function callDeepSeekForSubsidiaries(
       );
     }
 
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new DeepSeekError(
-        DeepSeekErrorCode.NO_CONTENT_ERROR,
-        "No JSON found in LLM response",
-      );
-    }
-
     try {
-      return JSON.parse(jsonMatch[0]) as DeepSeekParseResponse;
+      const parsed = parseSubsidiaryJsonResponse<DeepSeekParseResponse>(content);
+      if (parsed.recovered) {
+        logger.warn("DeepSeek response required JSON recovery", {
+          provider: "deepseek",
+          model,
+          requestType: "text",
+          accessionNumber,
+          recoveredCount: parsed.recoveredCount,
+        });
+      }
+      return parsed.value;
     } catch (parseError) {
+      const rawResponsePath = await writeRawResponseSnapshot({
+        provider: "deepseek",
+        model,
+        requestType: "text",
+        accessionNumber,
+        reason: "json_parse_error",
+        content,
+      });
+      const rawResponsePreview = buildRawResponsePreview(content);
+      logger.error("DeepSeek JSON parse failed", {
+        provider: "deepseek",
+        model,
+        requestType: "text",
+        accessionNumber,
+        parseError:
+          parseError instanceof Error ? parseError.message : String(parseError),
+        rawResponsePreview,
+        rawResponsePath,
+      });
       throw new DeepSeekError(
         DeepSeekErrorCode.JSON_PARSE_ERROR,
         `JSON Parse error: ${
@@ -260,6 +289,10 @@ export async function callDeepSeekForSubsidiaries(
     }
 
     logger.warn("DeepSeek request failed", {
+      provider: "deepseek",
+      model,
+      requestType: "text",
+      accessionNumber,
       error: error instanceof Error ? error.message : String(error),
     });
 

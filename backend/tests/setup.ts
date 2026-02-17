@@ -11,4 +11,5 @@ vi.mock("../src/utils/logger", () => ({
     error: vi.fn(),
     debug: vi.fn(),
   }),
+  withLogMetadata: <T>(_metadata: Record<string, unknown>, fn: () => T): T => fn(),
 }));

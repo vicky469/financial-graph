@@ -13,13 +13,13 @@ import { CompanyType } from "@financial-graph/shared/types";
 import {
   SUBSIDIARY_KEYWORDS,
   containsAny,
-} from "../../config/subsidiary-keywords";
-import type { SubsidiaryRecord, FootnoteMap } from "./types";
+} from "../../../config/subsidiary-keywords";
+import type { SubsidiaryRecord } from "../../../pipeline/subsidiary/types";
 import { parseColumns } from "./columns";
-import { isHeaderRow, filterContentCells } from "./table-detection";
+import { isHeaderRow, filterContentCells } from "../shape/table-detection";
 import { determineNestingLevel, ParentStack } from "./nesting";
 import { MissingColumnError } from "./errors";
-import { createLogger } from "../../utils/logger";
+import { createLogger } from "../../../utils/logger";
 
 const logger = createLogger("parsers/subsidiary/extraction");
 
@@ -86,6 +86,7 @@ export function extractSubsidiaries(
       nameColIdx,
       jurColIdx,
       ownershipColIdx,
+      allCells,
     );
 
     // 1. Handle Note Headers (e.g. "(1) Company Name")
@@ -121,9 +122,6 @@ export function extractSubsidiaries(
         parsed.jurisdiction = mappedJur;
       }
     }
-
-    // 4. Skip if still no jurisdiction (prevents crash)
-    if (!parsed.jurisdiction) return;
 
     // Combine footnote refs
     const footnoteRefs = [
@@ -163,24 +161,15 @@ export function extractSubsidiaries(
     // Debug logging for level 0 subsidiaries
     if (level === 0) {
       logger.debug(
-        `[${filing.accession_number}] Level 0 subsidiary "${parsed.cleanName}": parentId=${parentId}, filingCompanyId=${parentCompanyId}`,
+        `Level 0 subsidiary "${parsed.cleanName}": parentId=${parentId}, filingCompanyId=${parentCompanyId}`,
       );
     }
 
-    // Determine company type based on jurisdiction presence
-    // If jurisdiction is missing or empty, it's UNKNOWN, otherwise SUBSIDIARY
-    const companyType =
-      !parsed.jurisdiction || parsed.jurisdiction.trim() === ""
-        ? CompanyType.UNKNOWN
-        : CompanyType.SUBSIDIARY;
+    const normalizedName = parsed.cleanName?.trim() ?? "";
+    const normalizedJurisdiction = parsed.jurisdiction?.trim() ?? "";
 
-    // Validate that we have required fields before creating the record
-    if (
-      !parsed.cleanName ||
-      !parsed.cleanName.trim() ||
-      !parsed.jurisdiction ||
-      !parsed.jurisdiction.trim()
-    ) {
+    // Name is required; jurisdiction may be empty.
+    if (!normalizedName) {
       logger.warn(
         `Skipping subsidiary with invalid data: name="${parsed.cleanName}", jurisdiction="${parsed.jurisdiction}"`,
       );
@@ -188,15 +177,15 @@ export function extractSubsidiaries(
     }
 
     const subsidiaryId = generateCompanyId({
-      type: companyType,
-      name: parsed.cleanName,
-      jurisdiction_raw: parsed.jurisdiction,
+      type: CompanyType.SUBSIDIARY,
+      name: normalizedName,
+      jurisdiction_raw: normalizedJurisdiction || undefined,
     });
 
     subsidiaries.push({
       id: subsidiaryId,
-      name: parsed.cleanName.trim(),
-      jurisdiction: parsed.jurisdiction.trim(),
+      name: normalizedName,
+      jurisdiction: normalizedJurisdiction,
       nestingLevel: level,
       parentName,
       parentId,

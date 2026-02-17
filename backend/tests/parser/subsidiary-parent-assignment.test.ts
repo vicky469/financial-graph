@@ -7,7 +7,7 @@
  * 3. Parent stack doesn't leak between tables
  */
 
-import { DEFAULT_CONFIG, parseExhibit } from "../../src/parser/subsidiary-parser";
+import { DEFAULT_CONFIG, parseExhibit } from "../../src/parser";
 
 describe("Subsidiary Parent Assignment", () => {
   const config = { ...DEFAULT_CONFIG, fallbackPolicy: "none" as const };

@@ -32,15 +32,22 @@ describe("resolveSp500Flags", () => {
 });
 
 describe("parsePipelineArgs", () => {
-  test("sink=all expands to db + excel", () => {
+  test("sink=all expands to db + csv", () => {
     const args = ["--sink=all"];
     const parsed = parsePipelineArgs(args);
-    expect(parsed.sinks).toEqual(["db", "excel"]);
+    expect(parsed.sinks).toEqual(["db", "csv"]);
   });
 
-  test("sink=both expands to db + excel", () => {
+  test("sink=both expands to db + csv", () => {
     const args = ["--sink=both"];
     const parsed = parsePipelineArgs(args);
-    expect(parsed.sinks).toEqual(["db", "excel"]);
+    expect(parsed.sinks).toEqual(["db", "csv"]);
+  });
+
+  test("sink=excel is rejected", () => {
+    const args = ["--sink=excel"];
+    expect(() => parsePipelineArgs(args)).toThrow(
+      /Invalid sink value\(s\): excel/,
+    );
   });
 });

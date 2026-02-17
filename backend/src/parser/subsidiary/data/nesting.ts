@@ -15,7 +15,7 @@
  * - Leading whitespace in text
  */
 
-import type { SubsidiaryRecord } from "./types";
+import type { SubsidiaryRecord } from "../../../pipeline/subsidiary/types";
 
 export interface IndentationInfo {
   spaces: number;

@@ -6,8 +6,8 @@
  */
 
 import * as cheerio from "cheerio";
-import { extractSubsidiaryRecords } from "../../src/parser/subsidiary/content-extraction";
-import { detectDocumentStructure } from "../../src/parser/subsidiary/structure-detection";
+import { extractSubsidiaryRecords } from "../../src/parser/subsidiary/data/content-extraction";
+import { detectDocumentStructure } from "../../src/parser/subsidiary/shape/structure-detection";
 import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/parser-types";
 import type {
   ParserConfig,
@@ -158,6 +158,38 @@ describe("Content Extraction", () => {
       // Check nesting levels
       const parent = result.subsidiaries.find((s) => s.name === "Parent Corp");
       expect(parent?.nestingLevel).toBe(0);
+    });
+
+    it("detects nesting when indentation is represented by leading empty layout cells", () => {
+      const html = `
+        <html><body>
+          <table>
+            <tr>
+              <th>Subsidiary Name</th>
+              <th>Jurisdiction</th>
+            </tr>
+            <tr>
+              <td>Parent Corp</td>
+              <td>Delaware</td>
+            </tr>
+            <tr>
+              <td style="width:1%"></td>
+              <td>Child LLC</td>
+              <td>Nevada</td>
+            </tr>
+          </table>
+        </body></html>
+      `;
+      const input = createInput(html);
+      const result = extractSubsidiaryRecords(input);
+
+      expect(result.subsidiaries).toHaveLength(2);
+
+      const parent = result.subsidiaries.find((s) => s.name === "Parent Corp");
+      const child = result.subsidiaries.find((s) => s.name === "Child LLC");
+
+      expect(parent?.nestingLevel).toBe(0);
+      expect(child?.nestingLevel).toBe(1);
     });
   });
 

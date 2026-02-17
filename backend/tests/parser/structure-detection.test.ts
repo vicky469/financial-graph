@@ -6,7 +6,7 @@
  */
 
 import * as cheerio from "cheerio";
-import { detectDocumentStructure } from "../../src/parser/subsidiary/structure-detection";
+import { detectDocumentStructure } from "../../src/parser/subsidiary/shape/structure-detection";
 import { DEFAULT_CONFIG } from "../../src/parser/subsidiary/parser-types";
 import type { ParserConfig } from "../../src/parser/subsidiary/parser-types";
 
@@ -24,7 +24,7 @@ describe("Structure Detection", () => {
   });
 
   describe("Text-based listings", () => {
-    it("detects text-based subsidiaries when no tables are present", () => {
+    it("detects text-based classification when no tables are present", () => {
       const html = `
         <html><body>
           <div>Acme Corp (Delaware)</div>
@@ -176,6 +176,43 @@ describe("Structure Detection", () => {
       expect(continuationTable.headers).toBe(null);
       expect(continuationTable.cachedHeaders).toEqual(["Subsidiary Name", "Jurisdiction"]);
     });
+
+    it("does not classify column-mismatched data tables as continuation", () => {
+      const html = `
+        <html><body>
+          <table>
+            <tr>
+              <th>Subsidiary Name</th>
+              <th>Jurisdiction</th>
+            </tr>
+            <tr>
+              <td>Acme Corp</td>
+              <td>Delaware</td>
+            </tr>
+          </table>
+          <table>
+            <tr>
+              <td>Revenue</td>
+              <td>100</td>
+              <td>USD</td>
+            </tr>
+            <tr>
+              <td>Cost</td>
+              <td>20</td>
+              <td>USD</td>
+            </tr>
+          </table>
+        </body></html>
+      `;
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
+
+      expect(result.classification).toBe("single-table");
+      expect(result.tables).toHaveLength(2);
+      expect(result.tables[0].type).toBe("subsidiary");
+      expect(result.tables[1].type).toBe("unknown");
+      expect(result.tables[1].isContinuation).toBe(false);
+    });
   });
 
   describe("Tables without headers", () => {
@@ -214,6 +251,48 @@ describe("Structure Detection", () => {
       expect(table.isContinuation).toBe(false);
       expect(table.rowCount).toBe(4);
       expect(table.columnCount).toBe(2);
+    });
+  });
+
+  describe("Header offset handling", () => {
+    it("computes row count and column count correctly when header is not first row", () => {
+      const html = `
+        <html><body>
+          <table>
+            <tr><td>List of subsidiaries and affiliates</td></tr>
+            <tr>
+              <th>Subsidiary Name</th>
+              <th>Jurisdiction</th>
+            </tr>
+            <tr>
+              <td>Acme Corp</td>
+              <td>Delaware</td>
+            </tr>
+          </table>
+        </body></html>
+      `;
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
+
+      expect(result.classification).toBe("single-table");
+      expect(result.tables[0].type).toBe("subsidiary");
+      expect(result.tables[0].rowCount).toBe(1);
+      expect(result.tables[0].columnCount).toBe(2);
+    });
+  });
+
+  describe("No-table suffix-like text", () => {
+    it("keeps no-table classification for plain text listings", () => {
+      const html = `
+        <html><body>
+          <p>ACME INC</p>
+          <p>Beta Ltd</p>
+        </body></html>
+      `;
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
+
+      expect(result.classification).toBe("no-table");
     });
   });
 
@@ -320,6 +399,80 @@ describe("Structure Detection", () => {
       expect(result.classification).toBe("has-table-no-data");
       expect(result.tables).toHaveLength(1);
       expect(result.tables[0].rowCount).toBe(0);
+    });
+  });
+
+  describe("Special format override", () => {
+    it("does not override real subsidiary tables when a substantial image exists", () => {
+      const html = `
+        <html><body>
+          <img src="subsidiaries.jpg" width="900" height="1200" />
+          <table>
+            <tr>
+              <th>Subsidiary Name</th>
+              <th>Jurisdiction</th>
+            </tr>
+            <tr>
+              <td>Acme Corp</td>
+              <td>Delaware</td>
+            </tr>
+          </table>
+        </body></html>
+      `;
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
+
+      expect(result.classification).toBe("single-table");
+      expect(result.tables).toHaveLength(1);
+      expect(result.tables[0].type).toBe("subsidiary");
+    });
+
+    it("uses image-based classification when tables have no extractable data", () => {
+      const html = `
+        <html><body>
+          <table>
+            <tr>
+              <th>Subsidiary Name</th>
+              <th>Jurisdiction</th>
+            </tr>
+          </table>
+          <img src="scan_001.jpg" width="900" height="1200" />
+        </body></html>
+      `;
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
+
+      expect(result.classification).toBe("image-based");
+      expect(result.tables).toHaveLength(0);
+    });
+
+    it("prefers image-based when no extractable tables exist", () => {
+      const html = `
+        <html><body>
+          <p>List of Subsidiaries (Delaware)</p>
+          <img src="scan_001.jpg" width="900" height="1200" />
+        </body></html>
+      `;
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
+
+      expect(result.classification).toBe("image-based");
+      expect(result.tables).toHaveLength(0);
+    });
+
+    it("prefers pdf-based when both PDF and image signals exist", () => {
+      const html = `
+        <html><body>
+          <p>List of Subsidiaries</p>
+          <img src="scan_001.jpg" width="900" height="1200" />
+          <embed src="exhibit21.pdf" type="application/pdf" />
+        </body></html>
+      `;
+      const $ = cheerio.load(html, { xmlMode: false, decodeEntities: true });
+      const result = detectDocumentStructure($, DEFAULT_CONFIG);
+
+      expect(result.classification).toBe("pdf-based");
+      expect(result.tables).toHaveLength(0);
     });
   });
 

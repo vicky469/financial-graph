@@ -1,25 +1,74 @@
 /**
- * Subsidiaries Excel Sink
+ * Subsidiaries CSV Sink
  *
- * Writes parsed subsidiary data to Excel/CSV files:
+ * Writes parsed subsidiary data to CSV files:
  * - SUCCESS.csv: All successfully parsed subsidiaries
  * - EMPTY.csv: Filings with no subsidiaries
- * - FAILED.xlsx: Failed filings with error details
+ * - FAILED.csv: Failed filings with error details
  */
 
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { SinkResult, ValidatedFiling } from "../types";
+import { formatRunTimestamp } from "../util";
 
-export class SubsidiariesExcelSink {
-  name = "excel";
+const SUCCESS_HEADER =
+  "Accession,URL,SubsidiaryId,Subsidiary,Jurisdiction,NestingLevel,ParentName,ParentId,Ownership,Footnotes,StructureDetection,LLMModified,LLMChanges\n";
+const EMPTY_HEADER =
+  "Accession,URL,CachePath,Classification,StructureDetection,LLMAttempted\n";
+const FAILED_HEADER =
+  "Accession,URL,StructureDetection,LLMAttempted,ErrorMessage\n";
+
+function normalizeClassification(classification?: string): string {
+  return (classification || "")
+    .replace(/\s*\(LLM enhanced\)\s*$/i, "")
+    .trim();
+}
+
+function resolveStructureDetectionLabel(classification?: string): string {
+  const normalized = normalizeClassification(classification);
+  return normalized || "unknown";
+}
+
+function resolveLLMProviderLabel(filing: ValidatedFiling): string {
+  const provider = filing.parseResult?.telemetry?.fallback?.provider?.trim();
+  if (provider) return provider;
+  if (filing.parseResult?.llmApplied) return "llm";
+  return "none";
+}
+
+type OutputFiles = {
+  successCsv: string;
+  emptyCsv: string;
+  failedCsv: string;
+};
+
+export class SubsidiariesCsvSink {
+  name = "csv";
   private outputDir: string;
+  private runTimestamp: string;
+  private outputFiles: OutputFiles;
   private initialized = false;
 
-  constructor(outputDir?: string) {
+  constructor(outputDir?: string, runTimestamp?: string) {
     this.outputDir =
       outputDir ||
       path.resolve(import.meta.dirname, "..", "..", "..", "output", "data");
+    this.runTimestamp = runTimestamp ?? formatRunTimestamp();
+    this.outputFiles = {
+      successCsv: path.join(
+        this.outputDir,
+        `subsidiaries_SUCCESS.${this.runTimestamp}.csv`,
+      ),
+      emptyCsv: path.join(
+        this.outputDir,
+        `subsidiaries_EMPTY.${this.runTimestamp}.csv`,
+      ),
+      failedCsv: path.join(
+        this.outputDir,
+        `subsidiaries_FAILED.${this.runTimestamp}.csv`,
+      ),
+    };
   }
 
   async write(filings: ValidatedFiling[]): Promise<SinkResult> {
@@ -27,27 +76,28 @@ export class SubsidiariesExcelSink {
     let errors = 0;
     const details: Record<string, any> = {
       outputDir: this.outputDir,
+      outputFiles: this.outputFiles,
     };
 
     try {
-      try {
-        await fs.mkdir(this.outputDir, { recursive: true });
-      } catch (mkdirError) {
-        console.warn("Could not create output directory:", mkdirError);
-      }
-
-      await this.ensureCleanOutput();
+      await this.initialize();
 
       let successful: ValidatedFiling[] = [];
       let empty: ValidatedFiling[] = [];
       let failed: ValidatedFiling[] = [];
 
       try {
-        successful = filings.filter(
-          (f) => f?.parseResult?.status === "success",
-        );
-        empty = filings.filter((f) => f?.parseResult?.status === "empty");
-        failed = filings.filter((f) => f?.parseResult?.status === "failed");
+        for (const filing of filings) {
+          const status = filing?.parseResult?.status;
+          if (status === "success") {
+            successful.push(filing);
+          } else if (status === "empty") {
+            empty.push(filing);
+          } else {
+            // Treat unknown/missing statuses as failed to avoid dropping records.
+            failed.push(filing);
+          }
+        }
 
         details.successFilings = successful.length;
         details.emptyFilings = empty.length;
@@ -81,25 +131,15 @@ export class SubsidiariesExcelSink {
 
       if (failed.length > 0) {
         try {
-          await this.writeFailedExcel(failed);
+          await this.writeFailedCSV(failed);
         } catch (e) {
-          console.error("Failed to write FAILED Excel:", e);
+          console.error("Failed to write FAILED CSV:", e);
           errors++;
         }
       }
     } catch (criticalError) {
-      console.error("Critical error in Excel sink:", criticalError);
+      console.error("Critical error in CSV sink:", criticalError);
       errors++;
-
-      try {
-        await fs.mkdir(this.outputDir, { recursive: true });
-        const errorFilePath = path.join(this.outputDir, "sink_error.txt");
-        const errorMessage = `Excel Sink Error at ${new Date().toISOString()}\n\nError: ${criticalError instanceof Error ? criticalError.message : String(criticalError)}\n\nStack: ${criticalError instanceof Error ? criticalError.stack : "No stack trace"}\n\nFilings count: ${filings?.length || 0}`;
-        await fs.writeFile(errorFilePath, errorMessage);
-        console.log(`   Wrote error report: ${errorFilePath}`);
-      } catch (errorReportError) {
-        console.error("Could not write error report:", errorReportError);
-      }
     }
 
     return {
@@ -109,57 +149,25 @@ export class SubsidiariesExcelSink {
     };
   }
 
-  private async ensureCleanOutput(): Promise<void> {
+  async initialize(): Promise<void> {
     if (this.initialized) return;
+
+    await fs.mkdir(this.outputDir, { recursive: true });
+    await fs.writeFile(this.outputFiles.successCsv, SUCCESS_HEADER, "utf8");
+    await fs.writeFile(this.outputFiles.emptyCsv, EMPTY_HEADER, "utf8");
+    await fs.writeFile(this.outputFiles.failedCsv, FAILED_HEADER, "utf8");
     this.initialized = true;
-
-    const files = [
-      path.join(this.outputDir, "subsidiaries_SUCCESS.csv"),
-      path.join(this.outputDir, "subsidiaries_EMPTY.csv"),
-      path.join(this.outputDir, "subsidiaries_FAILED.xlsx"),
-      path.join(this.outputDir, "sink_error.txt"),
-    ];
-
-    await Promise.all(
-      files.map(async (filePath) => {
-        try {
-          await fs.unlink(filePath);
-        } catch {
-          // ignore missing files
-        }
-      }),
-    );
   }
 
-  private async appendCsvRows(
-    filePath: string,
-    header: string,
-    rows: string[],
-  ): Promise<void> {
+  private async appendCsvRows(filePath: string, rows: string[]): Promise<void> {
     if (rows.length === 0) return;
 
-    let fileExists = false;
-    try {
-      await fs.access(filePath);
-      fileExists = true;
-    } catch {
-      fileExists = false;
-    }
-
-    if (!fileExists) {
-      await fs.writeFile(filePath, header + rows.join("\n"));
-      return;
-    }
-
-    const prefix = "\n";
-    await fs.appendFile(filePath, prefix + rows.join("\n"));
+    await fs.appendFile(filePath, `${rows.join("\n")}\n`);
   }
 
   private async writeSuccessCSV(filings: ValidatedFiling[]): Promise<number> {
     try {
-      const filePath = path.join(this.outputDir, "subsidiaries_SUCCESS.csv");
-      const header =
-        "Accession,URL,SubsidiaryId,Subsidiary,Jurisdiction,NestingLevel,ParentName,ParentId,Ownership,Footnotes,ParseMethod,LLMModified,LLMChanges\n";
+      const filePath = this.outputFiles.successCsv;
 
       const rows: string[] = [];
 
@@ -193,12 +201,10 @@ export class SubsidiariesExcelSink {
             try {
               if (
                 !sub?.name ||
-                !sub.name.trim() ||
-                !sub?.jurisdiction ||
-                !sub.jurisdiction.trim()
+                !sub.name.trim()
               ) {
                 console.warn(
-                  `Skipping invalid subsidiary in Excel output: name="${sub?.name}", jurisdiction="${sub?.jurisdiction}"`,
+                  `Skipping invalid subsidiary in CSV output: name="${sub?.name}", jurisdiction="${sub?.jurisdiction}"`,
                 );
                 continue;
               }
@@ -211,14 +217,16 @@ export class SubsidiariesExcelSink {
               const parentId = sub.parentId || "";
               const ownership = sub.ownership ?? "";
               const footnotes = `"${(sub.footnoteRefs || []).join(", ")}"`;
-              const parseMethod = `"${f.parseResult?.method || ""}"`;
+              const structureDetection = `"${resolveStructureDetectionLabel(
+                f.parseResult?.classification,
+              )}"`;
 
               const llmChanges = llmModMap.get(sub.id) || [];
-              const llmModified = llmChanges.length > 0 ? "YES" : "NO";
+              const llmProvider = `"${resolveLLMProviderLabel(f).replace(/"/g, '""')}"`;
               const escapedChanges = `"${llmChanges.join("; ").replace(/"/g, '""')}"`;
 
               rows.push(
-                `"\`${f.accessionNumberNoDashes || ""}","${f.url || ""}",${sub.id || ""},${escapedName},${escapedJur},${sub.nestingLevel || 0},${escapedParent},${parentId},${ownership},${footnotes},${parseMethod},${llmModified},${escapedChanges}`,
+                `"\`${f.accessionNumberNoDashes || ""}","${f.url || ""}",${sub.id || ""},${escapedName},${escapedJur},${sub.nestingLevel || 0},${escapedParent},${parentId},${ownership},${footnotes},${structureDetection},${llmProvider},${escapedChanges}`,
               );
             } catch (subError) {
               console.warn(
@@ -235,7 +243,7 @@ export class SubsidiariesExcelSink {
         }
       }
 
-      await this.appendCsvRows(filePath, header, rows);
+      await this.appendCsvRows(filePath, rows);
       console.log(
         `   Wrote SUCCESS CSV: ${filePath} (${rows.length} subsidiaries from ${filings.length} filings)`,
       );
@@ -249,9 +257,7 @@ export class SubsidiariesExcelSink {
 
   private async writeEmptyCSV(filings: ValidatedFiling[]): Promise<void> {
     try {
-      const filePath = path.join(this.outputDir, "subsidiaries_EMPTY.csv");
-      const header =
-        "Accession,URL,CachePath,Classification,ParseMethod,LLMAttempted\n";
+      const filePath = this.outputFiles.emptyCsv;
 
       const rows: string[] = [];
       for (const f of filings) {
@@ -261,7 +267,10 @@ export class SubsidiariesExcelSink {
             f.parseResult?.telemetry?.fallback?.used === true
               ? "YES"
               : "NO";
-          const row = `"\`${f.accessionNumberNoDashes || ""}","${f.url || ""}","${f.cachePath || ""}","${f.parseResult?.classification || ""}","${f.parseResult?.method || ""}","${llmAttempted}"`;
+          const structureDetection = resolveStructureDetectionLabel(
+            f.parseResult?.classification,
+          );
+          const row = `"\`${f.accessionNumberNoDashes || ""}","${f.url || ""}","${f.cachePath || ""}","${f.parseResult?.classification || ""}","${structureDetection}","${llmAttempted}"`;
           rows.push(row);
         } catch (filingError) {
           console.warn(
@@ -272,7 +281,7 @@ export class SubsidiariesExcelSink {
         }
       }
 
-      await this.appendCsvRows(filePath, header, rows);
+      await this.appendCsvRows(filePath, rows);
       console.log(
         `   Wrote EMPTY CSV: ${filePath} (${filings.length} filings with no subsidiaries)`,
       );
@@ -282,40 +291,10 @@ export class SubsidiariesExcelSink {
     }
   }
 
-  private async writeFailedExcel(filings: ValidatedFiling[]): Promise<void> {
+  private async writeFailedCSV(filings: ValidatedFiling[]): Promise<void> {
     try {
-      const filePath = path.join(this.outputDir, "subsidiaries_FAILED.xlsx");
-      const ExcelJS = await import("exceljs");
-      const workbook = new ExcelJS.Workbook();
-
-      let sheet = workbook.getWorksheet("Failed");
-      let fileExists = false;
-
-      try {
-        await fs.access(filePath);
-        fileExists = true;
-      } catch {
-        fileExists = false;
-      }
-
-      if (fileExists) {
-        await workbook.xlsx.readFile(filePath);
-        sheet = workbook.getWorksheet("Failed");
-      }
-
-      if (!sheet) {
-        sheet = workbook.addWorksheet("Failed");
-      }
-
-      if (!sheet.columns || sheet.columns.length === 0) {
-        sheet.columns = [
-          { header: "Accession", key: "accession", width: 20 },
-          { header: "URL", key: "url", width: 60 },
-          { header: "ParseMethod", key: "parseMethod", width: 25 },
-          { header: "LLMAttempted", key: "llmAttempted", width: 15 },
-          { header: "ErrorMessage", key: "errorMessage", width: 80 },
-        ];
-      }
+      const filePath = this.outputFiles.failedCsv;
+      const rows: string[] = [];
 
       filings.forEach((f) => {
         try {
@@ -324,35 +303,33 @@ export class SubsidiariesExcelSink {
             f.parseResult?.telemetry?.fallback?.used === true
               ? "YES"
               : "NO";
-          sheet.addRow({
-            accession: `\`${f.accessionNumberNoDashes || "unknown"}`,
-            url: f.url || "",
-            parseMethod: f.parseResult?.method || "unknown",
-            llmAttempted,
-            errorMessage:
-              f.parseResult?.errorMessage || f.issues?.join("; ") || "Unknown error",
-          });
+          const structureDetection = resolveStructureDetectionLabel(
+            f.parseResult?.classification,
+          ).replace(/"/g, '""');
+          const errorMessage = (
+            f.parseResult?.errorMessage || f.issues?.join("; ") || "Unknown error"
+          ).replace(/"/g, '""');
+
+          rows.push(
+            `"\`${f.accessionNumberNoDashes || "unknown"}","${(f.url || "").replace(/"/g, '""')}","${structureDetection}","${llmAttempted}","${errorMessage}"`,
+          );
         } catch (filingError) {
           console.warn(
             `Error processing failed filing ${f.accessionNumberNoDashes}:`,
             filingError,
           );
-          sheet.addRow({
-            accession: `\`${f.accessionNumberNoDashes || "unknown"}`,
-            url: f.url || "",
-            parseMethod: "error",
-            llmAttempted: "NO",
-            errorMessage: `Processing error: ${filingError instanceof Error ? filingError.message : String(filingError)}`,
-          });
+          rows.push(
+            `"\`${f.accessionNumberNoDashes || "unknown"}","${(f.url || "").replace(/"/g, '""')}","error","NO","${`Processing error: ${filingError instanceof Error ? filingError.message : String(filingError)}`.replace(/"/g, '""')}"`,
+          );
         }
       });
 
-      await workbook.xlsx.writeFile(filePath);
+      await this.appendCsvRows(filePath, rows);
       console.log(
-        `   Wrote FAILED Excel: ${filePath} (${filings.length} failed filings)`,
+        `   Wrote FAILED CSV: ${filePath} (${filings.length} failed filings)`,
       );
     } catch (error) {
-      console.error("Critical error in writeFailedExcel:", error);
+      console.error("Critical error in writeFailedCSV:", error);
       throw error;
     }
   }

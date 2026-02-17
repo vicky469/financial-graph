@@ -5,7 +5,7 @@
 import fs from "node:fs/promises";
 import { gunzip } from "node:zlib";
 import { promisify } from "node:util";
-import { createLogger } from "../../utils/logger";
+import { createLogger, withLogMetadata } from "../../utils/logger";
 import { parseExhibit, DEFAULT_CONFIG } from "../../parser/subsidiary";
 import { buildFailedParseResult } from "./util";
 import type {
@@ -27,47 +27,54 @@ export async function parseSubsidiaryTarget(
   target: SECFilingTarget,
   options: { fallbackPolicy?: SubsidiaryFallbackPolicy } = {},
 ): Promise<ValidatedFiling> {
-  try {
-    const contentBuffer = await decompressContent(target.cachePath);
-    const fallbackPolicy = options.fallbackPolicy ?? "llm";
+  return withLogMetadata(
+    { correlationId: target.accessionNumberNoDashes },
+    async () => {
+      try {
+        const contentBuffer = await decompressContent(target.cachePath);
+        const fallbackPolicy = options.fallbackPolicy ?? "llm";
 
-    // Check if it's a PDF or HTML
-    const header = contentBuffer.slice(0, 5).toString('utf-8');
-    const isPDF = header.startsWith('%PDF-');
-    
-    // Convert to string only for HTML, keep as buffer for PDF
-    const content = isPDF ? contentBuffer.toString('latin1') : contentBuffer.toString('utf-8');
+        // Check if it's a PDF or HTML
+        const header = contentBuffer.slice(0, 5).toString("utf-8");
+        const isPDF = header.startsWith("%PDF-");
 
-    const parseResult = await parseExhibit(
-      content,
-      {
-        accession_number: target.accessionNumberNoDashes,
-        cik: target.cik,
-        filingCompanyId: target.companyId,
-        filingCompanyName: target.companyName,
-      },
-      { ...DEFAULT_CONFIG, fallbackPolicy },
-    );
+        // Convert to string only for HTML, keep as buffer for PDF
+        const content = isPDF
+          ? contentBuffer.toString("latin1")
+          : contentBuffer.toString("utf-8");
 
-    const isSuccessful = parseResult.status !== "failed";
+        const parseResult = await parseExhibit(
+          content,
+          {
+            accession_number: target.accessionNumberNoDashes,
+            cik: target.cik,
+            filingCompanyId: target.companyId,
+            filingCompanyName: target.companyName,
+          },
+          { ...DEFAULT_CONFIG, fallbackPolicy },
+        );
 
-    return {
-      ...target,
-      parseResult,
-      valid: isSuccessful,
-      issues: isSuccessful ? [] : [parseResult.errorMessage || "Parse failed"],
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error(`Parse failed for ${target.accessionNumberNoDashes}:`, {
-      error: message,
-    });
+        const isSuccessful = parseResult.status !== "failed";
 
-    return {
-      ...target,
-      parseResult: buildFailedParseResult(message),
-      valid: false,
-      issues: [message],
-    };
-  }
+        return {
+          ...target,
+          parseResult,
+          valid: isSuccessful,
+          issues: isSuccessful ? [] : [parseResult.errorMessage || "Parse failed"],
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error("Parse failed:", {
+          error: message,
+        });
+
+        return {
+          ...target,
+          parseResult: buildFailedParseResult(message),
+          valid: false,
+          issues: [message],
+        };
+      }
+    },
+  );
 }

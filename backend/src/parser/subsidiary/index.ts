@@ -6,25 +6,24 @@
  */
 
 import * as cheerio from "cheerio";
-import { createLogger } from "../../utils/logger";
+import { createLogger, withLogMetadata } from "../../utils/logger";
 
 import type {
   ParseResult,
   ParseTelemetry,
   SubsidiaryFallbackPolicy,
-  SubsidiaryParseMethod,
-} from "./types";
+} from "../../pipeline/subsidiary/types";
 import {
   validateSubsidiaries,
   filterValidSubsidiaries,
 } from "../../validation/subsidiary-validator";
 import { llmFallbackParse } from "../../validation/llm-fallback";
 
-import { detectDocumentStructure } from "./structure-detection";
+import { detectDocumentStructure } from "./shape/structure-detection";
 import {
   extractSubsidiaryRecords,
   extractFootnotesHtml,
-} from "./content-extraction";
+} from "./data/content-extraction";
 import type { ParserConfig, DocumentStructure } from "./parser-types";
 import { DocumentClassification, TableType } from "./parser-types";
 import { DEFAULT_CONFIG, ParserError } from "./parser-types";
@@ -41,7 +40,7 @@ export type {
 export { DEFAULT_CONFIG, ParserError } from "./parser-types";
 
 // Re-export content extraction types
-export type { ContentExtractionResult } from "./types";
+export type { ContentExtractionResult } from "./parser-types";
 
 const logger = createLogger("parsers/subsidiary");
 
@@ -74,6 +73,21 @@ export async function parseExhibit(
   },
   config: ParserConfig = DEFAULT_CONFIG,
 ): Promise<ParseResult> {
+  return withLogMetadata({ correlationId: filing.accession_number }, () =>
+    parseExhibitInternal(html, filing, config),
+  );
+}
+
+async function parseExhibitInternal(
+  html: string,
+  filing: {
+    accession_number: string;
+    cik: string;
+    filingCompanyId: string;
+    filingCompanyName?: string;
+  },
+  config: ParserConfig = DEFAULT_CONFIG,
+): Promise<ParseResult> {
   const fallbackPolicy = config.fallbackPolicy ?? "llm";
   const startedAt = Date.now();
   const timingsMs: ParseTelemetry["timingsMs"] = {};
@@ -96,9 +110,7 @@ export async function parseExhibit(
   // Detect PDF files early - they need vision model processing
   let isPDF = false;
   if (html.trim().startsWith("%PDF-")) {
-    logger.info(
-      `[${filing.accession_number}] PDF file detected - will use vision model for parsing`,
-    );
+    logger.info("PDF file detected - will use vision model for parsing");
     isPDF = true;
   }
 
@@ -107,7 +119,6 @@ export async function parseExhibit(
     if (isPDF) {
       const pdfResult: ParseResult = {
         subsidiaries: [],
-        method: "unknown",
         status: "empty",
         classification: DocumentClassification.PDF_BASED,
         tableCount: 0,
@@ -121,9 +132,7 @@ export async function parseExhibit(
         return finalizeResult(pdfResult);
       }
       
-      logger.warn(
-        `no_subsidiaries for ${filing.accession_number}, attempting LLM fallback`,
-      );
+      logger.warn("no_subsidiaries, attempting LLM fallback");
       const { result: fbResult, elapsedMs: fbMs } = await runFallback(
         html,
         filing,
@@ -136,7 +145,7 @@ export async function parseExhibit(
         policy: fallbackPolicy,
         used: true,
         reason: "no_subsidiaries",
-        provider: "qwen-vl",
+        provider: fbResult.telemetry?.fallback?.provider || "qwen-vl",
       };
       return finalizeResult(fbResult);
     }
@@ -149,7 +158,7 @@ export async function parseExhibit(
       summary: validationSummary,
       elapsedMs: validationMs,
       metrics: validationMetrics,
-    } = validateHeuristicResult(filing, heuristicResult);
+    } = validateHeuristicResult(heuristicResult);
     timingsMs.validation = validationMs;
     validation = validationMetrics;
 
@@ -160,7 +169,7 @@ export async function parseExhibit(
     const decision = decideFallback(heuristicResult, validationSummary);
     if (decision.shouldFallback) {
       logger.warn(
-        `${decision.reason} for ${filing.accession_number}, attempting LLM fallback`,
+        `${decision.reason}, attempting LLM fallback`,
       );
       const { result: fbResult, elapsedMs: fbMs } = await runFallback(
         html,
@@ -174,7 +183,11 @@ export async function parseExhibit(
         policy: fallbackPolicy,
         used: true,
         reason: decision.reason,
-        provider: heuristicResult.classification === DocumentClassification.IMAGE_BASED ? "qwen-vl-plus" : "deepseek",
+        provider:
+          fbResult.telemetry?.fallback?.provider ||
+          (heuristicResult.classification === DocumentClassification.IMAGE_BASED
+            ? "qwen-vl-plus"
+            : "deepseek"),
       };
       return finalizeResult(fbResult);
     }
@@ -188,7 +201,7 @@ export async function parseExhibit(
           ? error.message
           : String(error);
 
-    logger.error(`[${filing.accession_number}] Parsing failed:`, {
+    logger.error("Parsing failed:", {
       error: errorMessage,
     });
 
@@ -198,9 +211,7 @@ export async function parseExhibit(
 
     const failedResult = buildFailedParseResult(errorMessage);
 
-    logger.warn(
-      `Parsing error for ${filing.accession_number}, attempting LLM fallback`,
-    );
+    logger.warn("Parsing error, attempting LLM fallback");
 
     try {
       const { result: fbResult, elapsedMs: fbMs } = await runFallback(
@@ -215,11 +226,11 @@ export async function parseExhibit(
         policy: fallbackPolicy,
         used: true,
         reason: "heuristic_error",
-        provider: "deepseek",
+        provider: fbResult.telemetry?.fallback?.provider || "deepseek",
       };
       return finalizeResult(fbResult);
     } catch (llmError) {
-      logger.error(`[${filing.accession_number}] LLM fallback also failed:`, {
+      logger.error("LLM fallback also failed:", {
         error: llmError instanceof Error ? llmError.message : String(llmError),
       });
       return finalizeResult(failedResult);
@@ -240,7 +251,7 @@ function finalize(
   },
   telemetry: ParseTelemetry,
 ): ParseResult {
-  const pruned = pruneInvalidSubsidiaries(filing.accession_number, result);
+  const pruned = pruneInvalidSubsidiaries(result);
   const withParent = ensureParentInfo(
     pruned,
     filing.filingCompanyId,
@@ -249,10 +260,7 @@ function finalize(
   return { ...withParent, telemetry };
 }
 
-function pruneInvalidSubsidiaries(
-  accessionNumber: string,
-  parseResult: ParseResult,
-): ParseResult {
+function pruneInvalidSubsidiaries(parseResult: ParseResult): ParseResult {
   if (!parseResult.subsidiaries || parseResult.subsidiaries.length === 0) {
     return parseResult;
   }
@@ -276,10 +284,12 @@ function pruneInvalidSubsidiaries(
       jurisdiction: sub.jurisdiction,
       issues: validation.issues,
       issueTypes: validation.issueTypes,
+      criticalIssues: validation.criticalIssues,
+      warningIssues: validation.warningIssues,
     }));
 
   logger.warn(
-    `[${accessionNumber}] Dropping ${invalidSubsidiaries.length} invalid subsidiaries from parse results`,
+    `Dropping ${invalidSubsidiaries.length} invalid subsidiaries from parse results`,
     { invalidSamples },
   );
 
@@ -318,36 +328,11 @@ function ensureParentInfo(
   };
 }
 
-function resolveParseMethod(
-  classification: DocumentClassification,
-): SubsidiaryParseMethod {
-  switch (classification) {
-    case DocumentClassification.TEXT_BASED:
-      return "text";
-    case DocumentClassification.SINGLE_TABLE:
-    case DocumentClassification.MULTI_TABLE:
-      return "table";
-    default:
-      return "unknown";
-  }
-}
-
 function buildNonTableResult(
   $: any,
   config: ParserConfig,
   structure: DocumentStructure,
-  filing: { accession_number: string },
 ): ParseResult {
-  if (structure.classification === DocumentClassification.TEXT_BASED) {
-    logger.info(
-      `[${filing.accession_number}] Detected text-based subsidiaries (${structure.textBased?.entryCount ?? 0}); deferring to LLM`,
-    );
-  } else {
-    logger.info(
-      `[${filing.accession_number}] No extractable content: ${structure.classification}`,
-    );
-  }
-
   const footnotesHtml = extractFootnotesHtml($, config.processFootnotes);
 
   const expectedRowCount = structure.tables
@@ -356,7 +341,6 @@ function buildNonTableResult(
 
   return {
     subsidiaries: [],
-    method: resolveParseMethod(structure.classification),
     llmApplied: false,
     llmModified: false,
     status: "empty",
@@ -371,7 +355,6 @@ function buildNonTableResult(
 function buildFailedParseResult(errorMessage: string): ParseResult {
   return {
     subsidiaries: [],
-    method: "unknown",
     llmApplied: false,
     llmModified: false,
     status: "failed",
@@ -405,24 +388,35 @@ async function runHeuristicParse(
       structure.classification === DocumentClassification.HAS_TABLE_NO_DATA
     ) {
       return {
-        result: buildNonTableResult($, config, structure, filing),
+        result: buildNonTableResult($, config, structure),
         elapsedMs: Date.now() - start,
       };
     }
 
-    if (structure.tables.length > 0) {
-      logger.info(`[${filing.accession_number}] Table details:`);
-      structure.tables.forEach((table, i) => {
-        const headerInfo = table.headers
-          ? `headers: [${table.headers.join(", ")}]`
-          : "continuation table";
+    const subsidiaryTablesForLog = structure.tables.filter(
+      (table) => table.type === TableType.SUBSIDIARY,
+    );
+    if (subsidiaryTablesForLog.length > 0) {
+      logger.info("Table details:");
+      subsidiaryTablesForLog.forEach((table, i) => {
+        const headerInfo = table.isContinuation
+          ? "continuation table"
+          : table.headers && table.headers.length > 0
+            ? `headers: [${table.headers.join(", ")}]`
+            : "no parsed headers";
+        const displayColumnCount =
+          table.isContinuation && table.cachedHeaders && table.cachedHeaders.length > 0
+            ? table.cachedHeaders.length
+            : table.headers && table.headers.length > 0
+              ? table.headers.length
+              : table.columnCount;
         logger.info(
-          `[${filing.accession_number}]   Table ${i + 1} (index ${table.index}): ${table.rowCount} rows × ${table.columnCount} cols, ${headerInfo}`,
+          `  Subsidiary table ${i + 1} (index ${table.index}): ${table.rowCount} rows × ${displayColumnCount} cols, ${headerInfo}`,
         );
       });
     }
 
-    logger.debug(`[${filing.accession_number}] Phase 2: Content extraction`);
+    logger.debug("Phase 2: Content extraction");
     const result = extractSubsidiaryRecords({
       structure,
       $,
@@ -434,19 +428,21 @@ async function runHeuristicParse(
       result.subsidiaries.length > 0 ? "success" : "empty";
 
     logger.info(
-      `[${filing.accession_number}] Parsing complete: ${status}, ${result.subsidiaries.length} subsidiaries extracted`,
+      `Parsing complete: ${status}, ${result.subsidiaries.length} subsidiaries extracted`,
     );
 
     if (result.subsidiaries.length === 0) {
+      const subsidiaryTableCount = structure.tables.filter(
+        (table) => table.type === TableType.SUBSIDIARY,
+      ).length;
       logger.info(
-        `[${filing.accession_number}] EMPTY RESULT DETAILS: classification=${structure.classification}, totalTables=${structure.totalTableCount}, subsidiaryTables=${structure.tables.length}, textBased=${structure.textBased ? structure.textBased.entryCount : 0}`,
+        `EMPTY RESULT DETAILS: classification=${structure.classification}, totalTables=${structure.totalTableCount}, subsidiaryTables=${subsidiaryTableCount}, textBased=${structure.textBased ? structure.textBased.entryCount : 0}`,
       );
     }
 
     return {
       result: {
         subsidiaries: result.subsidiaries,
-        method: resolveParseMethod(structure.classification),
         llmApplied: false,
         llmModified: false,
         status,
@@ -483,7 +479,6 @@ async function runHeuristicParse(
 }
 
 function validateHeuristicResult(
-  filing: { accession_number: string },
   parseResult: ParseResult,
 ): {
   summary: ValidationSummary;
@@ -520,7 +515,7 @@ function validateHeuristicResult(
 
     if (parseResult.subsidiaries.length < parseResult.expectedRowCount) {
       logger.warn(
-        `[${filing.accession_number}] Parsed ${parseResult.subsidiaries.length}/${parseResult.expectedRowCount} subsidiaries (row-count coverage ${(coverage * 100).toFixed(1)}%). Flagging for review.`,
+        `Parsed ${parseResult.subsidiaries.length}/${parseResult.expectedRowCount} subsidiaries (row-count coverage ${(coverage * 100).toFixed(1)}%). Flagging for review.`,
       );
     }
   }
@@ -538,10 +533,12 @@ function validateHeuristicResult(
         jurisdiction: sub.jurisdiction,
         issues: validation.issues,
         issueTypes: validation.issueTypes,
+        criticalIssues: validation.criticalIssues,
+        warningIssues: validation.warningIssues,
       }));
 
     logger.warn(
-      `[${filing.accession_number}] Validation failed: ${validationResult.invalidCount}/${validationResult.results.length} invalid subsidiaries`,
+      `Validation failed: ${validationResult.invalidCount}/${validationResult.results.length} invalid subsidiaries`,
       {
         invalidSamples,
       },

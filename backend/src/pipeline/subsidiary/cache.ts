@@ -69,6 +69,7 @@ export type TargetsFileResult = {
 export function buildTargetsFilename(options: {
   companyLookup?: CompanyLookupOptions;
   limit?: number;
+  timestampSuffix?: string;
 }): string {
   const filterLabel =
     options.companyLookup?.mode === "sp500-only"
@@ -77,7 +78,9 @@ export function buildTargetsFilename(options: {
         ? "no-sp500"
         : undefined;
   const limitLabel = options.limit ? `limit-${options.limit}` : undefined;
-  const suffixParts = [filterLabel, limitLabel].filter(Boolean);
+  const suffixParts = [filterLabel, limitLabel, options.timestampSuffix].filter(
+    Boolean,
+  );
   const suffix = suffixParts.length > 0 ? `.${suffixParts.join(".")}` : "";
   return `targets${suffix}.jsonl`;
 }
@@ -90,6 +93,7 @@ export async function writeCachedTargetsFile(options: {
   companyLookup?: CompanyLookupOptions;
   limit?: number;
   accessions?: string[];
+  timestampSuffix?: string;
 }): Promise<TargetsFileResult> {
   const {
     year,
@@ -99,16 +103,23 @@ export async function writeCachedTargetsFile(options: {
     companyLookup,
     limit,
     accessions,
+    timestampSuffix,
   } = options;
 
   const companyMap = await loadPublicCompaniesLookup(companyLookup);
-  const defaultFilename = buildTargetsFilename({ companyLookup, limit });
+  const defaultFilename = buildTargetsFilename({
+    companyLookup,
+    limit,
+    timestampSuffix,
+  });
   const filePath =
     outputPath ?? path.join(cacheRoot, String(year), defaultFilename);
 
   await fs.mkdir(path.dirname(filePath), { recursive: true });
 
-  const stream = createWriteStream(filePath, { encoding: "utf8" });
+  // Create file once for this run, then append lines as we scan cache entries.
+  await fs.writeFile(filePath, "", { encoding: "utf8" });
+  const stream = createWriteStream(filePath, { encoding: "utf8", flags: "a" });
   const writeLine = async (line: string) => {
     if (!stream.write(line)) {
       await once(stream, "drain");
