@@ -7,6 +7,12 @@ export type SubsidiaryParseStatus = (typeof SUBSIDIARY_PARSE_STATUS)[number];
 
 export type SubsidiaryFallbackPolicy = "llm" | "none";
 
+export interface DroppedValidationSample {
+  name: string;
+  jurisdiction: string;
+  issues: string[];
+}
+
 const hasLetters = (value: string) => /[A-Za-z]/.test(value);
 const looksLikeDate = (value: string) =>
   /^\s*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\s*$/.test(value) ||
@@ -25,6 +31,7 @@ export interface ParseTelemetry {
     overallValid: boolean;
     expectedCount?: number;
     coverage?: number;
+    droppedSamples?: DroppedValidationSample[];
   };
   fallback?: {
     policy: SubsidiaryFallbackPolicy;

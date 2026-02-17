@@ -2,6 +2,8 @@
 
 This document explains the architecture in `src/parser/subsidiary/shape`, the main runtime logic, and practical simplification opportunities that keep behavior unchanged.
 
+For top-level parser orchestration starting at `parseExhibit`, see `src/parser/subsidiary/ARCHITECTURE.md`.
+
 ## Scope
 
 The `shape` layer answers one question:

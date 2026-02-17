@@ -1,8 +1,12 @@
 /**
- * Subsidiary Parser - Main Entry Point
+ * Subsidiary Parser Orchestrator
  *
- * Parses Exhibit 21/8 HTML and returns subsidiaries with parent-child relationships.
- * Flow: detect document structure, then extract subsidiary records.
+ * End-to-end flow:
+ * 1) Detect PDF payloads and short-circuit to LLM fallback path when needed.
+ * 2) Run heuristic parsing (shape detection + row extraction).
+ * 3) Validate heuristic output quality.
+ * 4) Decide whether to invoke LLM fallback.
+ * 5) Finalize output (backfill parent info, attach telemetry).
  */
 
 import * as cheerio from "cheerio";
@@ -12,11 +16,9 @@ import type {
   ParseResult,
   ParseTelemetry,
   SubsidiaryFallbackPolicy,
+  DroppedValidationSample,
 } from "../../pipeline/subsidiary/types";
-import {
-  validateSubsidiaries,
-  filterValidSubsidiaries,
-} from "../../validation/subsidiary-validator";
+import { validateSubsidiaries } from "../../validation/subsidiary-validator";
 import { llmFallbackParse } from "../../validation/llm-fallback";
 
 import { detectDocumentStructure } from "./shape/structure-detection";
@@ -52,14 +54,13 @@ type ParseDecision = {
 };
 
 // ============================================================================
-// Two-Phase Parser
+// Parse Orchestration Entry Point
 // ============================================================================
 
 /**
- * Parse a single SEC exhibit HTML using the two-phase parser.
+ * Parse a single SEC exhibit payload using heuristic parsing + optional LLM fallback.
  *
  * Returns a fully finalized ParseResult:
- * - Invalid subsidiaries are pruned
  * - Parent info is backfilled on all subsidiaries
  * - Telemetry is attached
  */
@@ -78,6 +79,8 @@ export async function parseExhibit(
   );
 }
 
+  // Single orchestration function for all parse branches:
+  // heuristic-only, heuristic+fallback, PDF+fallback, and error recovery fallback.
 async function parseExhibitInternal(
   html: string,
   filing: {
@@ -141,11 +144,12 @@ async function parseExhibitInternal(
         "no_subsidiaries",
       );
       timingsMs.llmFallback = fbMs;
+      const provider = fbResult.telemetry?.fallback?.provider;
       fallback = {
         policy: fallbackPolicy,
         used: true,
         reason: "no_subsidiaries",
-        provider: fbResult.telemetry?.fallback?.provider || "qwen-vl",
+        ...(provider ? { provider } : {}),
       };
       return finalizeResult(fbResult);
     }
@@ -163,31 +167,44 @@ async function parseExhibitInternal(
     validation = validationMetrics;
 
     if (fallbackPolicy === "none") {
+      if (validationSummary && !validationSummary.overallValid) {
+        const prunedHeuristicResult = pruneInvalidSubsidiaries(
+          heuristicResult,
+          validationSummary,
+        );
+        logger.warn(
+          "validation_failed with fallback disabled, returning failed result",
+        );
+        return finalizeResult(
+          markValidationFailed(prunedHeuristicResult, validationSummary),
+        );
+      }
       return finalizeResult(heuristicResult);
     }
 
     const decision = decideFallback(heuristicResult, validationSummary);
     if (decision.shouldFallback) {
+      const fallbackBaseResult =
+        decision.reason === "validation_failed" && validationSummary
+          ? pruneInvalidSubsidiaries(heuristicResult, validationSummary)
+          : heuristicResult;
       logger.warn(
         `${decision.reason}, attempting LLM fallback`,
       );
       const { result: fbResult, elapsedMs: fbMs } = await runFallback(
         html,
         filing,
-        heuristicResult,
+        fallbackBaseResult,
         fallbackPolicy,
         decision.reason,
       );
       timingsMs.llmFallback = fbMs;
+      const provider = fbResult.telemetry?.fallback?.provider;
       fallback = {
         policy: fallbackPolicy,
         used: true,
         reason: decision.reason,
-        provider:
-          fbResult.telemetry?.fallback?.provider ||
-          (heuristicResult.classification === DocumentClassification.IMAGE_BASED
-            ? "qwen-vl-plus"
-            : "deepseek"),
+        ...(provider ? { provider } : {}),
       };
       return finalizeResult(fbResult);
     }
@@ -222,11 +239,12 @@ async function parseExhibitInternal(
         "heuristic_error",
       );
       timingsMs.llmFallback = fbMs;
+      const provider = fbResult.telemetry?.fallback?.provider;
       fallback = {
         policy: fallbackPolicy,
         used: true,
         reason: "heuristic_error",
-        provider: fbResult.telemetry?.fallback?.provider || "deepseek",
+        ...(provider ? { provider } : {}),
       };
       return finalizeResult(fbResult);
     } catch (llmError) {
@@ -239,7 +257,7 @@ async function parseExhibitInternal(
 }
 
 // ============================================================================
-// Post-Processing (prune + parent info + telemetry)
+// Post-Processing (parent info + telemetry)
 // ============================================================================
 
 function finalize(
@@ -251,60 +269,52 @@ function finalize(
   },
   telemetry: ParseTelemetry,
 ): ParseResult {
-  const pruned = pruneInvalidSubsidiaries(result);
   const withParent = ensureParentInfo(
-    pruned,
+    result,
     filing.filingCompanyId,
     filing.filingCompanyName,
   );
   return { ...withParent, telemetry };
 }
 
-function pruneInvalidSubsidiaries(parseResult: ParseResult): ParseResult {
-  if (!parseResult.subsidiaries || parseResult.subsidiaries.length === 0) {
+function pruneInvalidSubsidiaries(
+  parseResult: ParseResult,
+  validationSummary: Exclude<ValidationSummary, null>,
+): ParseResult {
+  if (parseResult.subsidiaries.length === 0) {
     return parseResult;
   }
 
-  const validationOptions = parseResult.llmApplied
-    ? {}
-    : { requireJurisdiction: true };
-  const { validSubsidiaries, invalidSubsidiaries, results } =
-    filterValidSubsidiaries(parseResult.subsidiaries, validationOptions);
-
-  if (invalidSubsidiaries.length === 0) {
-    return parseResult;
-  }
-
-  const invalidSamples = parseResult.subsidiaries
-    .map((sub, index) => ({
-      sub,
-      validation: results[index],
-    }))
-    .filter(({ validation }) => !validation.isValid)
-    .slice(0, 5)
-    .map(({ sub, validation }) => ({
-      name: sub.name,
-      jurisdiction: sub.jurisdiction,
-      issues: validation.issues,
-      issueTypes: validation.issueTypes,
-      criticalIssues: validation.criticalIssues,
-      warningIssues: validation.warningIssues,
-    }));
-
-  logger.warn(
-    `Dropping ${invalidSubsidiaries.length} invalid subsidiaries from parse results`,
-    { invalidSamples },
+  const validSubsidiaries = parseResult.subsidiaries.filter(
+    (_sub, index) => validationSummary.results[index]?.isValid,
   );
-
-  const nextStatus =
-    validSubsidiaries.length === 0 && parseResult.status === "success"
-      ? "empty"
-      : parseResult.status;
+  const droppedCount = parseResult.subsidiaries.length - validSubsidiaries.length;
+  if (droppedCount > 0) {
+    logger.warn(
+      `Pruned ${droppedCount} invalid subsidiaries from heuristic result; kept ${validSubsidiaries.length}`,
+    );
+  }
 
   return {
     ...parseResult,
     subsidiaries: validSubsidiaries,
-    status: nextStatus,
+    status:
+      validSubsidiaries.length === 0 && parseResult.status === "success"
+        ? "empty"
+        : parseResult.status,
+  };
+}
+
+function markValidationFailed(
+  parseResult: ParseResult,
+  validationSummary: Exclude<ValidationSummary, null>,
+): ParseResult {
+  const total = validationSummary.results.length;
+  const invalid = validationSummary.invalidCount;
+  return {
+    ...parseResult,
+    status: "failed",
+    errorMessage: `heuristic_validation_failed (${invalid}/${total} invalid rows)`,
   };
 }
 
@@ -524,8 +534,25 @@ function validateHeuristicResult(
     }
   }
 
+  const droppedSamples: DroppedValidationSample[] = parseResult.subsidiaries
+    .map((sub, index) => ({
+      sub,
+      validation: validationResult.results[index],
+    }))
+    .filter(({ validation }) => !validation.isValid)
+    .slice(0, 3)
+    .map(({ sub, validation }) => ({
+      name: sub.name,
+      jurisdiction: sub.jurisdiction,
+      issues: validation.issues,
+    }));
+
+  if (droppedSamples.length > 0) {
+    metrics.droppedSamples = droppedSamples;
+  }
+
   if (!validationResult.overallValid || validationResult.invalidCount > 0) {
-    const invalidSamples = parseResult.subsidiaries
+    const invalidSamplesForLog = parseResult.subsidiaries
       .map((sub, index) => ({
         sub,
         validation: validationResult.results[index],
@@ -544,7 +571,7 @@ function validateHeuristicResult(
     logger.warn(
       `Validation failed: ${validationResult.invalidCount}/${validationResult.results.length} invalid subsidiaries`,
       {
-        invalidSamples,
+        invalidSamples: invalidSamplesForLog,
       },
     );
   }

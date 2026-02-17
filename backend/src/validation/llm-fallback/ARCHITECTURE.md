@@ -141,17 +141,3 @@ deepseek error              -> gpt (text fallback)
 - Structured telemetry in logs:
   - `provider`, `model`, `requestType`, `fallbackFrom`, `fallbackReasonCode`
 
-## Key Environment Controls
-
-- `DEEPSEEK_MODEL`
-- `OPENROUTER_VISION_MODEL`
-- `OPENROUTER_TEXT_MODEL`
-- `QWEN_SEC_REQUESTS_PER_SECOND`
-- `QWEN_MAX_RETRIES`
-- `QWEN_RETRY_BASE_DELAY_MS`
-- `LLM_FALLBACK_WRITE_SOURCE_MD`
-- `LLM_FALLBACK_SOURCE_MAX_CHARS`
-- `PDFTOTEXT_TIMEOUT_MS`
-- `PDFTOTEXT_MAX_BUFFER_BYTES`
-- `LLM_RAW_RESPONSE_LOG_ENABLED`
-- `LLM_RAW_RESPONSE_LOG_MAX_CHARS`

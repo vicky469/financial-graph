@@ -2,7 +2,7 @@
  * Subsidiaries CSV Sink
  *
  * Writes parsed subsidiary data to CSV files:
- * - SUCCESS.csv: All successfully parsed subsidiaries
+ * - SUCCESS.csv: Parsed subsidiaries from successful filings and failed filings with retained valid rows
  * - EMPTY.csv: Filings with no subsidiaries
  * - FAILED.csv: Failed filings with error details
  */
@@ -15,9 +15,9 @@ import { formatRunTimestamp } from "../util";
 const SUCCESS_HEADER =
   "Accession,URL,SubsidiaryId,Subsidiary,Jurisdiction,NestingLevel,ParentName,ParentId,Ownership,Footnotes,StructureDetection,LLMModified,LLMChanges\n";
 const EMPTY_HEADER =
-  "Accession,URL,CachePath,Classification,StructureDetection,LLMAttempted\n";
+  "Accession,URL,CachePath,StructureDetection,LLMAttempted\n";
 const FAILED_HEADER =
-  "Accession,URL,StructureDetection,LLMAttempted,ErrorMessage\n";
+  "Accession,URL,CachePath,StructureDetection,LLMAttempted,ErrorMessage,DroppedSamplesJson\n";
 
 function normalizeClassification(classification?: string): string {
   return (classification || "")
@@ -35,6 +35,11 @@ function resolveLLMProviderLabel(filing: ValidatedFiling): string {
   if (provider) return provider;
   if (filing.parseResult?.llmApplied) return "llm";
   return "none";
+}
+
+function hasRetainedSubsidiaries(filing: ValidatedFiling): boolean {
+  const subsidiaries = filing.parseResult?.subsidiaries;
+  return Array.isArray(subsidiaries) && subsidiaries.length > 0;
 }
 
 type OutputFiles = {
@@ -110,10 +115,19 @@ export class SubsidiariesCsvSink {
         details.failedFilings = failed.length;
       }
 
-      if (successful.length > 0) {
+      const failedWithRetainedValidRows = failed.filter(hasRetainedSubsidiaries);
+      const successCsvFilings = successful.concat(failedWithRetainedValidRows);
+      details.failedWithRetainedValidRows = failedWithRetainedValidRows.length;
+      details.successCsvFilings = successCsvFilings.length;
+      console.log(
+        `   SUCCESS CSV source filings: ${successful.length} success + ${failedWithRetainedValidRows.length} failed-with-retained-valid`,
+      );
+
+      if (successCsvFilings.length > 0) {
         try {
-          const count = await this.writeSuccessCSV(successful);
+          const count = await this.writeSuccessCSV(successCsvFilings);
           written += count;
+          details.successRowsWritten = count;
         } catch (e) {
           console.error("Failed to write SUCCESS CSV:", e);
           errors++;
@@ -267,14 +281,14 @@ export class SubsidiariesCsvSink {
           const structureDetection = resolveStructureDetectionLabel(
             f.parseResult?.classification,
           );
-          const row = `"\`${f.accessionNumberNoDashes || ""}","${f.url || ""}","${f.cachePath || ""}","${f.parseResult?.classification || ""}","${structureDetection}","${llmAttempted}"`;
+          const row = `"\`${f.accessionNumberNoDashes || ""}","${f.url || ""}","${f.cachePath || ""}","${structureDetection}","${llmAttempted}"`;
           rows.push(row);
         } catch (filingError) {
           console.warn(
             `Error processing empty filing ${f.accessionNumberNoDashes}:`,
             filingError,
           );
-          rows.push(`"\`${f.accessionNumberNoDashes || "unknown"}","${f.url || ""}","","","","NO"`);
+          rows.push(`"\`${f.accessionNumberNoDashes || "unknown"}","${f.url || ""}","","","NO"`);
         }
       }
 
@@ -306,9 +320,12 @@ export class SubsidiariesCsvSink {
           const errorMessage = (
             f.parseResult?.errorMessage || f.issues?.join("; ") || "Unknown error"
           ).replace(/"/g, '""');
+          const droppedSamplesJson = JSON.stringify(
+            (f.parseResult?.telemetry?.validation?.droppedSamples || []).slice(0, 3),
+          ).replace(/"/g, '""');
 
           rows.push(
-            `"\`${f.accessionNumberNoDashes || "unknown"}","${(f.url || "").replace(/"/g, '""')}","${structureDetection}","${llmAttempted}","${errorMessage}"`,
+            `"\`${f.accessionNumberNoDashes || "unknown"}","${(f.url || "").replace(/"/g, '""')}","${(f.cachePath || "").replace(/"/g, '""')}","${structureDetection}","${llmAttempted}","${errorMessage}","${droppedSamplesJson}"`,
           );
         } catch (filingError) {
           console.warn(
@@ -316,7 +333,7 @@ export class SubsidiariesCsvSink {
             filingError,
           );
           rows.push(
-            `"\`${f.accessionNumberNoDashes || "unknown"}","${(f.url || "").replace(/"/g, '""')}","error","NO","${`Processing error: ${filingError instanceof Error ? filingError.message : String(filingError)}`.replace(/"/g, '""')}"`,
+            `"\`${f.accessionNumberNoDashes || "unknown"}","${(f.url || "").replace(/"/g, '""')}","${(f.cachePath || "").replace(/"/g, '""')}","error","NO","${`Processing error: ${filingError instanceof Error ? filingError.message : String(filingError)}`.replace(/"/g, '""')}","[]"`,
           );
         }
       });
