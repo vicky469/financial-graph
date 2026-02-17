@@ -199,10 +199,7 @@ export class SubsidiariesCsvSink {
 
           for (const sub of f.parseResult.subsidiaries) {
             try {
-              if (
-                !sub?.name ||
-                !sub.name.trim()
-              ) {
+              if (!sub?.name || !sub.name.trim()) {
                 console.warn(
                   `Skipping invalid subsidiary in CSV output: name="${sub?.name}", jurisdiction="${sub?.jurisdiction}"`,
                 );

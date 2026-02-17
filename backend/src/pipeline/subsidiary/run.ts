@@ -23,11 +23,10 @@ import type {
   SubsidiaryPipelineResult,
   SubsidiarySink,
   SubsidiarySinkName,
-  SubsidiaryFallbackPolicy,
 } from "./types";
 import { parseSubsidiaryTarget } from "./target";
 import { parsePipelineArgs } from "./cli";
-import { formatRunTimestamp } from "./util";
+import { formatRunTimestamp, normalizeForSinks } from "./util";
 
 const logger = createLogger("pipeline/subsidiary/run");
 
@@ -106,11 +105,12 @@ async function sinkBatch(
 ): Promise<void> {
   for (let i = 0; i < results.length; i += SINK_BATCH_SIZE) {
     const batch = results.slice(i, i + SINK_BATCH_SIZE);
+    const normalizedBatch = batch.map(normalizeForSinks);
 
     for (const sink of sinks) {
       try {
         const start = Date.now();
-        const batchResult = await sink.write(batch);
+        const batchResult = await sink.write(normalizedBatch);
         const time = Date.now() - start;
 
         sinkResults[sink.name].written += batchResult.written;

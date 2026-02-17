@@ -2,7 +2,7 @@
  * Shared utilities for the subsidiary pipeline.
  */
 
-import type { ParseResult } from "./types";
+import type { ParseResult, ValidatedFiling } from "./types";
 
 export function formatRunTimestamp(date: Date = new Date()): string {
   const yyyy = date.getFullYear();
@@ -13,6 +13,33 @@ export function formatRunTimestamp(date: Date = new Date()): string {
   const ss = String(date.getSeconds()).padStart(2, "0");
   const ms = String(date.getMilliseconds()).padStart(3, "0");
   return `${yyyy}${mm}${dd}_${hh}${min}${ss}_${ms}`;
+}
+
+const DOUBLE_QUOTE_CHARS = /["\u201C\u201D]/g;
+
+export function sanitizeSubsidiaryNameForSink(name: string): string {
+  return name
+    .replace(DOUBLE_QUOTE_CHARS, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function normalizeForSinks(filing: ValidatedFiling): ValidatedFiling {
+  const subsidiaries = filing.parseResult?.subsidiaries;
+  if (!subsidiaries || subsidiaries.length === 0) {
+    return filing;
+  }
+
+  return {
+    ...filing,
+    parseResult: {
+      ...filing.parseResult,
+      subsidiaries: subsidiaries.map((sub) => ({
+        ...sub,
+        name: sanitizeSubsidiaryNameForSink(sub.name || ""),
+      })),
+    },
+  };
 }
 
 export function buildFailedParseResult(errorMessage: string): ParseResult {

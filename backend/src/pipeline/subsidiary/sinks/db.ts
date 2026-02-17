@@ -154,17 +154,17 @@ export class SubsidiariesDBSink {
                 filing.parseResult?.subsidiaries?.filter(
                   (sub) =>
                     sub?.name &&
-                    sub.name.trim(),
+                    sub.name.trim().length > 0,
                 ) || [];
 
               // Log error with subsidiary details
               const subsidiaryDetails = validSubsidiaries.slice(0, 5).map(sub => ({
                 id: generateCompanyId({
-                  name: sub.name,
+                  name: sub.name.trim(),
                   type: CompanyType.SUBSIDIARY,
                   jurisdiction_raw: sub.jurisdiction,
                 }),
-                name: sub.name,
+                name: sub.name.trim(),
                 jurisdiction: sub.jurisdiction,
               }));
 
