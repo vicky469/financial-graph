@@ -300,7 +300,6 @@ export class SubsidiariesDBSink {
           const companyNode = {
             id: subsidiaryId,
             name: subsidiary.name.trim(),
-            aliases: [],
             type: CompanyType.SUBSIDIARY,
             jurisdiction_iso: null,
             jurisdiction_raw: subsidiary.jurisdiction?.trim() || null,

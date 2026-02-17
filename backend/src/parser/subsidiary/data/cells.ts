@@ -9,6 +9,13 @@ import {
   parseOwnershipWithFootnoteRef,
 } from "../footnote/footnotes";
 
+const PARENTHETICAL_CONTENT_REGEX = /\(([^)]*)\)/g;
+const HAS_DIGIT_REGEX = /\d/;
+const PERCENTAGE_VALUE_REGEX = /^\d+(?:\.\d+)?\s*%$/;
+const HAS_LETTER_REGEX = /[A-Za-z]/;
+const MIN_JURISDICTION_TOKEN_LENGTH = 2;
+const MAX_JURISDICTION_TOKEN_LENGTH = 80;
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -18,6 +25,7 @@ export interface ParsedNameCell {
   cleanName: string;
   footnoteRefs: string[];
   ownershipFromName?: number; // Ownership percentage extracted from name like "(32.5%)"
+  jurisdictionFromName?: string; // Jurisdiction extracted from parenthetical text like "(Ohio)"
 }
 
 export interface ParsedOwnershipCell {
@@ -46,10 +54,17 @@ export function parseNameCell(text: string): ParsedNameCell {
   const ownershipFromName = ownershipMatch
     ? parseFloat(ownershipMatch[1])
     : undefined;
+  const jurisdictionFromName = extractJurisdictionFromParenthetical(rawName);
 
   const cleanName = cleanSubsidiaryName(rawName);
 
-  return { rawName, cleanName, footnoteRefs, ownershipFromName };
+  return {
+    rawName,
+    cleanName,
+    footnoteRefs,
+    ownershipFromName,
+    jurisdictionFromName,
+  };
 }
 
 /**
@@ -88,6 +103,9 @@ export function parseJurisdictionCell(text: string): ParsedJurisdictionCell {
     .trim();
 
   jurisdiction_raw = stripLeadingSymbols(jurisdiction_raw);
+  if (jurisdiction_raw === "%") {
+    jurisdiction_raw = "";
+  }
 
   // If what's left is just a number, clear it
   // This likely means an ownership value shifted into jurisdiction column
@@ -116,4 +134,35 @@ function cleanSubsidiaryName(name: string): string {
 
 function stripLeadingSymbols(value: string): string {
   return value.replace(/^[\s\-–—•●▪■·\u2022\u25cf\u25aa\u25a0]+/g, "").trim();
+}
+
+function extractJurisdictionFromParenthetical(name: string): string | undefined {
+  // Capture each "(...)" group from the name and test candidates in order.
+  const matches = Array.from(name.matchAll(PARENTHETICAL_CONTENT_REGEX));
+  for (const match of matches) {
+    const candidate = normalizeParentheticalCandidate(match[1] || "");
+    if (!isValidParentheticalJurisdictionCandidate(candidate)) continue;
+    return candidate;
+  }
+  return undefined;
+}
+
+function normalizeParentheticalCandidate(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function isValidParentheticalJurisdictionCandidate(candidate: string): boolean {
+  if (!candidate) return false;
+  // Reject anything containing digits.
+  if (HAS_DIGIT_REGEX.test(candidate)) return false;
+  // Reject pure percentage values like "100%" or "32.5 %".
+  if (PERCENTAGE_VALUE_REGEX.test(candidate)) return false;
+  if (
+    candidate.length < MIN_JURISDICTION_TOKEN_LENGTH ||
+    candidate.length > MAX_JURISDICTION_TOKEN_LENGTH
+  ) {
+    return false;
+  }
+  // Candidate must contain at least one letter.
+  return HAS_LETTER_REGEX.test(candidate);
 }

@@ -15,13 +15,20 @@ import {
   containsAny,
 } from "../../../config/subsidiary-keywords";
 import type { SubsidiaryRecord } from "../../../pipeline/subsidiary/types";
+import type { ParsedColumns } from "../parser-types";
 import { parseColumns } from "./columns";
 import { isHeaderRow, filterContentCells } from "../shape/table-detection";
 import { determineNestingLevel, ParentStack } from "./nesting";
 import { MissingColumnError } from "./errors";
 import { createLogger } from "../../../utils/logger";
+import {
+  hasNoteRowPrefix,
+  normalizeNoteText,
+  hasLeadingSuperscriptNoteMarker,
+} from "../footnote/note-markers";
 
 const logger = createLogger("parsers/subsidiary/extraction");
+const PLACEHOLDER_NAME_MARKERS = new Set(["none", "null", "nil", "n/a", "na"]);
 
 /**
  * Extract subsidiaries from table rows
@@ -64,20 +71,34 @@ export function extractSubsidiaries(
     /ownership|percent|%|owned/i.test(h),
   );
 
-  // Note: Footnote processing happens separately in LLM enrichment step
+  // Note: Footnote processing happens separately in LLM enrichment step (optional)
   // Footnotes HTML is extracted at document level and stored for later processing
 
   // State for jurisdiction inference
   const footnoteJurisdictions = new Map<string, string>();
   let currentNoteContext: string | undefined;
+  let inlineFootnoteSectionStarted = false;
 
   rows.slice(headerRowIndex + 1).each((_: any, tr: any) => {
+    if (inlineFootnoteSectionStarted) return;
+
     const $tr = $(tr);
     const allCells = $tr.find("td");
     const cells = filterContentCells($, allCells);
     const cellCount = cells.length;
 
     if (cellCount < 1) return;
+
+    if (
+      subsidiaries.length > 0 &&
+      isInlineFootnoteRow($, cells, allCells)
+    ) {
+      inlineFootnoteSectionStarted = true;
+      logger.debug(
+        `Detected inline footnote section; stopping row extraction for ${filing.accession_number}`,
+      );
+      return;
+    }
 
     const parsed = parseColumns(
       $,
@@ -88,9 +109,13 @@ export function extractSubsidiaries(
       ownershipColIdx,
       allCells,
     );
+    processParsedRow(parsed);
+  });
 
+  function processParsedRow(parsed: ParsedColumns): void {
     // 1. Handle Note Headers (e.g. "(1) Company Name")
     // These rows set the context for subsequent rows
+    // Capture leading note refs such as "(1)" for jurisdiction footnote inference.
     const noteHeaderMatch = parsed.rawName.match(/^\s*\((\d+)\)/);
     if (noteHeaderMatch && !parsed.jurisdiction) {
       currentNoteContext = noteHeaderMatch[1];
@@ -101,10 +126,13 @@ export function extractSubsidiaries(
       !parsed.cleanName ||
       parsed.cleanName.length < 2 ||
       parsed.cleanName.length > 200
-    )
+    ) {
       return;
+    }
 
     if (isHeaderRow(parsed.rawName, parsed.jurisdiction)) return;
+
+    if (isPlaceholderName(parsed.cleanName)) return;
 
     // 2. Populate Footnote Map
     // If we have a jurisdiction and footnote refs (usually in ownership column), map them
@@ -199,7 +227,7 @@ export function extractSubsidiaries(
     if (!parentStack.isEmpty() || level > 0) {
       parentStack.push({ level, name: parsed.cleanName, id: subsidiaryId });
     }
-  });
+  }
 
   return subsidiaries;
 }
@@ -214,4 +242,31 @@ function detectColumnIndex(
 ): number {
   const idx = headers.findIndex((h) => containsAny(h, keywords));
   return idx !== -1 ? idx : defaultIdx;
+}
+
+// Drop non-entity placeholder tokens that appear in malformed rows (e.g., "None", "N/A").
+function isPlaceholderName(name: string): boolean {
+  const normalized = name.trim().toLowerCase().replace(/\s+/g, " ");
+  return PLACEHOLDER_NAME_MARKERS.has(normalized);
+}
+
+function isInlineFootnoteRow($: any, contentCells: any, allCells: any): boolean {
+  if (!contentCells || contentCells.length !== 1) return false;
+
+  const firstContentCell = contentCells[0];
+  const firstText = normalizeNoteText($(firstContentCell).text());
+  if (!firstText) return false;
+
+  if (hasNoteRowPrefix(firstText)) return true;
+
+  // Some SEC rows use "<sup>n</sup> ..." instead of plain "(n) ..." markers.
+  if (allCells && allCells.length > 0) {
+    for (let i = 0; i < allCells.length; i++) {
+      const cellText = normalizeNoteText($(allCells[i]).text());
+      if (!cellText) continue;
+      return hasLeadingSuperscriptNoteMarker($, allCells[i]);
+    }
+  }
+
+  return hasLeadingSuperscriptNoteMarker($, firstContentCell);
 }

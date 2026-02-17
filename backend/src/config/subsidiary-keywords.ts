@@ -31,6 +31,14 @@ const JURISDICTION = new Set([
 /** Keywords that identify percentage/ownership columns */
 const PERCENTAGE = new Set(["percent", "%", "ownership"]);
 
+/** Label-style alias text that should not be parsed as subsidiary/jurisdiction values */
+const ALIAS_LABELS = new Set([
+  "name under which business conducted",
+  "doing business as",
+  "d/b/a",
+  "dba",
+]);
+
 /** Keywords that identify footnote/note tables */
 const FOOTNOTE_MARKERS = new Set([
   "note",
@@ -64,6 +72,7 @@ export const SUBSIDIARY_KEYWORDS = {
   SUBSIDIARY_NAME,
   JURISDICTION,
   PERCENTAGE,
+  ALIAS_LABELS,
   FOOTNOTE_MARKERS,
   DOCUMENT_HEADERS,
 
@@ -77,4 +86,25 @@ export const SUBSIDIARY_KEYWORDS = {
 export function containsAny(text: string, keywords: Set<string>): boolean {
   const lower = text.toLowerCase();
   return Array.from(keywords).some((keyword) => lower.includes(keyword));
+}
+
+/**
+ * True when text looks like an alias metadata label row/cell, e.g.
+ * "Name under which business conducted:" or "doing business as: <alias>".
+ */
+export function isAliasLabelText(text: string): boolean {
+  const value = text.trim().toLowerCase();
+  if (!value) return false;
+
+  // Trim a single trailing ":" so "doing business as:" matches canonical labels.
+  const withoutTrailingColon = value.replace(/:\s*$/, "").trim();
+  // Match common DBA prefixes, with optional leading "also ".
+  if (/^(also\s+)?(d\/b\/a|dba|doing business as)\b/.test(withoutTrailingColon)) {
+    return true;
+  }
+  if (SUBSIDIARY_KEYWORDS.ALIAS_LABELS.has(withoutTrailingColon)) {
+    return true;
+  }
+
+  return value.includes(":") && containsAny(value, SUBSIDIARY_KEYWORDS.ALIAS_LABELS);
 }

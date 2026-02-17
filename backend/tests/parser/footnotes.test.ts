@@ -47,6 +47,18 @@ describe("extractFootnoteRefFromName", () => {
     expect(extractFootnoteRefFromName("Company *1A *2b")).toEqual(["1A", "2b"]);
   });
 
+  it("extracts roman-numeral refs like (IV), (ii), *IX", () => {
+    expect(extractFootnoteRefFromName("Company (IV)")).toEqual(["IV"]);
+    expect(extractFootnoteRefFromName("Company (ii)")).toEqual(["ii"]);
+    expect(extractFootnoteRefFromName("Company *IX")).toEqual(["IX"]);
+  });
+
+  it("extracts alphabetic refs like (a), (B), *c", () => {
+    expect(extractFootnoteRefFromName("Company (a)")).toEqual(["a"]);
+    expect(extractFootnoteRefFromName("Company (B)")).toEqual(["B"]);
+    expect(extractFootnoteRefFromName("Company *c")).toEqual(["c"]);
+  });
+
   it("returns empty for no refs", () => {
     expect(extractFootnoteRefFromName("Normal Company Name")).toEqual([]);
     expect(extractFootnoteRefFromName("Company (LLC)")).toEqual([]); // LLC is not a number
@@ -137,6 +149,68 @@ describe("extractDocumentFootnotes", () => {
 
     expect(footnotesHtml).toContain("75% controlling interest");
     expect(footnotesHtml).toContain("Second tier subsidiary");
+  });
+
+  it("extracts inline superscript footnotes from the bottom of a subsidiary table", () => {
+    const html = `
+      <html>
+        <body>
+          <table>
+            <tr><td>Name</td><td>Jurisdiction</td><td>Ownership</td></tr>
+            <tr><td>Alpha Holdings Ltd.<sup>1</sup></td><td>United Kingdom</td><td>100%</td></tr>
+            <tr><td>Beta LLC</td><td>Delaware</td><td>100%</td></tr>
+            <tr><td><sup>1</sup> Wholly-owned subsidiary of Parent Co</td><td></td><td></td></tr>
+            <tr><td><sup>2</sup> Formerly Intensity Holdings Limited</td><td></td><td></td></tr>
+          </table>
+        </body>
+      </html>
+    `;
+    const $ = load(html);
+    const footnotesHtml = extractDocumentFootnotes($);
+
+    expect(footnotesHtml).toContain("Wholly-owned subsidiary of Parent Co");
+    expect(footnotesHtml).toContain("Formerly Intensity Holdings Limited");
+    expect(footnotesHtml).not.toContain("Alpha Holdings Ltd.");
+  });
+
+  it("extracts roman-numeral marker footnotes from table and paragraph formats", () => {
+    const html = `
+      <html>
+        <body>
+          <table>
+            <tr><td>(IV)</td><td>Formerly Legacy Holdings Limited.</td></tr>
+            <tr><td>II.</td><td>Wholly-owned by Parent Co.</td></tr>
+          </table>
+          <p>(ii) Ownership held through intermediate subsidiary.</p>
+        </body>
+      </html>
+    `;
+    const $ = load(html);
+    const footnotesHtml = extractDocumentFootnotes($);
+
+    expect(footnotesHtml).toContain("Formerly Legacy Holdings Limited");
+    expect(footnotesHtml).toContain("Wholly-owned by Parent Co");
+    expect(footnotesHtml).toContain("Ownership held through intermediate subsidiary");
+  });
+
+  it("extracts note rows with 1), I), a) marker styles (case-insensitive)", () => {
+    const html = `
+      <html>
+        <body>
+          <table>
+            <tr><td>1)</td><td>Numeric marker note.</td></tr>
+            <tr><td>i)</td><td>Roman marker note.</td></tr>
+            <tr><td>A)</td><td>Alphabetic marker note.</td></tr>
+          </table>
+        </body>
+      </html>
+    `;
+    const $ = load(html);
+    const footnotesHtml = extractDocumentFootnotes($);
+
+    expect(footnotesHtml).toContain("Numeric marker note");
+    expect(footnotesHtml).toContain("Roman marker note");
+    expect(footnotesHtml).toContain("Alphabetic marker note");
   });
 
   it("extracts footnotes with different formats", () => {

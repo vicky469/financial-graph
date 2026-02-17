@@ -6,6 +6,9 @@
 
 import type { ParsedColumns } from "../parser-types";
 import {
+  isAliasLabelText,
+} from "../../../config/subsidiary-keywords";
+import {
   parseNameCell,
   parseOwnershipCell,
   parseJurisdictionCell,
@@ -16,9 +19,15 @@ import {
   isLayoutOnlyCell,
 } from "../shape/table-detection";
 
-const IS_PERCENTAGE_OR_EMPTY = /^\d+(?:\.\d+)?\s*%?$|^-+$|^—$/;
+// Percent/empty noise tokens commonly found in ownership columns (e.g., "100", "100%", "%", "-", em dash).
+const IS_PERCENTAGE_OR_EMPTY = /^\d+(?:\.\d+)?\s*%?$|^%$|^-+$|^—$/;
+// Ownership-like numeric value with optional decimal and optional trailing percent.
 const IS_OWNERSHIP_LIKE = /^\d+(?:\.\d+)?\s*%?$/;
+// Free-form jurisdiction-like text: starts with letter, mostly text punctuation, bounded length.
 const IS_JURISDICTION_LIKE = /^[A-Za-z][A-Za-z\s\.\-&',]{1,80}$/;
+// Strict legal-entity token matcher used for shift-guard decisions.
+const STRICT_COMPANY_ENTITY_TOKEN_REGEX =
+  /\b(?:inc(?:orporated)?|corp(?:oration)?|co|company|llc|llp|lp|ltd|limited|plc|pllc|pc|gmbh|kg|kgaa|ug|bv|nv|sa|sarl|spa|srl|ab|oy|oyj|as|asa|aps|pte|pty|sdn bhd|co ltd)\b/i;
 
 /**
  * Check if a cell contains a Roman numeral level indicator (I, II, III, IV, V, VI, VII, VIII)
@@ -30,7 +39,27 @@ function isRomanNumeralLevel(text: string): boolean {
   return /^(I{1,3}|IV|VI{0,3}|I?X)$/i.test(trimmed);
 }
 
+function isNumericLevelMarker(text: string): boolean {
+  // Numeric row prefix markers like "1", "1.", "2)" used as indentation/outline markers.
+  return /^\d{1,3}[.)]?$/.test(text.trim());
+}
+
 function looksLikeCompanyText(text: string): boolean {
+  const value = text.trim();
+  if (!value) return false;
+  const normalized = value
+    .toLowerCase()
+    // Drop dots and apostrophes so legal forms normalize consistently ("B.V." -> "bv", "Lloyd's" -> "lloyds").
+    .replace(/[.\u2019']/g, "")
+    // Treat grouping punctuation as token separators.
+    .replace(/[(),]/g, " ")
+    // Collapse repeated whitespace to single spaces for stable token matching.
+    .replace(/\s+/g, " ")
+    .trim();
+  return STRICT_COMPANY_ENTITY_TOKEN_REGEX.test(normalized);
+}
+
+function looksLikeCompanyTextBroad(text: string): boolean {
   const value = text.trim();
   return value.length > 0 && hasCompanyEntitySuffix(value);
 }
@@ -41,10 +70,24 @@ function looksLikeOwnershipText(text: string): boolean {
   return IS_PERCENTAGE_OR_EMPTY.test(value) || IS_OWNERSHIP_LIKE.test(value);
 }
 
+function isAliasLabelValue(text: string): boolean {
+  const value = text.trim();
+  if (!value) return false;
+  return isAliasLabelText(value);
+}
+
 function looksLikeJurisdictionText(text: string): boolean {
   const value = text.trim();
   if (!value) return false;
-  return !looksLikeCompanyText(value) && !looksLikeOwnershipText(value) && IS_JURISDICTION_LIKE.test(value);
+  // Common 2-letter jurisdiction abbreviations (e.g., "NV", "DE", "OH").
+  if (/^[A-Z]{2}$/.test(value)) return true;
+  if (isAliasLabelValue(value)) return false;
+  if (looksLikeOwnershipText(value)) return false;
+  if (looksLikeCompanyText(value)) return false;
+  if (!IS_JURISDICTION_LIKE.test(value)) return false;
+
+  const letters = (value.match(/[A-Za-z]/g) || []).length;
+  return letters >= Math.max(2, Math.ceil(value.length * 0.55));
 }
 
 /**
@@ -63,7 +106,10 @@ function detectRowOffset(
     const secondCellText = $(cells[1]).text().trim();
 
     // Check for Roman Numeral in first col
-    if (isRomanNumeralLevel(firstCellText) && secondCellText.length > 3) {
+    if (
+      (isRomanNumeralLevel(firstCellText) || isNumericLevelMarker(firstCellText)) &&
+      secondCellText.length > 3
+    ) {
       return 1;
     }
 
@@ -174,7 +220,9 @@ export function parseColumns(
     jurText = $(cells[adjustedJurColIdx]).text().trim();
     // Check if the "jurisdiction" cell looks like a percentage or is empty
     needsJurisdictionFallback =
-      IS_PERCENTAGE_OR_EMPTY.test(jurText) || jurText === "";
+      IS_PERCENTAGE_OR_EMPTY.test(jurText) ||
+      jurText === "" ||
+      (adjustedJurColIdx === adjustedNameColIdx && cellCount > adjustedNameColIdx + 1);
   } else {
     // Jurisdiction index is out of bounds (e.g., header has 3 cols but data row only has 2)
     needsJurisdictionFallback = true;
@@ -187,8 +235,9 @@ export function parseColumns(
       // Skip percentage values, dashes, and common non-jurisdiction values
       if (
         cellText &&
+        !isAliasLabelValue(cellText) &&
         !looksLikeOwnershipText(cellText) &&
-        !looksLikeCompanyText(cellText)
+        !looksLikeCompanyTextBroad(cellText)
       ) {
         adjustedJurColIdx = i;
         break;
@@ -201,8 +250,16 @@ export function parseColumns(
   let cleanName = nameParsed.cleanName;
   let jurisdictionRaw = jurResult.jurisdiction_raw;
 
+  if (isAliasLabelValue(jurisdictionRaw)) {
+    jurisdictionRaw = "";
+  }
+
   // Guard against shifted rows where a company name lands in jurisdiction column.
-  if (looksLikeCompanyText(jurisdictionRaw)) {
+  if (
+    jurisdictionRaw &&
+    looksLikeCompanyText(jurisdictionRaw) &&
+    !looksLikeJurisdictionText(jurisdictionRaw)
+  ) {
     if (!looksLikeCompanyText(cleanName)) {
       // Likely left-shift: move company-like value into name and keep only jurisdiction-like text.
       cleanName = jurisdictionRaw;
@@ -213,6 +270,14 @@ export function parseColumns(
       // Both look company-like; keep detected name and drop suspicious jurisdiction.
       jurisdictionRaw = "";
     }
+  }
+
+  if (
+    !jurisdictionRaw &&
+    adjustedJurColIdx === adjustedNameColIdx &&
+    nameParsed.jurisdictionFromName
+  ) {
+    jurisdictionRaw = nameParsed.jurisdictionFromName;
   }
 
   // Parse ownership - handle multi-year columns (e.g., 2023, 2024)

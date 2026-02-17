@@ -6,15 +6,13 @@
  * - Extracting footnote references from subsidiary names and ownership
  */
 
-// ============================================================================
-// Footnote Patterns
-// ============================================================================
-
-/** Matches footnote refs inline in text */
-const FOOTNOTE_REF_PATTERNS = [
-  /\((\d+[A-Za-z]?)\)/g, // (1), (2), (1A), (1a), (2B)
-  /\*(\d+[A-Za-z]?)/g, // *1, *2, *1A, *1a
-];
+import {
+  FOOTNOTE_REF_PATTERNS,
+  PARENTHESIZED_NOTE_ROW_REGEX,
+  hasNoteRowPrefix,
+  normalizeNoteText,
+  hasLeadingSuperscriptNoteMarker,
+} from "./note-markers";
 
 // ============================================================================
 // Document-level extraction (called once per document)
@@ -32,21 +30,34 @@ const FOOTNOTE_REF_PATTERNS = [
 export function extractDocumentFootnotes($: any): string {
   const footnoteSections: string[] = [];
 
-  // Look for small tables (1-20 rows) that contain footnote markers
+  // Look for footnote rows embedded in tables and standalone footnote tables.
   $("table").each((_: any, tbl: any) => {
     const $tbl = $(tbl);
     const rows = $tbl.find("tr");
+    const inlineStartRowIndex = findInlineFootnoteStartRow($, rows);
 
-    // Small tables might be footnote tables
+    if (inlineStartRowIndex >= 0) {
+      const inlineRowsHtml = rows
+        .slice(inlineStartRowIndex)
+        .toArray()
+        .map((row: any) => $.html(row))
+        .join("\n");
+      if (inlineRowsHtml.trim().length > 0) {
+        footnoteSections.push(`<table>${inlineRowsHtml}</table>`);
+      }
+      return;
+    }
+
+    // Small tables might be dedicated footnote tables.
     if (rows.length > 0 && rows.length <= 20) {
       // Check if this table contains footnote markers
       let hasFootnoteMarkers = false;
       rows.each((_: any, tr: any) => {
         const cells = $(tr).find("td");
         if (cells.length >= 1) {
-          const firstCell = $(cells[0]).text().trim();
-          // Look for patterns like (1), (2), (1A), (1a), etc.
-          if (/^\(\d+[A-Za-z]?\)/.test(firstCell)) {
+          const firstCell = normalizeNoteText($(cells[0]).text());
+          // Look for patterns like "(1)", "(2)", "(1A)".
+          if (hasNoteRowPrefix(firstCell)) {
             hasFootnoteMarkers = true;
             return false; // break
           }
@@ -61,14 +72,52 @@ export function extractDocumentFootnotes($: any): string {
 
   // Also look for footnote paragraphs/divs
   $("p, div").each((_: any, el: any) => {
-    const text = $(el).text().trim();
+    const text = normalizeNoteText($(el).text());
     // Look for footnote patterns: (1) text, (1A) text, etc.
-    if (/^\s*\(\d+[A-Za-z]?\)\s+/.test(text) && text.length < 500) {
+    if (PARENTHESIZED_NOTE_ROW_REGEX.test(text) && text.length < 500) {
       footnoteSections.push($.html(el));
     }
   });
 
   return footnoteSections.join("\n\n");
+}
+
+function isInlineFootnoteRow($: any, row: any): boolean {
+  const cells = $(row).find("td, th");
+  if (cells.length === 0) return false;
+
+  let nonEmptyCount = 0;
+  let firstNonEmptyText = "";
+  let firstNonEmptyCell: any = null;
+
+  cells.each((_: any, cell: any) => {
+    const text = normalizeNoteText($(cell).text());
+    if (!text) return;
+    nonEmptyCount++;
+    if (!firstNonEmptyCell) {
+      firstNonEmptyCell = cell;
+      firstNonEmptyText = text;
+    }
+  });
+
+  if (nonEmptyCount !== 1 || !firstNonEmptyCell) return false;
+
+  if (
+    hasNoteRowPrefix(firstNonEmptyText)
+  ) {
+    return true;
+  }
+
+  return hasLeadingSuperscriptNoteMarker($, firstNonEmptyCell);
+}
+
+function findInlineFootnoteStartRow($: any, rows: any): number {
+  for (let i = 0; i < rows.length; i++) {
+    if (isInlineFootnoteRow($, rows[i])) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 // ============================================================================

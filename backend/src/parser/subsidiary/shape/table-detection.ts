@@ -39,31 +39,15 @@ type SubsidiaryDataMetrics = {
 // Lexical Signals
 // ============================================================================
 
-const COMPANY_SUFFIXES = [
-  // US
-  "inc","inc.","incorporated","corp","corp.","corporation","co","co.","company",
-  "llc","l.l.c.","llp","l.l.p.","lp","l.p.","ltd","ltd.","limited",
-  "plc","pllc","pc","p.c.","n.a.","na",
-
-  // EU
-  "gmbh","ag","kg","kgaa","ug",
-  "bv","b.v.","nv","n.v.",
-  "sa","s.a.","sarl","s.a.r.l.","spa","s.p.a.","srl","s.r.l.",
-  "ab","oy","oyj","as","asa","aps",
-
-  // Asia
-  "pte","pte ltd","pte. ltd.","sdn bhd","pty ltd","co ltd","co. ltd","co., ltd.",
-
-  // misc
-  "group","holdings","holding","partners","fund","trust","bank","association"
-];
+// Broad company/entity token matcher for table-level shape detection.
+const COMPANY_ENTITY_TOKEN_REGEX =
+  /\b(?:inc(?:orporated)?|corp(?:oration)?|co|company|llc|llp|lp|ltd|limited|plc|pllc|pc|na|gmbh|ag|kg|kgaa|ug|bv|nv|sa|sarl|spa|srl|ab|oy|oyj|as|asa|aps|pte|pty|sdn bhd|co ltd|group|holdings?|partners?|fund|trust|bank|association)\b/i;
 
 /**
  * Detects company/entity-like value tokens in data cells.
  */
 export function hasCompanyEntitySuffix(text: string): boolean {
-  const lower = text.toLowerCase();
-  return COMPANY_SUFFIXES.some((suffix) => lower.includes(suffix));
+  return COMPANY_ENTITY_TOKEN_REGEX.test(text);
 }
 
 /**
@@ -74,23 +58,15 @@ export function containsJurisdictionHeaderKeyword(text: string): boolean {
   return containsAny(lower, SUBSIDIARY_KEYWORDS.JURISDICTION);
 }
 
-/** @deprecated Use hasCompanyEntitySuffix */
-export function looksLikeCompanyName(text: string): boolean {
-  return hasCompanyEntitySuffix(text);
-}
-
-/** @deprecated Use containsJurisdictionHeaderKeyword */
-export function looksLikeJurisdiction(text: string): boolean {
-  return containsJurisdictionHeaderKeyword(text);
-}
-
 function looksLikeOwnershipValue(text: string): boolean {
+  // Percentage token anywhere in the cell, e.g. "100%" or "owned 51.5%".
   return /\b\d{1,3}(?:\.\d+)?%\b/.test(text);
 }
 
 function looksLikeJurisdictionValue(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > 60) return false;
+  // Reject values containing digits; jurisdiction tokens here should be textual.
   if (/\d/.test(trimmed)) return false;
   if (looksLikeOwnershipValue(trimmed)) return false;
   if (hasCompanyEntitySuffix(trimmed)) return false;
@@ -99,6 +75,7 @@ function looksLikeJurisdictionValue(text: string): boolean {
   if (containsAny(lower, SUBSIDIARY_KEYWORDS.SUBSIDIARY_NAME)) return false;
   if (containsAny(lower, SUBSIDIARY_KEYWORDS.PERCENTAGE)) return false;
 
+  // Textual jurisdiction shape with common punctuation.
   return /^[A-Za-z][A-Za-z .,&'()/-]*$/.test(trimmed);
 }
 
@@ -169,7 +146,7 @@ function qualifiesAsSubsidiaryData(metrics: SubsidiaryDataMetrics): boolean {
 // Core Detection Implementations
 // ============================================================================
 
-function isLikelyHeaderLabelImpl(text: string): boolean {
+export function isLikelyHeaderLabel(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed) return false;
   if (/\d/.test(trimmed)) return false;
@@ -182,15 +159,15 @@ function isLikelyHeaderLabelImpl(text: string): boolean {
   return trimmed.length <= SHORT_HEADER_LABEL_MAX_LEN && /[a-z]/i.test(trimmed);
 }
 
-function isPossibleHeaderRowTextImpl(name: string, jurisdiction: string): boolean {
+export function isPossibleHeaderRowText(name: string, jurisdiction: string): boolean {
   const combined = `${name} ${jurisdiction}`.toLowerCase();
-  return isHeaderKeywordRowImpl(combined);
+  return isHeaderKeywordRow(combined);
 }
 
 /**
  * Check if a table is likely a footer/note table rather than a continuation table
  */
-function isLikelyFooterTableImpl($: any, table: any): boolean {
+export function isLikelyFooterTable($: any, table: any): boolean {
   const rows = table.find("tr");
   const text = table.text().toLowerCase();
   
@@ -214,7 +191,7 @@ function isLikelyFooterTableImpl($: any, table: any): boolean {
  * Check if a table contains subsidiary data even without explicit headers
  * This handles cases where tables go straight to data without header rows
  */
-function hasSubsidiaryDataImpl($: any, table: any): boolean {
+export function hasSubsidiaryData($: any, table: any): boolean {
   const rows = table.find("tr");
   if (rows.length < 2) return false;
 
@@ -249,7 +226,7 @@ function hasSubsidiaryDataImpl($: any, table: any): boolean {
 /**
  * Find all tables that look like subsidiary tables
  */
-function findAllSubsidiaryTablesImpl($: any, tables: any): any[] {
+export function findAllSubsidiaryTables($: any, tables: any): any[] {
   const subsidiaryTables: any[] = [];
   
   tables.each((_: number, tbl: any) => {
@@ -276,7 +253,7 @@ function findAllSubsidiaryTablesImpl($: any, tables: any): any[] {
 /**
  * Find the header row index in a table - check first 6 rows to handle cases with descriptive text
  */
-function findHeaderRowImpl($: any, rows: any): number {
+export function findHeaderRow($: any, rows: any): number {
   // Check first rows for the best header match
   for (let i = 0; i < Math.min(MAX_HEADER_SCAN_ROWS, rows.length); i++) {
     const row = snapshotRow($, rows[i]);
@@ -288,7 +265,7 @@ function findHeaderRowImpl($: any, rows: any): number {
     if (isLongSingleCellNarrative(row)) continue;
 
     // If row has both name and jurisdiction keywords AND has multiple cells, it's likely a header
-    if (isHeaderKeywordRowImpl(row.text) && row.cellCount >= MIN_HEADER_CELLS) {
+    if (isHeaderKeywordRow(row.text) && row.cellCount >= MIN_HEADER_CELLS) {
       return i;
     }
   }
@@ -322,25 +299,25 @@ function normalizeCellText(text: string): string {
 // Cell Filtering + Header Extraction
 // ============================================================================
 
-function getCellContentTextImpl($: any, cell: any): string {
+export function getCellContentText($: any, cell: any): string {
   return normalizeCellText($(cell).text());
 }
 
-function isLayoutOnlyCellImpl($: any, cell: any): boolean {
-  return getCellContentTextImpl($, cell).length === 0;
+export function isLayoutOnlyCell($: any, cell: any): boolean {
+  return getCellContentText($, cell).length === 0;
 }
 
-function filterContentCellsImpl($: any, cells: any): any {
-  return cells.filter((_: number, td: any) => !isLayoutOnlyCellImpl($, td));
+export function filterContentCells($: any, cells: any): any {
+  return cells.filter((_: number, td: any) => !isLayoutOnlyCell($, td));
 }
 
 /**
  * Extract column headers from a header row
  */
-function extractHeadersImpl($: any, headerRow: any): string[] {
+export function extractHeaders($: any, headerRow: any): string[] {
   const headers: string[] = [];
   const allCells = $(headerRow).find("th, td");
-  const cells = filterContentCellsImpl($, allCells);
+  const cells = filterContentCells($, allCells);
 
   cells.each((_: any, cell: any) => {
       let text = normalizeCellText($(cell).text())
@@ -362,7 +339,7 @@ function extractHeadersImpl($: any, headerRow: any): string[] {
 /**
  * Check if a row is a header row (not data)
  */
-function isHeaderRowImpl(name: string, jurisdiction: string): boolean {
+export function isHeaderRow(name: string, jurisdiction: string): boolean {
   const nameLower = name.toLowerCase();
   const text = (name + " " + jurisdiction).toLowerCase();
   
@@ -373,7 +350,7 @@ function isHeaderRowImpl(name: string, jurisdiction: string): boolean {
   const companyIndicators = ["llc", "inc.", "corp", "ltd", "l.l.c", "s.a.", "gmbh", "b.v.", "pty", "plc", "n.v."];
   if (companyIndicators.some(ind => nameLower.includes(ind))) return false;
   
-  if (isPossibleHeaderRowTextImpl(name, jurisdiction)) return true;
+  if (isPossibleHeaderRowText(name, jurisdiction)) return true;
   
   // Check for title markers, but exclude common false positives
   // "United States" should not trigger "state" keyword
@@ -400,7 +377,7 @@ function isHeaderRowImpl(name: string, jurisdiction: string): boolean {
 /**
  * Shared header keyword detection used by header row parsing and validation.
  */
-function isHeaderKeywordRowImpl(text: string): boolean {
+export function isHeaderKeywordRow(text: string): boolean {
   return (
     containsAny(text, SUBSIDIARY_KEYWORDS.SUBSIDIARY_NAME) &&
     containsAny(text, SUBSIDIARY_KEYWORDS.JURISDICTION)
@@ -415,7 +392,7 @@ function inferHeaderRowIndex($: any, rows: any): number {
     if (row.nonEmptyTexts.length < MIN_HEADER_CELLS) continue;
 
     const headerLike = row.nonEmptyTexts.every((text: string) =>
-      isLikelyHeaderLabelImpl(text),
+      isLikelyHeaderLabel(text),
     );
     if (!headerLike) continue;
 
@@ -444,56 +421,4 @@ function inferHeaderRowIndex($: any, rows: any): number {
   }
 
   return -1;
-}
-
-// ============================================================================
-// Public Entry Points
-// ============================================================================
-
-export function isLikelyHeaderLabel(text: string): boolean {
-  return isLikelyHeaderLabelImpl(text);
-}
-
-export function isPossibleHeaderRowText(name: string, jurisdiction: string): boolean {
-  return isPossibleHeaderRowTextImpl(name, jurisdiction);
-}
-
-export function isHeaderKeywordRow(text: string): boolean {
-  return isHeaderKeywordRowImpl(text);
-}
-
-export function isLikelyFooterTable($: any, table: any): boolean {
-  return isLikelyFooterTableImpl($, table);
-}
-
-export function hasSubsidiaryData($: any, table: any): boolean {
-  return hasSubsidiaryDataImpl($, table);
-}
-
-export function findAllSubsidiaryTables($: any, tables: any): any[] {
-  return findAllSubsidiaryTablesImpl($, tables);
-}
-
-export function findHeaderRow($: any, rows: any): number {
-  return findHeaderRowImpl($, rows);
-}
-
-export function getCellContentText($: any, cell: any): string {
-  return getCellContentTextImpl($, cell);
-}
-
-export function isLayoutOnlyCell($: any, cell: any): boolean {
-  return isLayoutOnlyCellImpl($, cell);
-}
-
-export function filterContentCells($: any, cells: any): any {
-  return filterContentCellsImpl($, cells);
-}
-
-export function extractHeaders($: any, headerRow: any): string[] {
-  return extractHeadersImpl($, headerRow);
-}
-
-export function isHeaderRow(name: string, jurisdiction: string): boolean {
-  return isHeaderRowImpl(name, jurisdiction);
 }

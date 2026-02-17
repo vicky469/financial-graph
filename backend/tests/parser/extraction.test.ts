@@ -12,6 +12,8 @@ describe("extractSubsidiaries", () => {
   const mockFiling = {
     accession_number: "000100263825000053",
     cik: "1002638",
+    filingCompanyId: "company_test",
+    filingCompanyName: "Test Parent Co",
   };
 
   describe("Column Detection", () => {
@@ -141,6 +143,158 @@ describe("extractSubsidiaries", () => {
           {}
         );
       }).toThrow(MissingColumnError);
+    });
+  });
+
+  describe("Inline Footnote Rows", () => {
+    it("stops row extraction when inline footnote section starts in the same table", () => {
+      const html = `
+        <table>
+          <tr>
+            <td>Name</td>
+            <td>Jurisdiction</td>
+            <td>Percentage of ownership</td>
+          </tr>
+          <tr>
+            <td>Alpha Holdings Ltd.</td>
+            <td>United Kingdom</td>
+            <td>100%</td>
+          </tr>
+          <tr>
+            <td>Beta LLC</td>
+            <td>Delaware</td>
+            <td>100%</td>
+          </tr>
+          <tr>
+            <td><sup>2</sup> Formerly Intensity Holdings Limited</td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><sup>3</sup> Wholly-owned subsidiary of Alpha Holdings Ltd.</td>
+            <td></td>
+            <td></td>
+          </tr>
+        </table>
+      `;
+
+      const $ = load(html);
+      const rows = $("tr");
+      const result = extractSubsidiaries(
+        $,
+        rows,
+        0,
+        ["Name", "Jurisdiction", "Percentage of ownership"],
+        mockFiling,
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result.map((sub) => sub.name)).toEqual([
+        "Alpha Holdings Ltd.",
+        "Beta LLC",
+      ]);
+      expect(result.some((sub) => sub.name.includes("Formerly"))).toBe(false);
+    });
+
+    it("stops extraction for roman-numeral inline footnote rows", () => {
+      const html = `
+        <table>
+          <tr>
+            <td>Name</td>
+            <td>Jurisdiction</td>
+            <td>Percentage of ownership</td>
+          </tr>
+          <tr>
+            <td>Gamma Holdings Inc.</td>
+            <td>Delaware</td>
+            <td>100%</td>
+          </tr>
+          <tr>
+            <td>Delta Ltd.</td>
+            <td>United Kingdom</td>
+            <td>100%</td>
+          </tr>
+          <tr>
+            <td>IV. Formerly Delta Legacy Ltd.</td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>V) Wholly-owned by Gamma Holdings Inc.</td>
+            <td></td>
+            <td></td>
+          </tr>
+        </table>
+      `;
+
+      const $ = load(html);
+      const rows = $("tr");
+      const result = extractSubsidiaries(
+        $,
+        rows,
+        0,
+        ["Name", "Jurisdiction", "Percentage of ownership"],
+        mockFiling,
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result.map((sub) => sub.name)).toEqual([
+        "Gamma Holdings Inc.",
+        "Delta Ltd.",
+      ]);
+    });
+
+    it("stops extraction for 1), I), a) inline marker variants", () => {
+      const html = `
+        <table>
+          <tr>
+            <td>Name</td>
+            <td>Jurisdiction</td>
+            <td>Percentage of ownership</td>
+          </tr>
+          <tr>
+            <td>Epsilon Holdings Inc.</td>
+            <td>Delaware</td>
+            <td>100%</td>
+          </tr>
+          <tr>
+            <td>Zeta Ltd.</td>
+            <td>United Kingdom</td>
+            <td>100%</td>
+          </tr>
+          <tr>
+            <td>1) Numeric marker note row.</td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>i) Roman marker note row.</td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>A) Alphabetic marker note row.</td>
+            <td></td>
+            <td></td>
+          </tr>
+        </table>
+      `;
+
+      const $ = load(html);
+      const rows = $("tr");
+      const result = extractSubsidiaries(
+        $,
+        rows,
+        0,
+        ["Name", "Jurisdiction", "Percentage of ownership"],
+        mockFiling,
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result.map((sub) => sub.name)).toEqual([
+        "Epsilon Holdings Inc.",
+        "Zeta Ltd.",
+      ]);
     });
   });
 });

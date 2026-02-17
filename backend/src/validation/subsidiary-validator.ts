@@ -59,6 +59,7 @@ const MISSING_NAME_MARKERS = new Set([
 const COMPANY_SUFFIX_REGEX =
   /\b(?:inc|inc\.|corp|corp\.|corporation|co|co\.|company|llc|l\.l\.c\.|llp|l\.l\.p\.|lp|l\.p\.|ltd|ltd\.|limited|plc|gmbh|ag|sa|s\.a\.|bv|n\.v\.|nv)\b/i;
 const OWNS_WORD_REGEX = /\bowns\b/i;
+const TWO_LETTER_UPPERCASE_JURISDICTION_REGEX = /^[A-Z]{2}$/;
 const MIN_VALID_RATIO = 0.9;
 
 function normalizeMarkerToken(value: string): string {
@@ -75,6 +76,10 @@ function isNumericOrSymbolOnly(value: string): boolean {
 }
 
 function containsCompanySuffix(value: string): boolean {
+  // Jurisdiction abbreviations like "NV" / "DE" are location codes, not company suffixes.
+  if (TWO_LETTER_UPPERCASE_JURISDICTION_REGEX.test(value.trim())) {
+    return false;
+  }
   return value.length > 0 && COMPANY_SUFFIX_REGEX.test(value);
 }
 
