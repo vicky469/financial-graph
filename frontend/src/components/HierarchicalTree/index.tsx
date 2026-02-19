@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ChevronRight, ChevronDown, Building2, Search } from "lucide-react";
 import { getJurisdictionColor } from "../../utils/jurisdictionColors";
 
@@ -41,8 +41,18 @@ export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: Hie
   const subsidiaryCount = hierarchy.filter(node => node.level > 0).length;
   const filteredSubsidiaryCount = filteredHierarchy.filter(node => node.level > 0).length;
 
-  // Initialize with all nodes collapsed by default
+  // Default to expanded parents so subsidiaries are visible on first load.
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (hierarchy.length === 0) return;
+
+    const parentNodeIds = hierarchy
+      .filter((node) => node.hasChildren)
+      .map((node) => node.id);
+
+    setExpandedNodes(new Set(parentNodeIds));
+  }, [hierarchy]);
 
   const toggleNode = (nodeId: string) => {
     setExpandedNodes((prev) => {
