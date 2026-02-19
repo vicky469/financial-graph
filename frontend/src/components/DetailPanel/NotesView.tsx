@@ -7,6 +7,7 @@ import { Button } from '../ui/button';
 import { ConfirmationDialog } from '../ui/confirmation-dialog';
 import { useNotes } from '../../hooks/useNotes';
 import { useIsAdminUser } from '../../hooks/useIsAdminUser';
+import { getNoteType, getNoteTypeCounts, NOTE_TYPE_META, type NoteTypeFilter } from '../../utils/noteType';
 import { notesForUserQuery, getNotesForCompany, type ExtendedNoteResult } from 'financial-graph-shared/db';
 
 interface NotesViewProps {
@@ -17,6 +18,7 @@ interface NotesViewProps {
 }
 
 const NOTES_PER_PAGE = 20;
+const TYPE_FILTERS: NoteTypeFilter[] = ['all', 'issue', 'todo', 'other'];
 
 /**
  * NotesView component displays all notes for a company with pagination
@@ -32,6 +34,8 @@ const NOTES_PER_PAGE = 20;
 export function NotesView({ companyId, userId, onBack, initialNoteId = null }: NotesViewProps) {
   const [manualPage, setManualPage] = useState<number | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [activeTypeFilter, setActiveTypeFilter] = useState<NoteTypeFilter>('all');
+  const [highlightedNoteId, setHighlightedNoteId] = useState<string | null>(initialNoteId);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     noteId: string | null;
@@ -56,31 +60,67 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
   const allNotes: ExtendedNoteResult[] = useMemo(() => {
     return getNotesForCompany(data, companyId);
   }, [data, companyId]);
+  const typeCounts = useMemo(() => getNoteTypeCounts(allNotes), [allNotes]);
+  const filteredNotes = useMemo(
+    () =>
+      activeTypeFilter === 'all'
+        ? allNotes
+        : allNotes.filter((note) => getNoteType(note) === activeTypeFilter),
+    [allNotes, activeTypeFilter]
+  );
 
   // Pagination logic
-  const totalNotes = allNotes.length;
+  const totalNotes = filteredNotes.length;
+  const totalUnfilteredNotes = allNotes.length;
   const totalPages = Math.max(1, Math.ceil(totalNotes / NOTES_PER_PAGE));
-  const targetNoteIndex = initialNoteId ? allNotes.findIndex((note) => note.id === initialNoteId) : -1;
+  const targetNoteIndex = highlightedNoteId
+    ? filteredNotes.findIndex((note) => note.id === highlightedNoteId)
+    : -1;
   const targetPage = targetNoteIndex >= 0 ? Math.floor(targetNoteIndex / NOTES_PER_PAGE) + 1 : null;
   const preferredPage = manualPage ?? targetPage ?? 1;
   const currentPage = Math.min(Math.max(preferredPage, 1), totalPages);
   const startIndex = (currentPage - 1) * NOTES_PER_PAGE;
   const endIndex = startIndex + NOTES_PER_PAGE;
-  const paginatedNotes = allNotes.slice(startIndex, endIndex);
+  const paginatedNotes = filteredNotes.slice(startIndex, endIndex);
+  const activeFilterLabel = activeTypeFilter === 'all' ? 'all' : NOTE_TYPE_META[activeTypeFilter].label.toLowerCase();
+
+  // Keep deep-link highlight in sync with incoming note id.
+  useEffect(() => {
+    setHighlightedNoteId(initialNoteId);
+  }, [initialNoteId]);
+
+  useEffect(() => {
+    if (!highlightedNoteId) return;
+    const hasHighlightedNote = filteredNotes.some((note) => note.id === highlightedNoteId);
+    if (!hasHighlightedNote) {
+      setHighlightedNoteId(null);
+    }
+  }, [filteredNotes, highlightedNoteId]);
 
   // Scroll to the target note once it is rendered on the active page.
   useEffect(() => {
-    if (!initialNoteId) return;
+    if (!highlightedNoteId) return;
 
     const frame = window.requestAnimationFrame(() => {
-      const target = document.querySelector(`[data-note-id="${initialNoteId}"]`);
+      const target = document.querySelector(`[data-note-id="${highlightedNoteId}"]`);
       if (target instanceof HTMLElement) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [initialNoteId, currentPage, paginatedNotes.length]);
+  }, [highlightedNoteId, currentPage, paginatedNotes.length]);
+
+  const handleDismissRedirectHighlight = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!highlightedNoteId) return;
+    const clickTarget = event.target as HTMLElement;
+    const clickedInsideHighlightedCard = clickTarget.closest(
+      `[data-note-id="${highlightedNoteId}"]`
+    );
+    if (!clickedInsideHighlightedCard) {
+      setHighlightedNoteId(null);
+    }
+  };
 
   // Handle page navigation
   const goToPage = (page: number) => {
@@ -202,6 +242,7 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
   return (
     <div
       className="notes-view flex flex-col h-full"
+      onClickCapture={handleDismissRedirectHighlight}
       style={{
         backgroundColor: 'rgba(0, 0, 0, 0.2)',
       }}
@@ -271,8 +312,71 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
               color: 'rgba(255, 255, 255, 0.5)',
             }}
           >
-            {totalNotes} {totalNotes === 1 ? 'note' : 'notes'}
+            {totalNotes} {activeTypeFilter === 'all' ? '' : `${activeFilterLabel} `}{totalNotes === 1 ? 'note' : 'notes'}
           </p>
+          <div
+            style={{
+              marginTop: '8px',
+              display: 'flex',
+              gap: '6px',
+              flexWrap: 'wrap',
+            }}
+          >
+            {TYPE_FILTERS.map((filterType) => {
+              const isActive = filterType === activeTypeFilter;
+              const isAll = filterType === 'all';
+              const label = isAll ? 'All' : NOTE_TYPE_META[filterType].label;
+              const count = isAll ? totalUnfilteredNotes : typeCounts[filterType];
+              const tone = isAll
+                ? {
+                    borderColor: 'rgba(125, 211, 252, 0.28)',
+                    background: 'rgba(14, 116, 144, 0.18)',
+                    textColor: 'rgba(186, 230, 253, 0.9)',
+                  }
+                : NOTE_TYPE_META[filterType];
+
+              return (
+                <button
+                  key={filterType}
+                  type="button"
+                  onClick={() => {
+                    setActiveTypeFilter(filterType);
+                    setManualPage(1);
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 9px',
+                    borderRadius: '999px',
+                    border: `1px solid ${isActive ? tone.borderColor : 'rgba(148,163,184,0.18)'}`,
+                    background: isActive ? tone.background : 'rgba(255,255,255,0.02)',
+                    color: isActive ? tone.textColor : 'rgba(203,213,225,0.74)',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                  }}
+                  aria-pressed={isActive}
+                >
+                  <span>{label}</span>
+                  <span
+                    style={{
+                      padding: '1px 5px',
+                      borderRadius: '999px',
+                      border: '1px solid rgba(255,255,255,0.14)',
+                      background: 'rgba(0,0,0,0.24)',
+                      fontSize: '10px',
+                      lineHeight: 1.1,
+                    }}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -331,7 +435,7 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
       {!isLoading && !error && (
         <>
           {/* Empty state */}
-          {totalNotes === 0 && (
+          {totalUnfilteredNotes === 0 && (
             <div
               style={{
                 display: 'flex',
@@ -347,6 +451,20 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
             >
               <div>No notes yet. Go back and create your first note.</div>
               <div style={{ marginTop: '6px' }}>Tag @admin in the note if you see any data issue.</div>
+            </div>
+          )}
+          {totalUnfilteredNotes > 0 && totalNotes === 0 && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: '24px 16px',
+                color: 'rgba(255, 255, 255, 0.45)',
+                fontSize: '12px',
+              }}
+            >
+              No {activeFilterLabel} notes for this company.
             </div>
           )}
 
@@ -384,8 +502,8 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
                       data-note-id={note.id}
                       style={{
                         borderRadius: '8px',
-                        outline: note.id === initialNoteId ? '1px solid rgba(96, 165, 250, 0.6)' : 'none',
-                        boxShadow: note.id === initialNoteId ? '0 0 0 2px rgba(96, 165, 250, 0.18)' : 'none',
+                        outline: note.id === highlightedNoteId ? '1px solid rgba(125, 211, 252, 0.26)' : 'none',
+                        boxShadow: note.id === highlightedNoteId ? '0 0 0 2px rgba(14, 116, 144, 0.12)' : 'none',
                       }}
                     >
                       <NoteCard

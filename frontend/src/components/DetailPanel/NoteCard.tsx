@@ -9,6 +9,7 @@ import { CompanyMention } from './CompanyMentionExtension';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { hasFeature } from '../../config/featureFlags';
 import { decorateAdminMentionsInElement } from '../../utils/adminMentionStyling';
+import { getNoteType, NOTE_TYPE_META } from '../../utils/noteType';
 import type { TiptapJSON, Note } from 'financial-graph-shared/types';
 
 // Extended Note type to include backlink metadata
@@ -197,6 +198,8 @@ export function NoteCard({
   const creatorName = note.createdBy === 'system' 
     ? 'System' 
     : (note.user?.email?.split('@')[0] || note.user?.id?.split('@')[0] || 'User');
+  const noteType = getNoteType(note);
+  const noteTypeMeta = NOTE_TYPE_META[noteType];
 
   // Visual distinction for system notes
   // Different background color for backlink notes
@@ -241,12 +244,13 @@ export function NoteCard({
       className={cardClassName}
       style={{
         padding: '10px',
-        borderRadius: '6px',
+        borderRadius: '8px',
         border: getCardBorder(),
         background: getCardBackground(),
         marginBottom: '10px',
         cursor: isBacklink ? 'default' : 'pointer',
         transition: 'all 0.2s ease',
+        overflow: 'hidden',
       }}
       onClick={() => {
         if (!isBacklink) {
@@ -265,8 +269,12 @@ export function NoteCard({
             gap: '6px',
             marginBottom: '6px',
             fontSize: '10px',
-            color: 'rgba(96, 165, 250, 0.9)',
+            color: 'rgba(148, 163, 184, 0.86)',
             fontWeight: 500,
+            background: 'rgba(15, 23, 42, 0.36)',
+            border: '1px solid rgba(148, 163, 184, 0.18)',
+            borderRadius: '6px',
+            padding: '4px 8px',
           }}
         >
           <span>📎</span>
@@ -281,16 +289,16 @@ export function NoteCard({
               background: 'none',
               border: 'none',
               padding: 0,
-              color: 'rgba(96, 165, 250, 1)',
+              color: 'rgba(125, 211, 252, 0.9)',
               textDecoration: 'underline',
               cursor: 'pointer',
               fontWeight: 600,
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'rgba(147, 197, 253, 1)';
+              e.currentTarget.style.color = 'rgba(186, 230, 253, 0.95)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'rgba(96, 165, 250, 1)';
+              e.currentTarget.style.color = 'rgba(125, 211, 252, 0.9)';
             }}
             title="Click to view the original note"
           >
@@ -304,7 +312,7 @@ export function NoteCard({
         {editor ? (
           <EditorContent editor={editor} />
         ) : (
-          <div style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '12px' }}>
+          <div style={{ color: 'rgba(148, 163, 184, 0.74)', fontSize: '12px' }}>
             Loading content...
           </div>
         )}
@@ -318,12 +326,29 @@ export function NoteCard({
           alignItems: 'center',
           justifyContent: 'space-between',
           fontSize: '10px',
-          color: 'rgba(255, 255, 255, 0.5)',
+          color: 'rgba(148, 163, 184, 0.74)',
           marginTop: '6px',
         }}
       >
         {/* Creator, timestamp, and visibility indicator */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span
+            style={{
+              padding: '1px 6px',
+              borderRadius: '999px',
+              border: `1px solid ${noteTypeMeta.borderColor}`,
+              background: noteTypeMeta.background,
+              color: noteTypeMeta.textColor,
+              fontSize: '9px',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              lineHeight: 1.2,
+            }}
+          >
+            {noteTypeMeta.label}
+          </span>
+          <span>•</span>
           <span style={{ fontWeight: 500 }}>
             {creatorName}
           </span>

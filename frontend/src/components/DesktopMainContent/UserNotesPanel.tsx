@@ -1,8 +1,16 @@
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, ExternalLink } from "lucide-react";
 import { useUserNotesPanel } from "../../hooks/useUserNotesPanel";
 import { renderTextWithAdminMention } from "../../utils/adminMentionStyling";
-import type { Note, TiptapNode } from "financial-graph-shared/types";
+import {
+  getNoteType,
+  getNoteTypeCounts,
+  NOTE_TYPE_META,
+  tiptapToPlainText,
+  type NoteTypeFilter,
+} from "../../utils/noteType";
+import type { Note } from "financial-graph-shared/types";
 
 const PREVIEW_LIMIT = 200;
 const PAGE_SIZE = 8;
@@ -25,25 +33,10 @@ const headerStyle: React.CSSProperties = {
   justifyContent: "space-between",
 };
 
-function tiptapToText(node: TiptapNode): string {
-  if (node.type === "text") return node.text ?? "";
-  if (node.type === "hardBreak") return "\n";
-
-  if (node.type === "companyMention") {
-    const mentionName = typeof node.attrs?.companyName === "string" ? node.attrs.companyName : "";
-    return mentionName ? `@${mentionName}` : "@company";
-  }
-
-  const childText = (node.content ?? []).map(tiptapToText).join("");
-  if (node.type === "paragraph" || node.type === "heading" || node.type === "listItem") {
-    return `${childText}\n`;
-  }
-  return childText;
-}
+const TYPE_FILTERS: NoteTypeFilter[] = ["all", "issue", "todo", "other"];
 
 function getNotePreview(note: Note): string {
-  const raw = (note.content?.content ?? []).map(tiptapToText).join(" ");
-  const normalized = raw.replace(/\s+/g, " ").trim();
+  const normalized = tiptapToPlainText(note.content);
   if (!normalized) return "(No text content)";
   return normalized.length > PREVIEW_LIMIT
     ? `${normalized.slice(0, PREVIEW_LIMIT - 1)}...`
@@ -119,7 +112,15 @@ function NoteCardRow({
   const relativeUrl = getRelativeNoteUrl(note);
   const absoluteUrl = relativeUrl ? getAbsoluteNoteUrl(relativeUrl) : null;
   const previewText = getNotePreview(note);
+  const noteType = getNoteType(note);
+  const noteTypeMeta = NOTE_TYPE_META[noteType];
   const showDoneIndicator = note.reportStatus === "done";
+  const accentColor = showDoneIndicator ? "rgba(110, 231, 183, 0.78)" : "rgba(125, 211, 252, 0.7)";
+  const accentBackground = showDoneIndicator
+    ? "linear-gradient(180deg, rgba(17, 30, 25, 0.9) 0%, rgba(12, 21, 18, 0.95) 100%)"
+    : "linear-gradient(180deg, rgba(20, 26, 37, 0.9) 0%, rgba(13, 18, 27, 0.95) 100%)";
+  const cardBorderColor = showDoneIndicator ? "rgba(110, 231, 183, 0.25)" : "rgba(148, 163, 184, 0.2)";
+  const metadataColor = showDoneIndicator ? "rgba(167, 243, 208, 0.72)" : "rgba(148, 163, 184, 0.74)";
 
   return (
     <div
@@ -127,14 +128,28 @@ function NoteCardRow({
         position: "relative",
         padding: "10px 12px",
         borderRadius: "8px",
-        border: "1px solid rgba(255,255,255,0.12)",
-        background: "rgba(255,255,255,0.02)",
+        border: `1px solid ${cardBorderColor}`,
+        background: accentBackground,
         boxSizing: "border-box",
         height: `${cardHeightPx}px`,
         minHeight: `${cardHeightPx}px`,
         overflow: "hidden",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
       }}
     >
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: "7px",
+          bottom: "7px",
+          left: "7px",
+          width: "3px",
+          borderRadius: "999px",
+          background: accentColor,
+          opacity: 0.9,
+        }}
+      />
       <div
         style={{
           position: "absolute",
@@ -148,15 +163,32 @@ function NoteCardRow({
       <div
         style={{
           fontSize: "11px",
-          color: "rgba(255,255,255,0.5)",
+          color: metadataColor,
           marginBottom: "6px",
           paddingRight: "36px",
+          paddingLeft: "10px",
           whiteSpace: "nowrap",
           overflow: "hidden",
           textOverflow: "ellipsis",
         }}
       >
         {note.company?.name || "Unknown company"} • {formatCreatedAt(note.createdAt)}
+        <span
+          style={{
+            marginLeft: "8px",
+            padding: "1px 6px",
+            borderRadius: "999px",
+            border: `1px solid ${noteTypeMeta.borderColor}`,
+            background: noteTypeMeta.background,
+            color: noteTypeMeta.textColor,
+            fontSize: "10px",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+          }}
+        >
+          {noteTypeMeta.label}
+        </span>
         {showDoneIndicator && (
           <span
             style={{
@@ -164,7 +196,7 @@ function NoteCardRow({
               display: "inline-flex",
               alignItems: "center",
               gap: "4px",
-              color: "rgba(134, 239, 172, 0.95)",
+              color: "rgba(134, 239, 172, 0.9)",
               fontWeight: 500,
             }}
             title="Admin marked this report as done"
@@ -178,7 +210,7 @@ function NoteCardRow({
       <div
         style={{
           fontSize: "12px",
-          color: "rgba(255,255,255,0.92)",
+          color: "rgba(226, 232, 240, 0.96)",
           lineHeight: 1.42,
           display: "-webkit-box",
           WebkitLineClamp: 2,
@@ -186,6 +218,7 @@ function NoteCardRow({
           overflow: "hidden",
           textOverflow: "ellipsis",
           paddingRight: "40px",
+          paddingLeft: "10px",
         }}
       >
         {renderTextWithAdminMention(previewText)}
@@ -204,7 +237,6 @@ export function UserNotesPanel() {
     isLoadingMore,
     loadMoreError,
     cardHeightPx,
-    shouldEnableScroll,
     listViewportRef,
     handleLoadMore,
   } = useUserNotesPanel({
@@ -212,7 +244,15 @@ export function UserNotesPanel() {
     cardGap: CARD_GAP,
     minCardHeight: CARD_MIN_HEIGHT,
   });
+  const [activeTypeFilter, setActiveTypeFilter] = useState<NoteTypeFilter>("all");
   const hasError = Boolean(error);
+  const typeCounts = useMemo(() => getNoteTypeCounts(notes), [notes]);
+  const filteredNotes = useMemo(
+    () => (activeTypeFilter === "all" ? notes : notes.filter((note) => getNoteType(note) === activeTypeFilter)),
+    [notes, activeTypeFilter]
+  );
+  const shouldEnableScrollForDisplay = filteredNotes.length > PAGE_SIZE;
+  const activeFilterLabel = activeTypeFilter === "all" ? "all" : NOTE_TYPE_META[activeTypeFilter].label.toLowerCase();
 
   if (!user) {
     return (
@@ -238,19 +278,83 @@ export function UserNotesPanel() {
           Your Notes
         </h3>
         <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)" }}>
-          {hasMore ? `${notes.length}+` : notes.length} {notes.length === 1 ? "note" : "notes"}
+          {activeTypeFilter === "all"
+            ? `${hasMore ? `${notes.length}+` : notes.length} ${notes.length === 1 ? "note" : "notes"}`
+            : `${filteredNotes.length} ${activeFilterLabel} ${filteredNotes.length === 1 ? "note" : "notes"}`}
         </span>
+      </div>
+
+      <div
+        style={{
+          padding: "8px 20px",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "6px",
+        }}
+      >
+        {TYPE_FILTERS.map((filterType) => {
+          const isActive = activeTypeFilter === filterType;
+          const isAll = filterType === "all";
+          const label = isAll ? "All" : NOTE_TYPE_META[filterType].label;
+          const count = isAll ? notes.length : typeCounts[filterType];
+          const tone = isAll
+            ? {
+                borderColor: "rgba(125, 211, 252, 0.28)",
+                background: "rgba(14, 116, 144, 0.18)",
+                textColor: "rgba(186, 230, 253, 0.9)",
+              }
+            : NOTE_TYPE_META[filterType];
+
+          return (
+            <button
+              key={filterType}
+              type="button"
+              onClick={() => setActiveTypeFilter(filterType)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "4px 9px",
+                borderRadius: "999px",
+                border: `1px solid ${isActive ? tone.borderColor : "rgba(148,163,184,0.18)"}`,
+                background: isActive ? tone.background : "rgba(255,255,255,0.02)",
+                color: isActive ? tone.textColor : "rgba(203,213,225,0.74)",
+                fontSize: "10px",
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+              }}
+              aria-pressed={isActive}
+            >
+              <span>{label}</span>
+              <span
+                style={{
+                  padding: "1px 5px",
+                  borderRadius: "999px",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  background: "rgba(0,0,0,0.24)",
+                  fontSize: "10px",
+                  lineHeight: 1.1,
+                }}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div
           ref={listViewportRef}
-          className={shouldEnableScroll ? undefined : "hide-scrollbar"}
+          className={shouldEnableScrollForDisplay ? undefined : "hide-scrollbar"}
           style={{
             flex: 1,
             minHeight: 0,
-            overflowY: shouldEnableScroll ? "scroll" : "hidden",
-            scrollbarGutter: shouldEnableScroll ? "stable" : undefined,
+            overflowY: shouldEnableScrollForDisplay ? "scroll" : "hidden",
+            scrollbarGutter: shouldEnableScrollForDisplay ? "stable" : undefined,
             padding: `${CARD_GAP}px 20px`,
           }}
         >
@@ -279,9 +383,15 @@ export function UserNotesPanel() {
             </div>
           )}
 
-          {!hasError && notes.length > 0 && (
+          {!isLoading && !hasError && notes.length > 0 && filteredNotes.length === 0 && (
+            <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px" }}>
+              No {activeFilterLabel} notes yet.
+            </div>
+          )}
+
+          {!hasError && filteredNotes.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: `${CARD_GAP}px` }}>
-              {notes.map((note) => (
+              {filteredNotes.map((note) => (
                 <NoteCardRow
                   key={note.id}
                   note={note}

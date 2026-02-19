@@ -7,21 +7,21 @@
 }
 
 .note-card:hover {
-  border-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 16px rgba(2, 6, 23, 0.35);
 }
 
 /* System note specific styling - purple tint */
 .note-card-system {
-  background: rgba(168, 85, 247, 0.05) !important;
-  border-color: rgba(168, 85, 247, 0.3) !important;
+  background: linear-gradient(180deg, rgba(39, 22, 56, 0.72) 0%, rgba(27, 16, 40, 0.82) 100%) !important;
+  border-color: rgba(167, 139, 250, 0.26) !important;
 }
 
 .note-card-system:hover {
-  background: rgba(168, 85, 247, 0.08) !important;
-  border-color: rgba(168, 85, 247, 0.4) !important;
-  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.15);
+  background: linear-gradient(180deg, rgba(49, 28, 70, 0.74) 0%, rgba(30, 18, 45, 0.84) 100%) !important;
+  border-color: rgba(196, 181, 253, 0.3) !important;
+  box-shadow: 0 6px 16px rgba(29, 12, 44, 0.4);
 }
 
 /* System note badge indicator */
@@ -32,32 +32,32 @@
   left: 0;
   width: 3px;
   height: 100%;
-  background: linear-gradient(to bottom, rgba(168, 85, 247, 0.6), rgba(168, 85, 247, 0.3));
+  background: linear-gradient(to bottom, rgba(196, 181, 253, 0.58), rgba(167, 139, 250, 0.3));
   border-radius: 8px 0 0 8px;
 }
 
 /* User note specific styling */
 .note-card-user {
-  background: rgba(255, 255, 255, 0.02) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.76) 0%, rgba(13, 18, 28, 0.88) 100%) !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
 }
 
 .note-card-user:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border-color: rgba(255, 255, 255, 0.15) !important;
+  background: linear-gradient(180deg, rgba(22, 31, 48, 0.8) 0%, rgba(15, 22, 34, 0.9) 100%) !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
 }
 
 /* Backlink note specific styling - blue tint */
 .note-card-backlink {
-  background: rgba(59, 130, 246, 0.08) !important;
-  border-color: rgba(59, 130, 246, 0.3) !important;
+  background: linear-gradient(180deg, rgba(16, 30, 40, 0.82) 0%, rgba(12, 22, 30, 0.9) 100%) !important;
+  border-color: rgba(125, 211, 252, 0.28) !important;
   cursor: default !important;
 }
 
 .note-card-backlink:hover {
-  background: rgba(59, 130, 246, 0.12) !important;
-  border-color: rgba(59, 130, 246, 0.4) !important;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  background: linear-gradient(180deg, rgba(18, 34, 46, 0.86) 0%, rgba(13, 25, 34, 0.92) 100%) !important;
+  border-color: rgba(125, 211, 252, 0.34) !important;
+  box-shadow: 0 6px 16px rgba(8, 47, 73, 0.3);
   transform: none !important; /* No lift effect for read-only backlinks */
 }
 
@@ -69,7 +69,7 @@
   left: 0;
   width: 3px;
   height: 100%;
-  background: linear-gradient(to bottom, rgba(59, 130, 246, 0.6), rgba(59, 130, 246, 0.3));
+  background: linear-gradient(to bottom, rgba(125, 211, 252, 0.58), rgba(56, 189, 248, 0.28));
   border-radius: 8px 0 0 8px;
 }
 
@@ -414,7 +414,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: rgba(96, 165, 250, 1);
+  background: rgba(125, 211, 252, 0.72);
   transform: scaleX(1);
   transition: transform 0.2s ease;
 }
