@@ -6,7 +6,7 @@ import { DetailPanel } from "./components/DetailPanel";
 import { SearchModal } from "./components/SearchModal";
 import { LandingPage } from "./components/LandingPage";
 import { DesktopMainContent } from "./components/DesktopMainContent";
-import { UserNotesPanel } from "./components/DesktopMainContent/UserNotesPanel";
+import { DynamicUserNotesPanel } from "./components/DesktopMainContent/DynamicUserNotesPanel";
 import { MobileCompanyView } from "./components/MobileCompanyView";
 import { PreviewBanner } from "./components/PreviewBanner";
 import { useCompanyDetail } from "./db/queries";
@@ -165,54 +165,7 @@ function AppContent() {
             style={{ width: "100%", maxWidth: "100%" }}
           >
             {!selectedCompanyId ? (
-              <div className="relative h-full min-h-0 p-6">
-                <div
-                  style={{
-                    width: "min(540px, 100%)",
-                    height: "calc(100% - 54px)",
-                    minHeight: "420px",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: "8px",
-                    overflow: "hidden",
-                    background: "hsl(240 6% 4%)",
-                  }}
-                >
-                  <UserNotesPanel />
-                </div>
-
-                <div
-                  className="absolute left-1/2 -translate-x-1/2 bottom-[12px]"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    whiteSpace: "nowrap",
-                    backgroundColor: "hsl(155, 80%, 8%)",
-                    border: "1px solid hsl(155, 60%, 18%)",
-                    borderRadius: "6px",
-                    padding: "2px 8px",
-                    color: "hsl(150, 60%, 70%)",
-                    textShadow: "0 0 6px hsl(150, 60%, 70%, 0.18)",
-                    fontSize: "12px",
-                    lineHeight: "1",
-                  }}
-                >
-                  Press{" "}
-                  <kbd
-                    className="px-1.5 py-[1px] text-xs rounded"
-                    style={{
-                      backgroundColor: "hsl(155, 95%, 4%)",
-                      border: "1px solid hsl(155, 75%, 14%)",
-                      color: "hsl(150, 60%, 70%)",
-                      lineHeight: "1",
-                      margin: "0 6px",
-                    }}
-                  >
-                    ⌘ + Shift + F
-                  </kbd>{" "}
-                  to search
-                </div>
-              </div>
+              <DynamicUserNotesPanel />
             ) : isLoading ? (
               <div className="flex items-center justify-center h-full text-muted-foreground animate-pulse">
                 Loading Data...

@@ -219,6 +219,14 @@ async function runVisionChunks(
     } catch (chunkError) {
       lastError = chunkError;
       const chunkErrorCode = resolveErrorCode(chunkError);
+
+      if (!isRetryableProviderError(chunkError)) {
+        logger.error(
+          `Vision chunk ${chunkIndex}/${imageChunks.length} failed for ${accessionNumber} with non-retryable error (code=${chunkErrorCode}); aborting vision fallback`,
+        );
+        throw chunkError;
+      }
+
       logger.warn(
         `Vision chunk ${chunkIndex}/${imageChunks.length} failed for ${accessionNumber} (code=${chunkErrorCode}); retrying each image in this chunk`,
       );
@@ -265,6 +273,13 @@ function resolveErrorCode(error: unknown): string {
     return error.code;
   }
   return "UNKNOWN_ERROR";
+}
+
+function isRetryableProviderError(error: unknown): boolean {
+  if (error instanceof QwenError || error instanceof DeepSeekError) {
+    return error.isRetryable;
+  }
+  return false;
 }
 
 function getProvider(providerName: FallbackProvider): LLMProvider {

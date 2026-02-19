@@ -7,7 +7,7 @@
 export const DEFAULT_LLM_REQUEST_TIMEOUT_MS = 60_000;
 
 // Outer hard timeout used by worker-pool guardrails.
-export const DEFAULT_LLM_HARD_REQUEST_TIMEOUT_MS = 120_000;
+export const DEFAULT_LLM_HARD_REQUEST_TIMEOUT_MS = 300_000;
 
 // Extra headroom added above request timeout for hard timeout calculation.
 export const DEFAULT_LLM_HARD_TIMEOUT_BUFFER_MS = 30_000;

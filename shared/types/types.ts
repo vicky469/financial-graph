@@ -40,6 +40,13 @@ export const ParentOfSource = {
 export type ParentOfSourceValue =
   (typeof ParentOfSource)[keyof typeof ParentOfSource];
 
+export const FilingProcessed = {
+  SUBSIDIARY: 1,
+} as const;
+
+export type FilingProcessedValue =
+  (typeof FilingProcessed)[keyof typeof FilingProcessed];
+
 // ============================================================================
 // RAW TYPES (from InstantDB - don't use directly, use interfaces below)
 // ============================================================================
