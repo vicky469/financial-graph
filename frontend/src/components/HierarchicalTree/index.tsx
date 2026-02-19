@@ -20,15 +20,15 @@ interface HierarchicalTreeProps {
 export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: HierarchicalTreeProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter hierarchy based on search query
+  // Filter hierarchy based on search query and exclude root node (level 0)
   const filteredHierarchy = useMemo(() => {
-    if (!searchQuery.trim()) return hierarchy;
+    // Always exclude root node (level 0) since it's shown in the header
+    const subsidiariesOnly = hierarchy.filter(node => node.level > 0);
+    
+    if (!searchQuery.trim()) return subsidiariesOnly;
     
     const query = searchQuery.toLowerCase();
-    return hierarchy.filter((node) => {
-      // Always include root company
-      if (node.level === 0) return true;
-      
+    return subsidiariesOnly.filter((node) => {
       // Filter subsidiaries by name or jurisdiction
       return (
         node.name.toLowerCase().includes(query) ||
@@ -37,9 +37,9 @@ export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: Hie
     });
   }, [hierarchy, searchQuery]);
 
-  // Count of subsidiaries (excluding root)
-  const subsidiaryCount = hierarchy.filter(node => node.level > 0).length;
-  const filteredSubsidiaryCount = filteredHierarchy.filter(node => node.level > 0).length;
+  // Count of subsidiaries (all are subsidiaries now since root is excluded)
+  const subsidiaryCount = filteredHierarchy.length;
+  const filteredSubsidiaryCount = searchQuery.trim() ? filteredHierarchy.length : subsidiaryCount;
 
   // Default to expanded parents so subsidiaries are visible on first load.
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -103,11 +103,13 @@ export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: Hie
   // Check if a node should be visible based on parent expanded state
   const isNodeVisible = (nodeIndex: number): boolean => {
     const node = filteredHierarchy[nodeIndex];
-    if (node.level === 0) return true; // Root is always visible
+    
+    // Level 1 nodes (direct children of root) are always visible
+    if (node.level === 1) return true;
 
-    // When searching, show all matching subsidiaries directly under root
+    // When searching, show all matching subsidiaries
     if (searchQuery.trim()) {
-      return true; // Show all filtered results
+      return true;
     }
 
     // Find parent by looking backwards for the first node at level - 1
@@ -194,8 +196,10 @@ export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: Hie
           if (!isNodeVisible(index)) return null;
 
           const isExpanded = expandedNodes.has(node.id);
-          // When searching, don't indent subsidiaries as much
-          const indentWidth = searchQuery.trim() ? (node.level === 0 ? 0 : 4) : node.level * 8;
+          // Adjust indentation since we removed root (level 0)
+          // Level 1 nodes should have minimal indent, level 2+ should indent more
+          const adjustedLevel = node.level - 1; // Subtract 1 since root is hidden
+          const indentWidth = searchQuery.trim() ? 4 : adjustedLevel * 8;
 
           return (
             <HierarchyNodeItem
@@ -210,7 +214,6 @@ export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: Hie
             />
           );
         })}
-        
         {/* No results message */}
         {searchQuery.trim() && filteredSubsidiaryCount === 0 && (
           <div
@@ -251,7 +254,6 @@ function HierarchyNodeItem({
   onClick: () => void;
   isSearching?: boolean;
 }) {
-  const isRoot = node.level === 0;
   const hasChildren = node.hasChildren;
 
   return (
@@ -311,22 +313,16 @@ function HierarchyNodeItem({
       )}
 
       {/* Circular Jurisdiction Indicator */}
-      {/* Only show dot if company has jurisdiction data, or if it's a subsidiary (non-root) */}
       {(node.jurisdiction && node.jurisdiction !== "Unknown") && (
         <div
           style={{
-            width: isRoot ? "8px" : "6px",
-            height: isRoot ? "8px" : "6px",
-            borderRadius: "50%", // Makes it perfectly round
-            backgroundColor: isRoot 
-              ? "#60a5fa" // Keep blue for root company (usually incorporated jurisdiction)
-              : getJurisdictionColor(node.jurisdiction),
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            backgroundColor: getJurisdictionColor(node.jurisdiction),
             flexShrink: 0,
             marginRight: "6px",
-            // Add a subtle glow effect with the same color
-            boxShadow: isRoot 
-              ? "0 0 4px rgba(96, 165, 250, 0.4)"
-              : `0 0 3px ${getJurisdictionColor(node.jurisdiction)}40`, // Add 40 for 25% opacity
+            boxShadow: `0 0 3px ${getJurisdictionColor(node.jurisdiction)}40`,
           }}
         />
       )}
@@ -334,9 +330,9 @@ function HierarchyNodeItem({
       {/* Company Name */}
       <span
         style={{
-          fontSize: isRoot ? "13px" : "12px",
-          fontWeight: isRoot ? "600" : "400",
-          color: isRoot ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.7)",
+          fontSize: "12px",
+          fontWeight: "400",
+          color: "rgba(255,255,255,0.7)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -346,8 +342,8 @@ function HierarchyNodeItem({
         {node.name}
       </span>
 
-      {/* Jurisdiction badge for non-root */}
-      {!isRoot && node.jurisdiction && (
+      {/* Jurisdiction badge */}
+      {node.jurisdiction && (
         <span
           style={{
             fontSize: "10px",

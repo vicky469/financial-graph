@@ -18,6 +18,9 @@
     `--year=2025 \`
     `--sink=csv \`
     `--accessions=000095017025090161`
+- Run `$ bun src/utils/cleanup-specific-parent.ts <parentCompanyId>` to clear `parent_of` edges and subsidiary company nodes for one parent company.
+  - Multiple IDs are supported: `$ bun src/utils/cleanup-specific-parent.ts <id1,id2,id3>`
+  - Optional parent-level concurrency: `CLEANUP_PARENT_CONCURRENCY=5 bun src/utils/cleanup-specific-parent.ts <id1> <id2>`
 - Run `$ bun run src/jobs/filings_download_htm_gz.ts -- -2025 10-K 20-F` to download primary HTM files from cached filing text (requires year and form types).
   - Reads from `filing_text/{year}/{formType}/` cache
   - Extracts primary HTM filename (SEQUENCE=1) from filing text

@@ -225,12 +225,31 @@ export const useCompanyHierarchy = (companyId: string | null) => {
   const company = data?.company?.[0];
   const directSubsidiaries = company?.subsidiaries || [];
 
+  const sortSubsidiaryEdges = (edges: any[]): any[] =>
+    edges
+      .map((edge: any, originalIndex: number) => ({
+        edge,
+        originalIndex,
+        rowIndex:
+          typeof edge?.source_row_index === "number"
+            ? edge.source_row_index
+            : Number.POSITIVE_INFINITY,
+      }))
+      .sort((a, b) => {
+        if (a.rowIndex !== b.rowIndex) {
+          return a.rowIndex - b.rowIndex;
+        }
+        return a.originalIndex - b.originalIndex;
+      })
+      .map(({ edge }) => edge);
+
   // Build a multi-level hierarchy tree from nested subsidiary relationships
   const buildNestedHierarchy = (rootCompany: any, level = 0, parentOfEdge: any = null): any => {
     if (!rootCompany) return null;
 
     // Get subsidiaries at this level
-    const subsidiaryEdges = level === 0 ? directSubsidiaries : rootCompany.subsidiaries || [];
+    const subsidiaryEdgesRaw = level === 0 ? directSubsidiaries : rootCompany.subsidiaries || [];
+    const subsidiaryEdges = sortSubsidiaryEdges(subsidiaryEdgesRaw);
 
     const children = subsidiaryEdges
       .map((edge: any) => {

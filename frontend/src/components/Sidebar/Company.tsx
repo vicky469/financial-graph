@@ -68,49 +68,54 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {/* Company Structure */}
-        <Section
-          icon={<Building2 size={14} />}
-          title="Structure"
-          count={Math.max(0, flatHierarchy.length - 1)} // Subtract 1 to exclude the root company
-          loading={loadingHierarchy}
-        >
-          {loadingHierarchy ? (
-            <LoadingState />
-          ) : (
-            <HierarchicalTree
-              hierarchy={flatHierarchy}
-              selectedNodeId={selectedSubsidiaryId || node.id}
-              onNodeClick={(nodeId) => {
-                // Clicking the root company clears subsidiary selection
-                if (nodeId === node.id) {
-                  if (onSubsidiaryClick) {
-                    onSubsidiaryClick(null);
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ minHeight: 0 }}>
+        {/* Company Structure - Takes 2x space */}
+        <div style={{ flex: "2 1 0", minHeight: 0, display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <Section
+            icon={<Building2 size={14} />}
+            title="Structure"
+            count={Math.max(0, flatHierarchy.length - 1)} // Subtract 1 to exclude the root company
+            loading={loadingHierarchy}
+            scrollable
+            compact
+          >
+            {loadingHierarchy ? (
+              <LoadingState />
+            ) : (
+              <HierarchicalTree
+                hierarchy={flatHierarchy}
+                selectedNodeId={selectedSubsidiaryId || node.id}
+                onNodeClick={(nodeId) => {
+                  // Clicking the root company clears subsidiary selection
+                  if (nodeId === node.id) {
+                    if (onSubsidiaryClick) {
+                      onSubsidiaryClick(null);
+                    }
+                  } else {
+                    // Clicking a subsidiary selects it
+                    if (onSubsidiaryClick) {
+                      onSubsidiaryClick(nodeId);
+                    }
                   }
-                } else {
-                  // Clicking a subsidiary selects it
-                  if (onSubsidiaryClick) {
-                    onSubsidiaryClick(nodeId);
-                  }
-                }
-              }}
-            />
-          )}
-        </Section>
+                }}
+              />
+            )}
+          </Section>
+        </div>
 
-        {/* Brands */}
-        <div>
+        {/* Brands - Takes 0.5x space (half of original) */}
+        <div style={{ flex: "0.5 1 0", minHeight: 0, display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
           <Section
             icon={<Sparkles size={14} />}
             title="Brands"
             count={brands.length}
             loading={loadingBrands}
+            scrollable
           >
             {loadingBrands ? (
               <LoadingState />
             ) : brands.length === 0 ? (
-              <EmptyState icon={<Sparkles size={20} />} text="No brands" />
+              <div />
             ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               {brands.map((brand) => (
@@ -163,127 +168,130 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
           </Section>
         </div>
 
-        {/* SEC Filings */}
-        <Section
-          icon={<FileText size={14} />}
-          title="SEC Filings"
-          count={filings.length}
-          loading={loadingFilings}
-          noBorder
-        >
-          {loadingFilings ? (
-            <LoadingState />
-          ) : filings.length === 0 ? (
-            <EmptyState icon={<FileText size={20} />} text="No filings" />
-          ) : (
-            <div
-              style={{
-                borderRadius: "8px",
-                border: "1px solid rgba(255,255,255,0.08)",
-                overflowX: "auto",
-                WebkitOverflowScrolling: "touch",
-              }}
-            >
-              <Table style={{ width: "100%", tableLayout: "fixed" }}>
-                <TableHeader>
-                  <TableRow style={{ background: "rgba(255,255,255,0.03)" }}>
-                    <TableHead style={{...tableHeadStyle, width: "20%"}}>Filing</TableHead>
-                    <TableHead style={{...tableHeadStyle, width: "20%"}}>Period</TableHead>
-                    <TableHead style={{...tableHeadStyle, width: "15%"}}>Type</TableHead>
-                    <TableHead style={{...tableHeadStyle, width: "15%"}}>Index</TableHead>
-                    <TableHead style={{...tableHeadStyle, width: "30%"}}>Attachments</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filings.map((filing) => {
-                    // Get all attachments
-                    const attachments = Object.entries(filing.attachments || {})
-                      .filter(([key]) => key.startsWith("EX-"))
-                      .map(([key, url]) => ({ key, url }));
+        {/* SEC Filings - Takes 1x space */}
+        <div style={{ flex: "1 1 0", minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <Section
+            icon={<FileText size={14} />}
+            title="SEC Filings"
+            count={filings.length}
+            loading={loadingFilings}
+            noBorder
+            scrollable
+          >
+            {loadingFilings ? (
+              <LoadingState />
+            ) : filings.length === 0 ? (
+              <EmptyState icon={<FileText size={20} />} text="No filings" />
+            ) : (
+              <div
+                style={{
+                  borderRadius: "8px",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  overflowX: "auto",
+                  WebkitOverflowScrolling: "touch",
+                }}
+              >
+                <Table style={{ width: "100%", tableLayout: "fixed" }}>
+                  <TableHeader>
+                    <TableRow style={{ background: "rgba(255,255,255,0.03)" }}>
+                      <TableHead style={{...tableHeadStyle, width: "20%"}}>Filing</TableHead>
+                      <TableHead style={{...tableHeadStyle, width: "20%"}}>Period</TableHead>
+                      <TableHead style={{...tableHeadStyle, width: "15%"}}>Type</TableHead>
+                      <TableHead style={{...tableHeadStyle, width: "15%"}}>Index</TableHead>
+                      <TableHead style={{...tableHeadStyle, width: "30%"}}>Attachments</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filings.map((filing) => {
+                      // Get all attachments
+                      const attachments = Object.entries(filing.attachments || {})
+                        .filter(([key]) => key.startsWith("EX-"))
+                        .map(([key, url]) => ({ key, url }));
 
-                    return (
-                      <TableRow
-                        key={filing.id}
-                        style={{
-                          borderTop: "1px solid rgba(255,255,255,0.05)",
-                          transition: "background 0.15s ease",
-                        }}
-                      >
-                        <TableCell style={tableCellStyle}>
-                          {filing.filingDate}
-                        </TableCell>
-                        <TableCell style={tableCellStyle}>
-                          {filing.periodOfReport || (
-                            <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
-                          )}
-                        </TableCell>
-                        <TableCell style={tableCellStyle}>
-                          {filing.filingUrl ? (
-                            <a
-                              href={filing.filingUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                fontSize: "11px",
-                                fontWeight: 600,
-                                color: "rgba(255,255,255,0.8)",
-                                background: "rgba(99, 102, 241, 0.15)",
-                                padding: "3px 6px",
-                                borderRadius: "3px",
-                                display: "inline-block",
-                                textDecoration: "none",
-                                transition: "all 0.15s ease",
-                                cursor: "pointer",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "rgba(99, 102, 241, 0.25)";
-                                e.currentTarget.style.color = "rgba(255,255,255,0.95)";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = "rgba(99, 102, 241, 0.15)";
-                                e.currentTarget.style.color = "rgba(255,255,255,0.8)";
-                              }}
-                            >
-                              {filing.formType}
-                            </a>
-                          ) : (
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                fontWeight: 600,
-                                color: "rgba(255,255,255,0.8)",
-                                background: "rgba(99, 102, 241, 0.15)",
-                                padding: "3px 6px",
-                                borderRadius: "3px",
-                                display: "inline-block",
-                              }}
-                            >
-                              {filing.formType}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell style={tableCellStyle}>
-                          <FilingLink url={filing.fileUrl} />
-                        </TableCell>
-                        <TableCell style={tableCellStyle}>
-                          {attachments.length > 0 ? (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                              {attachments.map(({ key, url }) => (
-                                <FilingLink key={key} url={url} label={key} />
-                              ))}
-                            </div>
-                          ) : (
-                            <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </Section>
+                      return (
+                        <TableRow
+                          key={filing.id}
+                          style={{
+                            borderTop: "1px solid rgba(255,255,255,0.05)",
+                            transition: "background 0.15s ease",
+                          }}
+                        >
+                          <TableCell style={tableCellStyle}>
+                            {filing.filingDate}
+                          </TableCell>
+                          <TableCell style={tableCellStyle}>
+                            {filing.periodOfReport || (
+                              <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
+                            )}
+                          </TableCell>
+                          <TableCell style={tableCellStyle}>
+                            {filing.filingUrl ? (
+                              <a
+                                href={filing.filingUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  fontSize: "11px",
+                                  fontWeight: 600,
+                                  color: "rgba(255,255,255,0.8)",
+                                  background: "rgba(99, 102, 241, 0.15)",
+                                  padding: "3px 6px",
+                                  borderRadius: "3px",
+                                  display: "inline-block",
+                                  textDecoration: "none",
+                                  transition: "all 0.15s ease",
+                                  cursor: "pointer",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = "rgba(99, 102, 241, 0.25)";
+                                  e.currentTarget.style.color = "rgba(255,255,255,0.95)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = "rgba(99, 102, 241, 0.15)";
+                                  e.currentTarget.style.color = "rgba(255,255,255,0.8)";
+                                }}
+                              >
+                                {filing.formType}
+                              </a>
+                            ) : (
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  fontWeight: 600,
+                                  color: "rgba(255,255,255,0.8)",
+                                  background: "rgba(99, 102, 241, 0.15)",
+                                  padding: "3px 6px",
+                                  borderRadius: "3px",
+                                  display: "inline-block",
+                                }}
+                              >
+                                {filing.formType}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell style={tableCellStyle}>
+                            <FilingLink url={filing.fileUrl} />
+                          </TableCell>
+                          <TableCell style={tableCellStyle}>
+                            {attachments.length > 0 ? (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                {attachments.map(({ key, url }) => (
+                                  <FilingLink key={key} url={url} label={key} />
+                                ))}
+                              </div>
+                            ) : (
+                              <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </Section>
+        </div>
       </div>
     </div>
   );
@@ -299,6 +307,8 @@ function Section({
   onToggle,
   onHeaderClick,
   noBorder,
+  scrollable,
+  compact,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -309,11 +319,13 @@ function Section({
   onToggle?: () => void;
   onHeaderClick?: () => void;
   noBorder?: boolean;
+  scrollable?: boolean;
+  compact?: boolean;
 }) {
   const isCollapsible = onToggle !== undefined;
 
   return (
-    <div style={{ borderBottom: noBorder ? "none" : "1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <div
         onClick={() => {
           if (onToggle) onToggle();
@@ -323,9 +335,10 @@ function Section({
           display: "flex",
           alignItems: "center",
           gap: "8px",
-          padding: "14px 16px",
+          padding: compact ? "10px 16px" : "14px 16px",
           cursor: isCollapsible || onHeaderClick ? "pointer" : "default",
           transition: "background 0.15s ease",
+          flexShrink: 0,
         }}
         onMouseEnter={(e) => {
           if (isCollapsible || onHeaderClick) {
@@ -384,7 +397,19 @@ function Section({
           </>
         )}
       </div>
-      {!collapsed && <div style={{ padding: "0 12px 16px" }}>{children}</div>}
+      {!collapsed && (
+        <div 
+          style={{ 
+            padding: compact ? "0 12px 8px" : "0 12px 16px",
+            flex: 1,
+            minHeight: 0,
+            overflowY: scrollable ? "auto" : "visible",
+            overflowX: "hidden",
+          }}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 }

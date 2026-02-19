@@ -18,7 +18,10 @@ import type {
   SubsidiaryFallbackPolicy,
   DroppedValidationSample,
 } from "../../pipeline/subsidiary/types";
-import { validateSubsidiaries } from "../../validation/subsidiary-validator";
+import {
+  validateSubsidiaries,
+  MIN_VALID_RATIO,
+} from "../../validation/subsidiary-validator";
 import { llmFallbackParse } from "../../validation/llm-fallback";
 
 import { detectDocumentStructure } from "./shape/structure-detection";
@@ -166,8 +169,14 @@ async function parseExhibitInternal(
     timingsMs.validation = validationMs;
     validation = validationMetrics;
 
+    const decision = decideFallback(
+      heuristicResult,
+      validationSummary,
+      validationMetrics,
+    );
+
     if (fallbackPolicy === "none") {
-      if (validationSummary && !validationSummary.overallValid) {
+      if (decision.reason === "validation_failed" && validationSummary) {
         const prunedHeuristicResult = pruneInvalidSubsidiaries(
           heuristicResult,
           validationSummary,
@@ -179,10 +188,17 @@ async function parseExhibitInternal(
           markValidationFailed(prunedHeuristicResult, validationSummary),
         );
       }
+
+      if (decision.reason === "low_coverage") {
+        logger.warn(
+          "low_coverage with fallback disabled, returning failed result",
+        );
+        return finalizeResult(markLowCoverageFailed(heuristicResult));
+      }
+
       return finalizeResult(heuristicResult);
     }
 
-    const decision = decideFallback(heuristicResult, validationSummary);
     if (decision.shouldFallback) {
       const fallbackBaseResult =
         decision.reason === "validation_failed" && validationSummary
@@ -315,6 +331,23 @@ function markValidationFailed(
     ...parseResult,
     status: "failed",
     errorMessage: `heuristic_validation_failed (${invalid}/${total} invalid rows)`,
+  };
+}
+
+function markLowCoverageFailed(parseResult: ParseResult): ParseResult {
+  const expectedCount = parseResult.expectedRowCount ?? 0;
+  const parsedCount = parseResult.subsidiaries.length;
+  const coverage =
+    expectedCount > 0 ? parsedCount / expectedCount : Number.NaN;
+  const minCoveragePercent = (MIN_VALID_RATIO * 100).toFixed(1);
+  const coveragePercent = Number.isFinite(coverage)
+    ? (coverage * 100).toFixed(1)
+    : "n/a";
+
+  return {
+    ...parseResult,
+    status: "failed",
+    errorMessage: `heuristic_low_coverage (${parsedCount}/${expectedCount} rows, ${coveragePercent}% < ${minCoveragePercent}%)`,
   };
 }
 
@@ -582,6 +615,7 @@ function validateHeuristicResult(
 function decideFallback(
   parseResult: ParseResult,
   validationSummary: ValidationSummary,
+  validationMetrics?: ParseTelemetry["validation"],
 ): ParseDecision {
   if (parseResult.status === "failed") {
     return { shouldFallback: true, reason: "parsing_failed" };
@@ -595,7 +629,22 @@ function decideFallback(
     return { shouldFallback: true, reason: "validation_failed" };
   }
 
+  if (isCoverageBelowThreshold(validationMetrics)) {
+    return { shouldFallback: true, reason: "low_coverage" };
+  }
+
   return { shouldFallback: false, reason: "heuristic_ok" };
+}
+
+function isCoverageBelowThreshold(
+  validationMetrics?: ParseTelemetry["validation"],
+): boolean {
+  const coverage = validationMetrics?.coverage;
+  return (
+    typeof coverage === "number" &&
+    Number.isFinite(coverage) &&
+    coverage < MIN_VALID_RATIO
+  );
 }
 
 async function runFallback(

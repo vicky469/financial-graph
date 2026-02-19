@@ -242,6 +242,7 @@ export class SubsidiariesDBSink {
               filing,
               chunk,
               filing.parseResult.footnotesHtml,
+              i,
             );
             totalCreated += stats.created;
             totalEnrichments += stats.enrichmentRecords;
@@ -260,6 +261,7 @@ export class SubsidiariesDBSink {
         filing,
         validSubsidiaries,
         filing.parseResult.footnotesHtml,
+        0,
       );
     } catch (error) {
       // Error will be logged in write() batch catch block
@@ -271,6 +273,7 @@ export class SubsidiariesDBSink {
     filing: ValidatedFiling,
     subsidiaries: ValidatedFiling["parseResult"]["subsidiaries"],
     footnotesHtml?: string,
+    rowIndexOffset: number = 0,
   ): Promise<{ created: number; enrichmentRecords: number }> {
     try {
       const filingId = generateFilingId(filing.accessionNumberNoDashes);
@@ -317,7 +320,7 @@ export class SubsidiariesDBSink {
         }
       }
 
-      for (const subsidiary of subsidiaries) {
+      for (const [batchIndex, subsidiary] of subsidiaries.entries()) {
         try {
           if (!subsidiary.name || !subsidiary.name.trim()) {
             continue;
@@ -334,11 +337,13 @@ export class SubsidiariesDBSink {
           const parentId = subsidiary.parentId || filingCompanyId;
           const edgeId = generateParentOfId(parentId, subsidiaryId);
           if (createdLinks.has(edgeId)) continue;
+          const sourceRowIndex = rowIndexOffset + batchIndex;
 
           const edgeNode = {
             id: edgeId,
             updated_at: now,
             source: 5, // ParentOfSource.SUBSIDIARY_FILING
+            source_row_index: sourceRowIndex,
           };
 
           txOps.push(db.tx.parent_of[edgeId].update(edgeNode));

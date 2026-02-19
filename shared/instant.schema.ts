@@ -45,6 +45,7 @@ const _schema = i.schema({
     parent_of: i.entity({
       source: i.number().indexed(), // 1=ma_event, 2=spinoff, 3=ipo, 4=manual, 5=subsidiary_filing
       ownership_percent: i.number().optional(),
+      source_row_index: i.number().indexed().optional(), // Order of subsidiary in source document (0-based)
       established_date: i.string().optional(),
       ended_date: i.string().optional(),
       updated_at: i.string(),

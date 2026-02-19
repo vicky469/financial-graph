@@ -54,6 +54,7 @@ export class SubsidiariesCsvSink {
   private runTimestamp: string;
   private outputFiles: OutputFiles;
   private initialized = false;
+  private filesWithHeaders = new Set<string>();
 
   constructor(outputDir?: string, runTimestamp?: string) {
     this.outputDir =
@@ -167,15 +168,38 @@ export class SubsidiariesCsvSink {
     if (this.initialized) return;
 
     await fs.mkdir(this.outputDir, { recursive: true });
-    await fs.writeFile(this.outputFiles.successCsv, SUCCESS_HEADER, "utf8");
-    await fs.writeFile(this.outputFiles.emptyCsv, EMPTY_HEADER, "utf8");
-    await fs.writeFile(this.outputFiles.failedCsv, FAILED_HEADER, "utf8");
     this.initialized = true;
   }
 
-  private async appendCsvRows(filePath: string, rows: string[]): Promise<void> {
+  private async ensureFileHasHeader(filePath: string, header: string): Promise<void> {
+    if (this.filesWithHeaders.has(filePath)) {
+      return;
+    }
+
+    try {
+      const stat = await fs.stat(filePath);
+      if (stat.size === 0) {
+        await fs.writeFile(filePath, header, "utf8");
+      }
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT") {
+        throw error;
+      }
+      await fs.writeFile(filePath, header, "utf8");
+    }
+
+    this.filesWithHeaders.add(filePath);
+  }
+
+  private async appendCsvRows(
+    filePath: string,
+    header: string,
+    rows: string[],
+  ): Promise<void> {
     if (rows.length === 0) return;
 
+    await this.ensureFileHasHeader(filePath, header);
     await fs.appendFile(filePath, `${rows.join("\n")}\n`);
   }
 
@@ -254,10 +278,12 @@ export class SubsidiariesCsvSink {
         }
       }
 
-      await this.appendCsvRows(filePath, rows);
-      console.log(
-        `   Wrote SUCCESS CSV: ${filePath} (${rows.length} subsidiaries from ${filings.length} filings)`,
-      );
+      await this.appendCsvRows(filePath, SUCCESS_HEADER, rows);
+      if (rows.length > 0) {
+        console.log(
+          `   Wrote SUCCESS CSV: ${filePath} (${rows.length} subsidiaries from ${filings.length} filings)`,
+        );
+      }
 
       return rows.length;
     } catch (error) {
@@ -292,10 +318,12 @@ export class SubsidiariesCsvSink {
         }
       }
 
-      await this.appendCsvRows(filePath, rows);
-      console.log(
-        `   Wrote EMPTY CSV: ${filePath} (${filings.length} filings with no subsidiaries)`,
-      );
+      await this.appendCsvRows(filePath, EMPTY_HEADER, rows);
+      if (rows.length > 0) {
+        console.log(
+          `   Wrote EMPTY CSV: ${filePath} (${filings.length} filings with no subsidiaries)`,
+        );
+      }
     } catch (error) {
       console.error("Critical error in writeEmptyCSV:", error);
       throw error;
@@ -338,10 +366,12 @@ export class SubsidiariesCsvSink {
         }
       });
 
-      await this.appendCsvRows(filePath, rows);
-      console.log(
-        `   Wrote FAILED CSV: ${filePath} (${filings.length} failed filings)`,
-      );
+      await this.appendCsvRows(filePath, FAILED_HEADER, rows);
+      if (rows.length > 0) {
+        console.log(
+          `   Wrote FAILED CSV: ${filePath} (${filings.length} failed filings)`,
+        );
+      }
     } catch (error) {
       console.error("Critical error in writeFailedCSV:", error);
       throw error;
