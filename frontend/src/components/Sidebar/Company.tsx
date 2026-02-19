@@ -175,7 +175,6 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
             title="SEC Filings"
             count={filings.length}
             loading={loadingFilings}
-            noBorder
             scrollable
           >
             {loadingFilings ? (
@@ -306,7 +305,6 @@ function Section({
   collapsed,
   onToggle,
   onHeaderClick,
-  noBorder,
   scrollable,
   compact,
 }: {
@@ -318,7 +316,6 @@ function Section({
   collapsed?: boolean;
   onToggle?: () => void;
   onHeaderClick?: () => void;
-  noBorder?: boolean;
   scrollable?: boolean;
   compact?: boolean;
 }) {
