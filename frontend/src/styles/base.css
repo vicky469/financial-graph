@@ -37,6 +37,21 @@
     height: 100%;
     margin: 0;
   }
+
+  /* Link styling for better readability in dark theme */
+  a {
+    color: #93c5fd; /* Light blue for better contrast */
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: #bfdbfe; /* Lighter blue on hover */
+    text-decoration: underline;
+  }
+
+  a:visited {
+    color: #a78bfa; /* Light purple for visited links */
+  }
 }
 
 /* Body styles - outside @layer to ensure they apply */
@@ -163,11 +178,6 @@ body.landing-mode #root {
   overflow-wrap: break-word;
   word-break: break-word;
   white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .note-card .ProseMirror p {

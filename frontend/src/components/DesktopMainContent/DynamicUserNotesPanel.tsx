@@ -1,47 +1,32 @@
-import { useMemo } from "react";
 import { UserNotesPanel } from "./UserNotesPanel";
 import { useUserNotesPanel } from "../../hooks/useUserNotesPanel";
-import { db } from "../../db/client";
 
-function calculateHeight(noteCount: number): string {
-  if (noteCount === 0) return "200px";
-
-  const headerHeight = 50;
-  const footerPadding = 30;
-  const cardHeight = 80;
-  const cardGap = 8;
-  const contentHeight = headerHeight + footerPadding + (noteCount * cardHeight) + ((noteCount - 1) * cardGap);
-  const maxHeight = Math.min(contentHeight, 800);
-
-  return `${maxHeight}px`;
-}
+const PANEL_HALF_HEIGHT = "min(420px, calc(100% - 54px))";
+const PANEL_FULL_HEIGHT = "calc(100% - 54px)";
+const AUTO_EXPAND_THRESHOLD = 4;
 
 export function DynamicUserNotesPanel() {
-  const { user } = db.useAuth();
   const { notes, isLoading } = useUserNotesPanel({
     pageSize: 8,
     cardGap: 8,
     minCardHeight: 72,
   });
 
-  const dynamicHeight = useMemo(() => {
-    if (isLoading || !user) return "420px";
-    return calculateHeight(notes.length);
-  }, [notes.length, isLoading, user]);
+  const shouldExpand = !isLoading && notes.length > AUTO_EXPAND_THRESHOLD;
+  const panelHeight = shouldExpand ? PANEL_FULL_HEIGHT : PANEL_HALF_HEIGHT;
 
   return (
     <div className="relative h-full min-h-0 p-6">
       <div
         style={{
-          width: "min(420px, 100%)",
-          height: dynamicHeight,
-          minHeight: "200px",
-          maxHeight: "calc(100% - 54px)",
+          width: "min(540px, 100%)",
+          height: panelHeight,
+          minHeight: "420px",
           border: "1px solid rgba(255,255,255,0.08)",
           borderRadius: "8px",
           overflow: "hidden",
           background: "hsl(240 6% 4%)",
-          transition: "height 0.3s ease",
+          position: "relative",
         }}
       >
         <UserNotesPanel />

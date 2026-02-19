@@ -300,8 +300,14 @@ export function NoteCard({
       )}
 
       {/* Note content - Requirement 1.2 */}
-      <div style={{ marginBottom: '6px' }}>
-        <EditorContent editor={editor} />
+      <div style={{ marginBottom: '6px', minHeight: '20px' }}>
+        {editor ? (
+          <EditorContent editor={editor} />
+        ) : (
+          <div style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '12px' }}>
+            Loading content...
+          </div>
+        )}
       </div>
 
       {/* Metadata and actions - Requirement 1.2 */}

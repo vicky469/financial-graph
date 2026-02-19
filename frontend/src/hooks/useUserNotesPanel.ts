@@ -161,8 +161,14 @@ export function useUserNotesPanel({
       const availableHeight = viewport.clientHeight;
       if (availableHeight <= 0) return;
 
+      const viewportStyles = window.getComputedStyle(viewport);
+      const paddingTop = Number.parseFloat(viewportStyles.paddingTop || "0") || 0;
+      const paddingBottom = Number.parseFloat(viewportStyles.paddingBottom || "0") || 0;
+      const contentHeight = availableHeight - paddingTop - paddingBottom;
+      if (contentHeight <= 0) return;
+
       const totalGap = cardGap * (pageSize - 1);
-      const fittedHeight = Math.floor((availableHeight - totalGap) / pageSize);
+      const fittedHeight = Math.floor((contentHeight - totalGap) / pageSize);
       setCardHeightPx(Math.max(minCardHeight, fittedHeight));
     };
 

@@ -80,15 +80,21 @@
   outline: none;
   font-size: 13px !important;
   line-height: 1.5 !important;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.9) !important;
   font-family: var(--font-sans);
   font-weight: 400;
+}
+
+.note-card .ProseMirror * {
+  color: rgba(255, 255, 255, 0.9) !important;
 }
 
 .note-card .ProseMirror p {
   margin: 0 0 5px 0;
   font-size: 13px !important;
   line-height: 1.5 !important;
+  display: block !important;
+  visibility: visible !important;
 }
 
 .note-card .ProseMirror p:last-child {
@@ -97,7 +103,7 @@
 
 .note-card .ProseMirror strong {
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
+  color: rgba(255, 255, 255, 0.95) !important;
   font-size: 13px !important;
 }
 
@@ -106,20 +112,26 @@
   margin: 5px 0;
   padding-left: 18px;
   font-size: 13px !important;
+  display: block !important;
+  visibility: visible !important;
 }
 
 .note-card .ProseMirror li {
   margin: 2px 0;
   font-size: 13px !important;
   line-height: 1.5 !important;
+  display: list-item !important;
+  visibility: visible !important;
 }
 
 .note-card .ProseMirror a {
-  color: #60a5fa;
+  color: #60a5fa !important;
   text-decoration: underline;
   cursor: pointer;
   transition: color 0.2s ease;
   font-size: 13px !important;
+  display: inline !important;
+  visibility: visible !important;
 }
 
 .note-card .ProseMirror a:hover {
