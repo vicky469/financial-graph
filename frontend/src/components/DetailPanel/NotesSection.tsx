@@ -245,7 +245,8 @@ export function NotesSection({ companyId, userId, onShowAll }: NotesSectionProps
                 fontStyle: 'italic',
               }}
             >
-              No notes yet. Create your first note to get started.
+              <div>No notes yet. Create your first note to get started.</div>
+              <div style={{ marginTop: '6px' }}>Tag @admin in the note if you see any data issue.</div>
             </div>
           )}
 

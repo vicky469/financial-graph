@@ -15,7 +15,7 @@ export function DesktopMainContent({
   return (
     <div className="flex-1 overflow-hidden flex flex-col" style={{ width: "100%", maxWidth: "100%" }}>
       {/* Collapseable Treemap Section - Desktop */}
-      <div className="hide-on-mobile" style={{ flexShrink: 0, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+      <div className="hide-on-mobile" style={{ flex: "1 1 auto", minHeight: 0, borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", flexDirection: "column" }}>
         <div
           style={{
             display: "flex",
@@ -25,6 +25,7 @@ export function DesktopMainContent({
             cursor: "pointer",
             background: "rgba(255,255,255,0.02)",
             transition: "background 0.15s",
+            flexShrink: 0,
           }}
           onClick={() => setIsTreemapExpanded(!isTreemapExpanded)}
           onMouseEnter={(e) => {
@@ -65,7 +66,7 @@ export function DesktopMainContent({
           </svg>
         </div>
         {isTreemapExpanded && (
-          <div style={{ background: "hsl(240 6% 6%)" }}>
+          <div style={{ background: "hsl(240 6% 6%)", flex: "1 1 auto", minHeight: 0, overflow: "hidden" }}>
             <JurisdictionTreemap
               companyId={selectedCompanyId}
               onSubsidiaryClick={handleSelectSubsidiary}
@@ -80,19 +81,6 @@ export function DesktopMainContent({
           companyId={selectedCompanyId}
           onSubsidiaryClick={handleSelectSubsidiary}
         />
-      </div>
-      
-      {/* Empty space - Desktop */}
-      <div className="hide-on-mobile" style={{ 
-        flex: 1,
-        minHeight: 0,
-        width: "100%",
-        background: "hsl(240 6% 4%)",
-        display: "flex",
-        alignItems: "stretch",
-        justifyContent: "stretch"
-      }}>
-        {/* Empty space for future content */}
       </div>
     </div>
   );

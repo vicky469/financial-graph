@@ -230,10 +230,10 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
   }
 
   return (
-    <div ref={containerRef} style={{ padding: isMobile ? "16px" : "0 24px", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
+    <div ref={containerRef} style={{ padding: isMobile ? "16px" : "0 24px", width: "100%", maxWidth: "100%", boxSizing: "border-box", height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Header */}
       {selectedJurisdiction && (
-        <div style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
           <button
             onClick={() => setSelectedJurisdiction(null)}
             style={{
@@ -279,6 +279,8 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
           alignItems: isMobile ? "stretch" : "flex-start",
           width: "100%",
           maxWidth: "100%",
+          flex: "1 1 auto",
+          minHeight: 0,
         }}
       >
         {/* Left: Chart (takes remaining space on desktop, full width on mobile) */}
@@ -374,7 +376,7 @@ export function JurisdictionTreemap({ companyId, onSubsidiaryClick }: Jurisdicti
             flex: isMobile ? "1 1 auto" : "0 0 220px",
             minWidth: isMobile ? "auto" : "220px",
             maxWidth: isMobile ? "none" : "220px",
-            maxHeight: isMobile ? "250px" : CHART_HEIGHT,
+            maxHeight: "none",
             overflowY: "auto",
           }}
         >

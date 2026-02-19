@@ -328,6 +328,7 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
             <div
               style={{
                 display: 'flex',
+                flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
                 padding: '40px 20px',
@@ -337,7 +338,8 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
                 fontStyle: 'italic',
               }}
             >
-              No notes yet. Go back and create your first note.
+              <div>No notes yet. Go back and create your first note.</div>
+              <div style={{ marginTop: '6px' }}>Tag @admin in the note if you see any data issue.</div>
             </div>
           )}
 
