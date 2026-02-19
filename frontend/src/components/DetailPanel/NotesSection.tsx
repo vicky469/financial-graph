@@ -6,6 +6,7 @@ import { NoteEditor } from './NoteEditor';
 import { Button } from '../ui/button';
 import { ConfirmationDialog } from '../ui/confirmation-dialog';
 import { useNotes } from '../../hooks/useNotes';
+import { useIsAdminUser } from '../../hooks/useIsAdminUser';
 import { notesForUserQuery, getNotesForCompany, type ExtendedNoteResult } from 'financial-graph-shared/db';
 
 interface NotesSectionProps {
@@ -37,12 +38,22 @@ export function NotesSection({ companyId, userId, onShowAll }: NotesSectionProps
   });
   
   // Use the custom hook for CRUD operations and error handling
-  const { createNote, updateNote, deleteNote, errorMessage, clearError } = useNotes();
+  const {
+    createNote,
+    updateNote,
+    markReportDone,
+    resolveReportedIssue,
+    deleteNote,
+    errorMessage,
+    clearError,
+  } = useNotes();
+  const { isAdmin } = useIsAdminUser(userId);
 
   // Query ALL notes for the user (both direct and potential backlinks)
   // Using shared query definition with proper types
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, isLoading, error } = db.useQuery(notesForUserQuery(userId) as any);
+  const { data, isLoading, error } = db.useQuery(
+    notesForUserQuery(userId, { includeOpenReports: isAdmin })
+  );
 
   // Transform data to Note type and filter for relevant notes (direct or backlinks)
   // Using shared helper function with proper types
@@ -72,9 +83,18 @@ export function NotesSection({ companyId, userId, onShowAll }: NotesSectionProps
     if (!editingNoteId) return;
     
     // Optimistic update - update note immediately in UI
-    await updateNote(editingNoteId, content, visibility);
+    const existingReportStatus = allNotes.find((note) => note.id === editingNoteId)?.reportStatus;
+    await updateNote(editingNoteId, content, visibility, { existingReportStatus });
     setShowEditor(false);
     setEditingNoteId(null);
+  };
+
+  const handleMarkDone = async (noteId: string) => {
+    await markReportDone(noteId);
+  };
+
+  const handleResolveIssue = async (noteId: string) => {
+    await resolveReportedIssue(noteId);
   };
 
   // Handle delete note - show confirmation dialog before deletion
@@ -273,8 +293,11 @@ export function NotesSection({ companyId, userId, onShowAll }: NotesSectionProps
                 key={note.id}
                 note={note}
                 currentUserId={userId}
+                isAdminUser={isAdmin}
                 onEdit={handleEditNote}
                 onDelete={handleDeleteNote}
+                onMarkDone={handleMarkDone}
+                onResolveIssue={handleResolveIssue}
               />
             );
           })}

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { ExternalLink } from "lucide-react";
+import { CheckCircle2, ExternalLink } from "lucide-react";
 import { useUserNotesPanel } from "../../hooks/useUserNotesPanel";
+import { renderTextWithAdminMention } from "../../utils/adminMentionStyling";
 import type { Note, TiptapNode } from "financial-graph-shared/types";
 
 const PREVIEW_LIMIT = 200;
@@ -108,9 +109,17 @@ function RedirectIcon({ relativeUrl, absoluteUrl }: { relativeUrl: string | null
   );
 }
 
-function NoteCardRow({ note, cardHeightPx }: { note: Note; cardHeightPx: number }) {
+function NoteCardRow({
+  note,
+  cardHeightPx,
+}: {
+  note: Note;
+  cardHeightPx: number;
+}) {
   const relativeUrl = getRelativeNoteUrl(note);
   const absoluteUrl = relativeUrl ? getAbsoluteNoteUrl(relativeUrl) : null;
+  const previewText = getNotePreview(note);
+  const showDoneIndicator = note.reportStatus === "done";
 
   return (
     <div
@@ -126,7 +135,13 @@ function NoteCardRow({ note, cardHeightPx }: { note: Note; cardHeightPx: number 
         overflow: "hidden",
       }}
     >
-      <div style={{ position: "absolute", top: "6px", right: "6px" }}>
+      <div
+        style={{
+          position: "absolute",
+          top: "6px",
+          right: "6px",
+        }}
+      >
         <RedirectIcon relativeUrl={relativeUrl} absoluteUrl={absoluteUrl} />
       </div>
 
@@ -142,6 +157,22 @@ function NoteCardRow({ note, cardHeightPx }: { note: Note; cardHeightPx: number 
         }}
       >
         {note.company?.name || "Unknown company"} • {formatCreatedAt(note.createdAt)}
+        {showDoneIndicator && (
+          <span
+            style={{
+              marginLeft: "8px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              color: "rgba(134, 239, 172, 0.95)",
+              fontWeight: 500,
+            }}
+            title="Admin marked this report as done"
+          >
+            <CheckCircle2 size={12} />
+            Done
+          </span>
+        )}
       </div>
 
       <div
@@ -157,7 +188,7 @@ function NoteCardRow({ note, cardHeightPx }: { note: Note; cardHeightPx: number 
           paddingRight: "40px",
         }}
       >
-        {getNotePreview(note)}
+        {renderTextWithAdminMention(previewText)}
       </div>
     </div>
   );
@@ -251,7 +282,11 @@ export function UserNotesPanel() {
           {!hasError && notes.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: `${CARD_GAP}px` }}>
               {notes.map((note) => (
-                <NoteCardRow key={note.id} note={note} cardHeightPx={cardHeightPx} />
+                <NoteCardRow
+                  key={note.id}
+                  note={note}
+                  cardHeightPx={cardHeightPx}
+                />
               ))}
             </div>
           )}

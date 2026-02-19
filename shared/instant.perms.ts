@@ -92,11 +92,15 @@ const rules = {
   // ==================== USER-GENERATED CONTENT ====================
 
   notes: {
+    bind: {
+      isOwner: "auth.id in data.ref('user.id')",
+      isAdmin: "'admin' in auth.ref('$user.roles') || '[\"admin\"]' in auth.ref('$user.roles')",
+    },
     allow: {
       view: "auth.id != null",
       create: "auth.id != null",
-      update: "auth.id in data.ref('user.id')", // Only note owner can update
-      delete: "auth.id in data.ref('user.id')", // Only note owner can delete
+      update: "isOwner || isAdmin", // Owner or admin can update
+      delete: "isOwner || isAdmin", // Owner or admin can delete
     },
   },
 

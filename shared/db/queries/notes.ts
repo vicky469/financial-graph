@@ -5,7 +5,13 @@
  * Can be used with db.useQuery() (frontend) or db.query() (backend).
  */
 
+import type { InstaQLParams } from "@instantdb/core";
+import type { AppSchema } from "../../instant.schema";
 import type { Note } from "../../types/types";
+
+export interface NotesForUserQueryOptions {
+  includeOpenReports?: boolean;
+}
 
 /**
  * Query definition: Get all notes for a user (private + public)
@@ -13,31 +19,51 @@ import type { Note } from "../../types/types";
  * @param userId - The user ID to filter notes for
  * @returns Query object for InstantDB
  */
-export function notesForUserQuery(userId: string) {
+export function notesForUserQuery(
+  userId: string,
+  options: NotesForUserQueryOptions = {}
+) {
+  const ownNoteCondition = {
+    "user.id": userId,
+    visibility: "private",
+    disabled: { $not: true },
+    resolvedAt: { $isNull: true },
+    ...(options.includeOpenReports ? { reportStatus: { $not: "done" } } : {}),
+  };
+
+  const publicNoteCondition = {
+    visibility: "public",
+    disabled: { $not: true },
+    resolvedAt: { $isNull: true },
+    ...(options.includeOpenReports ? { reportStatus: { $not: "done" } } : {}),
+  };
+
+  const baseConditions = [
+    ownNoteCondition,
+    publicNoteCondition,
+    ...(options.includeOpenReports
+      ? [{
+          reportStatus: "open",
+          disabled: { $not: true },
+          resolvedAt: { $isNull: true },
+        }]
+      : []),
+  ];
+
   return {
     notes: {
       $: {
         where: {
-          or: [
-            // User's private notes
-            { 
-              'user.id': userId,
-              visibility: 'private'
-            },
-            // All public notes
-            { 
-              visibility: 'public'
-            },
-          ]
+          or: baseConditions,
         },
         order: {
-          serverCreatedAt: 'desc', // Most recent first
+          serverCreatedAt: "desc", // Most recent first
         },
       },
       user: {}, // Fetch user relation
       company: {}, // Fetch company relation
     },
-  };
+  } satisfies InstaQLParams<AppSchema>;
 }
 
 // Type for the query result - uses Note interface with proper types
@@ -62,11 +88,17 @@ export interface ExtendedNoteResult extends Note {
  * @returns Array of notes relevant to the company
  */
 export function filterNotesForCompany(
-  notes: NotesQueryResult['notes'],
+  notes: NotesQueryResult["notes"],
   companyId: string
 ): ExtendedNoteResult[] {
   return notes
     .filter((note) => {
+      // Hide inactive notes from company detail views.
+      // Keep the resolved fallback check for legacy notes created before disabled flag.
+      if (note.disabled === true || note.reportStatus === "resolved" || Boolean(note.resolvedAt)) {
+        return false;
+      }
+
       // Include if it's a direct note for this company
       const isDirectNote = note.company?.id === companyId;
       

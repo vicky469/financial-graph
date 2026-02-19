@@ -15,6 +15,7 @@ const _schema = i.schema({
       email: i.string().unique().indexed().optional(),
       imageURL: i.string().optional(),
       type: i.string().optional(),
+      roles: i.json().optional(), // e.g. ["admin"]
     }),
 
     // === CURRENTLY USED ENTITIES ===
@@ -96,6 +97,10 @@ const _schema = i.schema({
       createdBy: i.string(), // 'user' or 'system'
       mentionedCompanyIds: i.json().optional(), // Array of company IDs mentioned in the note
       visibility: i.string().indexed(), // 'private' or 'public', defaults to 'private'
+      disabled: i.boolean().indexed().optional(), // false/undefined = active, true = hidden/inactive
+      reportStatus: i.string().indexed().optional(), // 'open' | 'done' | 'resolved'
+      adminDoneAt: i.string().optional(),
+      resolvedAt: i.string().indexed().optional(),
     }),
   },
   links: {

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -8,6 +8,7 @@ import { Button } from '../ui/button';
 import { CompanyMention } from './CompanyMentionExtension';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { hasFeature } from '../../config/featureFlags';
+import { decorateAdminMentionsInElement } from '../../utils/adminMentionStyling';
 import type { TiptapJSON, Note } from 'financial-graph-shared/types';
 
 // Extended Note type to include backlink metadata
@@ -23,8 +24,11 @@ export type { TiptapJSON };
 interface NoteCardProps {
   note: Note | ExtendedNote;
   currentUserId: string;
+  isAdminUser?: boolean;
   onEdit?: (noteId: string) => void;
   onDelete?: (noteId: string) => void;
+  onMarkDone?: (noteId: string) => Promise<void>;
+  onResolveIssue?: (noteId: string) => Promise<void>;
 }
 
 /**
@@ -40,8 +44,17 @@ interface NoteCardProps {
  * - Shows creator name for public notes from other users
  * 
  */
-export function NoteCard({ note, currentUserId, onEdit, onDelete }: NoteCardProps) {
+export function NoteCard({
+  note,
+  currentUserId,
+  isAdminUser = false,
+  onEdit,
+  onDelete,
+  onMarkDone,
+  onResolveIssue,
+}: NoteCardProps) {
   const [isClicked, setIsClicked] = useState(false);
+  const [isStatusActionLoading, setIsStatusActionLoading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const workspaceEnabled = hasFeature('workspace');
@@ -116,12 +129,38 @@ export function NoteCard({ note, currentUserId, onEdit, onDelete }: NoteCardProp
   const sourceCompanyName = extendedNote.sourceCompanyName;
   const sourceCompanyId = extendedNote.sourceCompanyId;
 
+  // Style @admin text with shared mention styling.
+  useEffect(() => {
+    if (!editor) return;
+    decorateAdminMentionsInElement(editor.view.dom);
+  }, [editor]);
   // Determine if current user can edit/delete this note
   // Show buttons only for user's own user notes
   // Backlink notes are read-only - user must navigate to source company to edit
   const isUserNote = note.createdBy === 'user';
   const isOwnNote = note.user?.id === currentUserId;
   const canModify = isUserNote && isOwnNote && !isBacklink;
+
+  const reportStatus = note.reportStatus;
+  const showDoneAction = isAdminUser && reportStatus === "open" && !isBacklink;
+  const showResolveAction = !isAdminUser && isOwnNote && reportStatus === "done" && !isBacklink;
+  const showStatusAction = (showDoneAction && !!onMarkDone) || (showResolveAction && !!onResolveIssue);
+  const shouldShowReportStatus = reportStatus === "open";
+
+  const runStatusAction = async () => {
+    if (isStatusActionLoading) return;
+
+    try {
+      setIsStatusActionLoading(true);
+      if (showDoneAction && onMarkDone) {
+        await onMarkDone(note.id);
+      } else if (showResolveAction && onResolveIssue) {
+        await onResolveIssue(note.id);
+      }
+    } finally {
+      setIsStatusActionLoading(false);
+    }
+  };
 
   // Determine visibility
   const visibility = workspaceEnabled ? (note.visibility || 'private') : 'private';
@@ -312,12 +351,59 @@ export function NoteCard({ note, currentUserId, onEdit, onDelete }: NoteCardProp
               </>
             )}
           </div>
+          {shouldShowReportStatus && (
+            <>
+              <span>•</span>
+              <span
+                style={{
+                  color: "rgba(251, 191, 36, 0.9)",
+                  fontWeight: 500,
+                }}
+              >
+                Reported
+              </span>
+            </>
+          )}
         </div>
 
         {/* Action buttons */}
-        {canModify && isClicked && (onEdit || onDelete) && (
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {onEdit && (
+        {(showStatusAction || (canModify && isClicked && (onEdit || onDelete))) && (
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            {showStatusAction && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void runStatusAction();
+                }}
+                disabled={isStatusActionLoading}
+                style={{
+                  height: '22px',
+                  padding: '0 8px',
+                  fontSize: '10px',
+                  borderColor: showDoneAction ? 'rgba(34, 197, 94, 0.45)' : 'rgba(59, 130, 246, 0.45)',
+                  color: showDoneAction ? 'rgba(134, 239, 172, 0.95)' : 'rgba(147, 197, 253, 0.95)',
+                  backgroundColor: 'transparent',
+                  transition: 'all 0.2s ease',
+                  cursor: isStatusActionLoading ? 'default' : 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  if (isStatusActionLoading) return;
+                  e.currentTarget.style.backgroundColor = showDoneAction
+                    ? 'rgba(34, 197, 94, 0.16)'
+                    : 'rgba(59, 130, 246, 0.16)';
+                }}
+                onMouseLeave={(e) => {
+                  if (isStatusActionLoading) return;
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                {isStatusActionLoading ? 'Saving...' : showDoneAction ? 'Done' : 'Resolve'}
+              </Button>
+            )}
+
+            {canModify && isClicked && onEdit && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -348,7 +434,7 @@ export function NoteCard({ note, currentUserId, onEdit, onDelete }: NoteCardProp
                 <Edit2 size={11} />
               </Button>
             )}
-            {onDelete && (
+            {canModify && isClicked && onDelete && (
               <Button
                 variant="ghost"
                 size="sm"

@@ -199,17 +199,18 @@ function AppContent() {
                 >
                   Press{" "}
                   <kbd
-                    className="px-1.5 py-[1px] text-xs rounded mx-1"
+                    className="px-1.5 py-[1px] text-xs rounded"
                     style={{
                       backgroundColor: "hsl(155, 95%, 4%)",
                       border: "1px solid hsl(155, 75%, 14%)",
                       color: "hsl(150, 60%, 70%)",
                       lineHeight: "1",
+                      margin: "0 6px",
                     }}
                   >
-                    ⌘ Shift F
+                    ⌘ + Shift + F
                   </kbd>{" "}
-                  to search by accession number
+                  to search
                 </div>
               </div>
             ) : isLoading ? (

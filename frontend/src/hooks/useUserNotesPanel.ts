@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { db } from "../db/client";
 import type { Note } from "financial-graph-shared/types";
+import { useIsAdminUser } from "./useIsAdminUser";
 
 type Cursor = [string, string, unknown, number];
 
@@ -40,11 +41,18 @@ export interface UseUserNotesPanelResult {
   handleLoadMore: () => Promise<void>;
 }
 
-function userNotesQuery(userId: string, first: number, after: Cursor | null = null) {
+function userNotesQuery(
+  userId: string,
+  first: number,
+  after: Cursor | null = null,
+  includeOpenReports = false
+) {
+  const where = buildUserNotesWhere(userId, includeOpenReports);
+
   return {
     notes: {
       $: {
-        where: { "user.id": userId },
+        where,
         order: { serverCreatedAt: "desc" },
         first,
         ...(after ? { after } : {}),
@@ -55,10 +63,29 @@ function userNotesQuery(userId: string, first: number, after: Cursor | null = nu
   };
 }
 
+function buildUserNotesWhere(userId: string, includeOpenReports = false) {
+  return includeOpenReports
+    ? {
+        or: [
+          { "user.id": userId, disabled: { $not: true }, reportStatus: { $not: "done" } },
+          { reportStatus: "open", disabled: { $not: true }, resolvedAt: { $isNull: true } },
+        ],
+      }
+    : { "user.id": userId, disabled: { $not: true } };
+}
+
 function mergeUniqueNotes(firstPageNotes: Note[], olderNotes: Note[]): Note[] {
-  const firstPageIds = new Set(firstPageNotes.map((note) => note.id));
-  const dedupedOlder = olderNotes.filter((note) => !firstPageIds.has(note.id));
-  return [...firstPageNotes, ...dedupedOlder];
+  const merged = [...firstPageNotes, ...olderNotes];
+  const deduped: Note[] = [];
+  const seenIds = new Set<string>();
+
+  for (const note of merged) {
+    if (seenIds.has(note.id)) continue;
+    seenIds.add(note.id);
+    deduped.push(note);
+  }
+
+  return deduped;
 }
 
 function appendUniqueNotes(current: Note[], incoming: Note[]): Note[] {
@@ -81,6 +108,7 @@ export function useUserNotesPanel({
   minCardHeight,
 }: UseUserNotesPanelOptions): UseUserNotesPanelResult {
   const { user } = db.useAuth();
+  const { isAdmin } = useIsAdminUser(user?.id);
   const [olderNotes, setOlderNotes] = useState<Note[]>([]);
   const [nextCursor, setNextCursor] = useState<Cursor | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -92,12 +120,22 @@ export function useUserNotesPanel({
 
   const { data, pageInfo, isLoading, error } = db.useQuery(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    user ? (userNotesQuery(user.id, pageSize) as any) : null
+    user ? (userNotesQuery(user.id, pageSize, null, isAdmin) as any) : null
   );
 
   const firstPageNotes = ((data as UserNotesQueryData | undefined)?.notes ?? []) as Note[];
   const pageMeta = (pageInfo as NotesPageInfo | undefined)?.notes;
-  const notes = useMemo(() => mergeUniqueNotes(firstPageNotes, olderNotes), [firstPageNotes, olderNotes]);
+  const notes = useMemo(
+    () =>
+      mergeUniqueNotes(firstPageNotes, olderNotes).filter(
+        (note) =>
+          note.disabled !== true &&
+          note.reportStatus !== "resolved" &&
+          !note.resolvedAt &&
+          (!isAdmin || note.reportStatus !== "done")
+      ),
+    [firstPageNotes, olderNotes, isAdmin]
+  );
   const shouldEnableScroll = notes.length > pageSize;
 
   useEffect(() => {
@@ -107,7 +145,7 @@ export function useUserNotesPanel({
     setHasLoadedOlderPages(false);
     setIsLoadingMore(false);
     setLoadMoreError(null);
-  }, [user?.id]);
+  }, [user?.id, isAdmin]);
 
   useEffect(() => {
     if (!pageMeta || hasLoadedOlderPages) return;
@@ -140,7 +178,7 @@ export function useUserNotesPanel({
     setLoadMoreError(null);
 
     try {
-      const response = await getQueryOnce()(userNotesQuery(user.id, pageSize, nextCursor));
+      const response = await getQueryOnce()(userNotesQuery(user.id, pageSize, nextCursor, isAdmin));
       const pageData = (response.data?.notes ?? []) as Note[];
       const pageDataInfo = response.pageInfo?.notes;
 

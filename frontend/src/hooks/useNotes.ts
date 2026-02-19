@@ -11,28 +11,27 @@
  * Requirements: 2.7, 5.5, 5.6, 5.7, 10.1, 10.2, 10.3, 11.1, 11.6, 12.1, 12.7
  */
 
-import { useState } from 'react';
-import { db, tx, id } from '../db/client';
-import { extractMentionedCompanies } from '../utils/mentionExtraction';
-import { hasFeature } from '../config/featureFlags';
+import { useState } from "react";
+import { db, tx, id } from "../db/client";
+import { extractMentionedCompanies } from "../utils/mentionExtraction";
+import { hasFeature } from "../config/featureFlags";
+import { hasAdminMention } from "../utils/noteReporting";
+import type { Note, TiptapJSON } from "financial-graph-shared/types";
 
-export interface TiptapJSON {
-  type: 'doc';
-  content?: Array<{
-    type: string;
-    attrs?: Record<string, any>;
-    content?: any[];
-    marks?: Array<{
-      type: string;
-      attrs?: Record<string, any>;
-    }>;
-    text?: string;
-  }>;
+interface UpdateNoteOptions {
+  existingReportStatus?: Note["reportStatus"];
 }
 
 export interface UseNotesReturn {
-  createNote: (companyId: string, userId: string, content: TiptapJSON, visibility?: 'private' | 'public') => Promise<void>;
-  updateNote: (noteId: string, content: TiptapJSON, visibility?: 'private' | 'public') => Promise<void>;
+  createNote: (companyId: string, userId: string, content: TiptapJSON, visibility?: "private" | "public") => Promise<void>;
+  updateNote: (
+    noteId: string,
+    content: TiptapJSON,
+    visibility?: "private" | "public",
+    options?: UpdateNoteOptions
+  ) => Promise<void>;
+  markReportDone: (noteId: string) => Promise<void>;
+  resolveReportedIssue: (noteId: string) => Promise<void>;
   deleteNote: (noteId: string, onConfirm?: () => void) => Promise<void>;
   errorMessage: string | null;
   clearError: () => void;
@@ -63,12 +62,13 @@ export function useNotes(): UseNotesReturn {
     companyId: string,
     userId: string,
     content: TiptapJSON,
-    visibility: 'private' | 'public' = 'private'
+    visibility: "private" | "public" = "private"
   ): Promise<void> => {
     try {
       setErrorMessage(null);
 
-      const effectiveVisibility = hasFeature('workspace') ? visibility : 'private';
+      const effectiveVisibility = hasFeature("workspace") ? visibility : "private";
+      const shouldOpenReport = hasAdminMention(content);
 
       // Generate unique ID for the note
       const noteId = id();
@@ -85,17 +85,21 @@ export function useNotes(): UseNotesReturn {
             content,
             createdAt: now,
             updatedAt: now,
-            createdBy: 'user',
+            createdBy: "user",
             mentionedCompanyIds,
             visibility: effectiveVisibility,
+            disabled: false,
+            reportStatus: shouldOpenReport ? "open" : undefined,
+            adminDoneAt: undefined,
+            resolvedAt: undefined,
           })
           .link({ user: userId })
           .link({ company: companyId }),
       ]);
     } catch (err) {
       // Display error message on failure
-      const message = err instanceof Error ? err.message : 'Unknown error occurred';
-      console.error('Failed to create note:', err);
+      const message = err instanceof Error ? err.message : "Unknown error occurred";
+      console.error("Failed to create note:", err);
       setErrorMessage(`Failed to create note: ${message}`);
       throw err; // Re-throw to allow caller to handle
     }
@@ -116,7 +120,8 @@ export function useNotes(): UseNotesReturn {
   const updateNote = async (
     noteId: string,
     content: TiptapJSON,
-    visibility?: 'private' | 'public'
+    visibility?: "private" | "public",
+    options?: UpdateNoteOptions
   ): Promise<void> => {
     try {
       setErrorMessage(null);
@@ -126,6 +131,7 @@ export function useNotes(): UseNotesReturn {
 
       // Re-extract mentioned company IDs from updated content
       const mentionedCompanyIds = extractMentionedCompanies(content);
+      const shouldOpenReport = hasAdminMention(content);
 
       // Build update object
       const updateData: any = {
@@ -134,14 +140,28 @@ export function useNotes(): UseNotesReturn {
         mentionedCompanyIds,
       };
 
-      if (hasFeature('workspace')) {
+      if (!options?.existingReportStatus && shouldOpenReport) {
+        updateData.disabled = false;
+        updateData.reportStatus = "open";
+        updateData.adminDoneAt = undefined;
+        updateData.resolvedAt = undefined;
+      }
+
+      if (options?.existingReportStatus === "resolved" && shouldOpenReport) {
+        updateData.disabled = false;
+        updateData.reportStatus = "open";
+        updateData.adminDoneAt = undefined;
+        updateData.resolvedAt = undefined;
+      }
+
+      if (hasFeature("workspace")) {
         // Update visibility if provided
         if (visibility !== undefined) {
           updateData.visibility = visibility;
         }
       } else {
         // Force private visibility when workspace feature is disabled
-        updateData.visibility = 'private';
+        updateData.visibility = "private";
       }
 
       await db.transact([
@@ -149,10 +169,52 @@ export function useNotes(): UseNotesReturn {
       ]);
     } catch (err) {
       // Display error message and preserve user's edits
-      const message = err instanceof Error ? err.message : 'Unknown error occurred';
-      console.error('Failed to update note:', err);
+      const message = err instanceof Error ? err.message : "Unknown error occurred";
+      console.error("Failed to update note:", err);
       setErrorMessage(`Failed to update note: ${message}`);
       throw err; // Re-throw to allow caller to handle
+    }
+  };
+
+  const markReportDone = async (noteId: string): Promise<void> => {
+    try {
+      setErrorMessage(null);
+      const now = new Date().toISOString();
+
+      await db.transact([
+        tx.notes[noteId].update({
+          disabled: false,
+          reportStatus: "done",
+          adminDoneAt: now,
+          updatedAt: now,
+        }),
+      ]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error occurred";
+      console.error("Failed to mark report as done:", err);
+      setErrorMessage(`Failed to mark report as done: ${message}`);
+      throw err;
+    }
+  };
+
+  const resolveReportedIssue = async (noteId: string): Promise<void> => {
+    try {
+      setErrorMessage(null);
+      const now = new Date().toISOString();
+
+      await db.transact([
+        tx.notes[noteId].update({
+          disabled: true,
+          reportStatus: "resolved",
+          resolvedAt: now,
+          updatedAt: now,
+        }),
+      ]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error occurred";
+      console.error("Failed to resolve report:", err);
+      setErrorMessage(`Failed to resolve report: ${message}`);
+      throw err;
     }
   };
 
@@ -176,8 +238,8 @@ export function useNotes(): UseNotesReturn {
       await db.transact([tx.notes[noteId].delete()]);
     } catch (err) {
       // Display error message on failure
-      const message = err instanceof Error ? err.message : 'Unknown error occurred';
-      console.error('Failed to delete note:', err);
+      const message = err instanceof Error ? err.message : "Unknown error occurred";
+      console.error("Failed to delete note:", err);
       setErrorMessage(`Failed to delete note: ${message}`);
       throw err; // Re-throw to allow caller to handle
     }
@@ -193,6 +255,8 @@ export function useNotes(): UseNotesReturn {
   return {
     createNote,
     updateNote,
+    markReportDone,
+    resolveReportedIssue,
     deleteNote,
     errorMessage,
     clearError,

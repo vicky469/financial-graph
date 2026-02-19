@@ -141,9 +141,14 @@ export interface Note extends Omit<
   updatedAt: number; // InstantDB returns timestamps as numbers
   mentionedCompanyIds?: string[]; // Array of company IDs mentioned in the note
   visibility: "private" | "public"; // Note visibility setting, defaults to 'private'
+  disabled?: boolean;
+  reportStatus?: "open" | "done" | "resolved";
+  adminDoneAt?: string;
+  resolvedAt?: string;
   user?: {
     id: string;
     email?: string;
+    roles?: string[];
   };
   company?: {
     id: string;

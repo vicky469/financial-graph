@@ -6,6 +6,7 @@ import { NoteEditor } from './NoteEditor';
 import { Button } from '../ui/button';
 import { ConfirmationDialog } from '../ui/confirmation-dialog';
 import { useNotes } from '../../hooks/useNotes';
+import { useIsAdminUser } from '../../hooks/useIsAdminUser';
 import { notesForUserQuery, getNotesForCompany, type ExtendedNoteResult } from 'financial-graph-shared/db';
 
 interface NotesViewProps {
@@ -29,7 +30,7 @@ const NOTES_PER_PAGE = 20;
  * 
  */
 export function NotesView({ companyId, userId, onBack, initialNoteId = null }: NotesViewProps) {
-  const [currentPage, setCurrentPage] = useState(1);
+  const [manualPage, setManualPage] = useState<number | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
@@ -40,13 +41,15 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
   });
   
   // Use the custom hook for CRUD operations
-  const { updateNote, deleteNote, errorMessage, clearError } = useNotes();
+  const { updateNote, markReportDone, resolveReportedIssue, deleteNote, errorMessage, clearError } = useNotes();
+  const { isAdmin } = useIsAdminUser(userId);
 
   // Query ALL notes for the user (both direct and potential backlinks)
   // Using shared query definition with proper types
   // Order by creation timestamp descending (newest first)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, isLoading, error } = db.useQuery(notesForUserQuery(userId) as any);
+  const { data, isLoading, error } = db.useQuery(
+    notesForUserQuery(userId, { includeOpenReports: isAdmin })
+  );
 
   // Transform data to Note type and filter for relevant notes (direct or backlinks)
   // Using shared helper function with proper types
@@ -56,19 +59,14 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
 
   // Pagination logic
   const totalNotes = allNotes.length;
-  const totalPages = Math.ceil(totalNotes / NOTES_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(totalNotes / NOTES_PER_PAGE));
+  const targetNoteIndex = initialNoteId ? allNotes.findIndex((note) => note.id === initialNoteId) : -1;
+  const targetPage = targetNoteIndex >= 0 ? Math.floor(targetNoteIndex / NOTES_PER_PAGE) + 1 : null;
+  const preferredPage = manualPage ?? targetPage ?? 1;
+  const currentPage = Math.min(Math.max(preferredPage, 1), totalPages);
   const startIndex = (currentPage - 1) * NOTES_PER_PAGE;
   const endIndex = startIndex + NOTES_PER_PAGE;
   const paginatedNotes = allNotes.slice(startIndex, endIndex);
-  const targetNoteIndex = initialNoteId ? allNotes.findIndex((note) => note.id === initialNoteId) : -1;
-  const targetPage = targetNoteIndex >= 0 ? Math.floor(targetNoteIndex / NOTES_PER_PAGE) + 1 : null;
-
-  // If a noteId is provided in URL, jump to the page containing that note.
-  useEffect(() => {
-    if (targetPage && targetPage !== currentPage) {
-      setCurrentPage(targetPage);
-    }
-  }, [targetPage, currentPage]);
 
   // Scroll to the target note once it is rendered on the active page.
   useEffect(() => {
@@ -87,19 +85,19 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
   // Handle page navigation
   const goToPage = (page: number) => {
     if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
+      setManualPage(page);
     }
   };
 
   const goToPreviousPage = () => {
     if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
+      setManualPage(currentPage - 1);
     }
   };
 
   const goToNextPage = () => {
     if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
+      setManualPage(currentPage + 1);
     }
   };
 
@@ -112,9 +110,18 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
   const handleUpdateNote = async (content: TiptapJSON, visibility: 'private' | 'public') => {
     if (!editingNoteId) return;
     
-    await updateNote(editingNoteId, content, visibility);
+    const existingReportStatus = allNotes.find((note) => note.id === editingNoteId)?.reportStatus;
+    await updateNote(editingNoteId, content, visibility, { existingReportStatus });
     setEditingNoteId(null);
     clearError();
+  };
+
+  const handleMarkDone = async (noteId: string) => {
+    await markReportDone(noteId);
+  };
+
+  const handleResolveIssue = async (noteId: string) => {
+    await resolveReportedIssue(noteId);
   };
 
   // Handle cancel editor
@@ -140,7 +147,7 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
     // If we deleted the last note on the current page and we're not on page 1,
     // go back one page
     if (paginatedNotes.length === 1 && currentPage > 1) {
-      setCurrentPage(currentPage - 1);
+      setManualPage(currentPage - 1);
     }
     
     setDeleteConfirmation({ isOpen: false, noteId: null });
@@ -384,8 +391,11 @@ export function NotesView({ companyId, userId, onBack, initialNoteId = null }: N
                       <NoteCard
                         note={note}
                         currentUserId={userId}
+                        isAdminUser={isAdmin}
                         onEdit={handleEditNote}
                         onDelete={handleDeleteNote}
+                        onMarkDone={handleMarkDone}
+                        onResolveIssue={handleResolveIssue}
                       />
                     </div>
                   );
