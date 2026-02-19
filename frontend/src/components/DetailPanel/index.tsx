@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ExternalLink } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import type { CompanyDetail, PropertyValue } from "../../types/domain";
 import { CompanyType, getCleanCategory } from "financial-graph-shared";
 
@@ -425,7 +426,7 @@ function DetailContent({
       )}
 
       {/* Bottom spacing for better scrolling */}
-      <div style={{ height: '200px' }} />
+      <div style={{ height: '60px' }} />
     </>
   );
 }
@@ -438,7 +439,9 @@ export function DetailPanel({
 }: DetailPanelProps) {
   const [activeTab, setActiveTab] = useState<"info" /* | "audit" */>("info");
   const [showNotesView, setShowNotesView] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const panelRef = useRef<HTMLDivElement>(null);
+  const targetNoteId = searchParams.get("noteId");
 
   // Get current user for notes functionality
   const { user } = db.useAuth();
@@ -478,8 +481,20 @@ export function DetailPanel({
     setShowNotesView(true);
   };
 
+  // Deep-link support: /company/:id?noteId=:noteId opens full notes view.
+  useEffect(() => {
+    if (targetNoteId) {
+      setShowNotesView(true);
+    }
+  }, [targetNoteId]);
+
   // Handle back from NotesView
   const handleBackFromNotes = () => {
+    if (targetNoteId) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("noteId");
+      setSearchParams(nextParams, { replace: true });
+    }
     setShowNotesView(false);
   };
 
@@ -556,6 +571,7 @@ export function DetailPanel({
               companyId={node.id}
               userId={user.id}
               onBack={handleBackFromNotes}
+              initialNoteId={targetNoteId}
             />
           ) : (
             <DetailContent
@@ -617,6 +633,7 @@ export function DetailPanel({
                 companyId={node.id}
                 userId={user.id}
                 onBack={handleBackFromNotes}
+                initialNoteId={targetNoteId}
               />
             ) : (
               <DetailContent

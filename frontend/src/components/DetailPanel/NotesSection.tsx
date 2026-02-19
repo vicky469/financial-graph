@@ -50,9 +50,9 @@ export function NotesSection({ companyId, userId, onShowAll }: NotesSectionProps
     return getNotesForCompany(data, companyId);
   }, [data, companyId]);
 
-  // Display up to 3 most recent notes
-  const displayedNotes = allNotes.slice(0, 3);
-  const hasMoreNotes = allNotes.length > 3;
+  // Display up to 5 most recent notes
+  const displayedNotes = allNotes.slice(0, 5);
+  const hasMoreNotes = allNotes.length > 5;
 
   // Handle create note
   const handleCreateNote = async (content: TiptapJSON, visibility: 'private' | 'public') => {

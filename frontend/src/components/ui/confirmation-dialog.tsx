@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from "react";
 import { Button } from './button';
 
 interface ConfirmationDialogProps {
@@ -30,22 +31,39 @@ export function ConfirmationDialog({
   cancelText = 'Cancel',
   variant = 'default',
 }: ConfirmationDialogProps) {
-  if (!isOpen) return null;
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
-  const handleConfirm = () => {
+  const handleConfirm = useCallback(() => {
     onConfirm();
     onClose();
-  };
+  }, [onConfirm, onClose]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleConfirm();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      onClose();
-    }
-  };
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Make confirm button the default focused action.
+    const focusTimer = window.setTimeout(() => {
+      confirmButtonRef.current?.focus();
+    }, 0);
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleConfirm();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [isOpen, handleConfirm, onClose]);
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -60,7 +78,6 @@ export function ConfirmationDialog({
         padding: '16px',
       }}
       onClick={onClose}
-      onKeyDown={handleKeyDown}
     >
       <div
         className="confirmation-dialog"
@@ -128,6 +145,7 @@ export function ConfirmationDialog({
             {cancelText}
           </Button>
           <Button
+            ref={confirmButtonRef}
             variant="default"
             size="sm"
             onClick={handleConfirm}

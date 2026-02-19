@@ -101,6 +101,18 @@ body.landing-mode #root {
   scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--background));
 }
 
+/* Utility: hide scrollbar visuals while keeping scroll interaction */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 /* Spinner animation */
 @keyframes spin {
   to {
@@ -143,4 +155,25 @@ body.landing-mode #root {
     transform: translateY(0);
     pointer-events: auto;
   }
+}
+
+/* Note card text wrapping */
+.note-card .ProseMirror {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-card .ProseMirror p {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+  margin: 0;
 }

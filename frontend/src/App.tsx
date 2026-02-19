@@ -6,6 +6,7 @@ import { DetailPanel } from "./components/DetailPanel";
 import { SearchModal } from "./components/SearchModal";
 import { LandingPage } from "./components/LandingPage";
 import { DesktopMainContent } from "./components/DesktopMainContent";
+import { UserNotesPanel } from "./components/DesktopMainContent/UserNotesPanel";
 import { MobileCompanyView } from "./components/MobileCompanyView";
 import { PreviewBanner } from "./components/PreviewBanner";
 import { useCompanyDetail } from "./db/queries";
@@ -164,29 +165,51 @@ function AppContent() {
             style={{ width: "100%", maxWidth: "100%" }}
           >
             {!selectedCompanyId ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground/60 gap-3 p-4">
-                <div className="w-16 h-16 rounded-full bg-accent/30 flex items-center justify-center">
-                  <svg
-                    className="w-8 h-8"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-                    />
-                  </svg>
+              <div className="relative h-full min-h-0 p-6">
+                <div
+                  style={{
+                    width: "min(540px, 100%)",
+                    height: "calc(100% - 54px)",
+                    minHeight: "420px",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: "8px",
+                    overflow: "hidden",
+                    background: "hsl(240 6% 4%)",
+                  }}
+                >
+                  <UserNotesPanel />
                 </div>
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground/40 mt-2">
-                    Press{" "}
-                    <kbd className="px-2 py-1 text-xs bg-accent/20 rounded border">⌘ Shift F</kbd>{" "}
-                    to search by accession number
-                  </p>
+
+                <div
+                  className="absolute left-1/2 -translate-x-1/2 bottom-[12px]"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    whiteSpace: "nowrap",
+                    backgroundColor: "hsl(155, 80%, 8%)",
+                    border: "1px solid hsl(155, 60%, 18%)",
+                    borderRadius: "6px",
+                    padding: "2px 8px",
+                    color: "hsl(150, 60%, 70%)",
+                    textShadow: "0 0 6px hsl(150, 60%, 70%, 0.18)",
+                    fontSize: "12px",
+                    lineHeight: "1",
+                  }}
+                >
+                  Press{" "}
+                  <kbd
+                    className="px-1.5 py-[1px] text-xs rounded mx-1"
+                    style={{
+                      backgroundColor: "hsl(155, 95%, 4%)",
+                      border: "1px solid hsl(155, 75%, 14%)",
+                      color: "hsl(150, 60%, 70%)",
+                      lineHeight: "1",
+                    }}
+                  >
+                    ⌘ Shift F
+                  </kbd>{" "}
+                  to search by accession number
                 </div>
               </div>
             ) : isLoading ? (

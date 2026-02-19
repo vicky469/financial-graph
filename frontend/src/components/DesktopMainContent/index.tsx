@@ -19,9 +19,9 @@ export function DesktopMainContent({
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "space-between",
-            padding: "12px 24px",
+            padding: "8px 24px 12px 24px",
             cursor: "pointer",
             background: "rgba(255,255,255,0.02)",
             transition: "background 0.15s",
@@ -41,6 +41,7 @@ export function DesktopMainContent({
               color: "rgba(255,255,255,0.7)",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
+              paddingTop: "4px",
             }}
           >
             Jurisdiction Distribution
@@ -57,6 +58,7 @@ export function DesktopMainContent({
             style={{
               transform: isTreemapExpanded ? "rotate(180deg)" : "rotate(0deg)",
               transition: "transform 0.2s ease",
+              marginTop: "2px",
             }}
           >
             <polyline points="6 9 12 15 18 9" />
@@ -80,23 +82,17 @@ export function DesktopMainContent({
         />
       </div>
       
-      {/* Empty Graph Panel - Desktop */}
+      {/* Empty space - Desktop */}
       <div className="hide-on-mobile" style={{ 
         flex: 1,
         minHeight: 0,
         width: "100%",
         background: "hsl(240 6% 4%)",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
+        alignItems: "stretch",
+        justifyContent: "stretch"
       }}>
-        <div style={{
-          color: "rgba(255,255,255,0.3)",
-          fontSize: "13px",
-          textAlign: "center"
-        }}>
-          {/* Empty panel - content to be added */}
-        </div>
+        {/* Empty space for future content */}
       </div>
     </div>
   );

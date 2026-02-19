@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db } from '../../db/client';
 import { NoteCard, type TiptapJSON } from './NoteCard';
@@ -12,6 +12,7 @@ interface NotesViewProps {
   companyId: string;
   userId: string;
   onBack: () => void;
+  initialNoteId?: string | null;
 }
 
 const NOTES_PER_PAGE = 20;
@@ -27,7 +28,7 @@ const NOTES_PER_PAGE = 20;
  * - Reuses NoteCard component for display
  * 
  */
-export function NotesView({ companyId, userId, onBack }: NotesViewProps) {
+export function NotesView({ companyId, userId, onBack, initialNoteId = null }: NotesViewProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
@@ -59,6 +60,29 @@ export function NotesView({ companyId, userId, onBack }: NotesViewProps) {
   const startIndex = (currentPage - 1) * NOTES_PER_PAGE;
   const endIndex = startIndex + NOTES_PER_PAGE;
   const paginatedNotes = allNotes.slice(startIndex, endIndex);
+  const targetNoteIndex = initialNoteId ? allNotes.findIndex((note) => note.id === initialNoteId) : -1;
+  const targetPage = targetNoteIndex >= 0 ? Math.floor(targetNoteIndex / NOTES_PER_PAGE) + 1 : null;
+
+  // If a noteId is provided in URL, jump to the page containing that note.
+  useEffect(() => {
+    if (targetPage && targetPage !== currentPage) {
+      setCurrentPage(targetPage);
+    }
+  }, [targetPage, currentPage]);
+
+  // Scroll to the target note once it is rendered on the active page.
+  useEffect(() => {
+    if (!initialNoteId) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.querySelector(`[data-note-id="${initialNoteId}"]`);
+      if (target instanceof HTMLElement) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialNoteId, currentPage, paginatedNotes.length]);
 
   // Handle page navigation
   const goToPage = (page: number) => {
@@ -346,13 +370,22 @@ export function NotesView({ companyId, userId, onBack }: NotesViewProps) {
                   }
                   
                   return (
-                    <NoteCard
+                    <div
                       key={note.id}
-                      note={note}
-                      currentUserId={userId}
-                      onEdit={handleEditNote}
-                      onDelete={handleDeleteNote}
-                    />
+                      data-note-id={note.id}
+                      style={{
+                        borderRadius: '8px',
+                        outline: note.id === initialNoteId ? '1px solid rgba(96, 165, 250, 0.6)' : 'none',
+                        boxShadow: note.id === initialNoteId ? '0 0 0 2px rgba(96, 165, 250, 0.18)' : 'none',
+                      }}
+                    >
+                      <NoteCard
+                        note={note}
+                        currentUserId={userId}
+                        onEdit={handleEditNote}
+                        onDelete={handleDeleteNote}
+                      />
+                    </div>
                   );
                 })}
               </div>
