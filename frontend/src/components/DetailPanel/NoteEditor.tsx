@@ -18,6 +18,7 @@ import { useAllCompanies } from '../../db/queries';
 import { CompanyMention } from './CompanyMentionExtension';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { hasFeature } from '../../config/featureFlags';
+import { tiptapToPlainText } from '../../utils/noteType';
 import type { TiptapJSON } from './NoteCard';
 
 interface NoteEditorProps {
@@ -85,20 +86,10 @@ export function NoteEditor({
   useClickOutside(editorRef, async () => {
     if (!editor || isSaving) return;
     
-    // Check if content is valid before auto-saving
-    const json = editor.getJSON();
-    const isEmpty = !json.content || 
-      json.content.length === 0 || 
-      json.content.every(node => {
-        if (node.type === 'paragraph') {
-          return !node.content || 
-            node.content.length === 0 || 
-            node.content.every(child => 
-              !('text' in child) || !child.text || child.text.trim() === ''
-            );
-        }
-        return false;
-      });
+    // Check if content is valid before auto-saving.
+    // Reuse shared parser so mentions/links are not incorrectly treated as empty.
+    const json = editor.getJSON() as TiptapJSON;
+    const isEmpty = tiptapToPlainText(json).length === 0;
 
     // If empty, just cancel without saving
     if (isEmpty) {
@@ -299,21 +290,8 @@ export function NoteEditor({
   const validateContent = (): boolean => {
     if (!editor) return false;
 
-    const json = editor.getJSON();
-    
-    // Check if document is empty or only contains whitespace
-    const isEmpty = !json.content || 
-      json.content.length === 0 || 
-      json.content.every(node => {
-        if (node.type === 'paragraph') {
-          return !node.content || 
-            node.content.length === 0 || 
-            node.content.every(child => 
-              !('text' in child) || !child.text || child.text.trim() === ''
-            );
-        }
-        return false;
-      });
+    const json = editor.getJSON() as TiptapJSON;
+    const isEmpty = tiptapToPlainText(json).length === 0;
 
     if (isEmpty) {
       setValidationError('Note content cannot be empty');

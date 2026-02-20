@@ -124,6 +124,18 @@ export function NoteCard({
     },
   });
 
+  // Keep preview editor in sync when note content changes after save.
+  // Tiptap does not always rehydrate content from prop updates by itself.
+  useEffect(() => {
+    if (!editor) return;
+
+    const current = JSON.stringify(editor.getJSON());
+    const next = JSON.stringify(note.content);
+    if (current !== next) {
+      editor.commands.setContent(note.content, { emitUpdate: false });
+    }
+  }, [editor, note.content]);
+
   // Check if this is a backlink note
   const extendedNote = note as ExtendedNote;
   const isBacklink = extendedNote.isBacklink || false;

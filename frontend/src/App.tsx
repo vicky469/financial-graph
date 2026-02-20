@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Routes, Route, useParams, useNavigate } from "react-router-dom";
+import { Routes, Route, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { DetailPanel } from "./components/DetailPanel";
@@ -18,6 +18,8 @@ import { CompanyType } from "financial-graph-shared";
 function AppContent() {
   const { companyId } = useParams<{ companyId?: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const targetNoteId = searchParams.get("noteId");
 
   // Derive selectedCompanyId from URL param - no state needed
   const selectedCompanyId = companyId || null;
@@ -33,7 +35,11 @@ function AppContent() {
 
   // Derive the actual subsidiary ID, resetting when company changes
   const selectedSubsidiaryId =
-    subsidiaryState.companyId === selectedCompanyId ? subsidiaryState.subsidiaryId : null;
+    targetNoteId
+      ? null
+      : subsidiaryState.companyId === selectedCompanyId
+        ? subsidiaryState.subsidiaryId
+        : null;
 
   const [showSearchModal, setShowSearchModal] = useState(false);
 

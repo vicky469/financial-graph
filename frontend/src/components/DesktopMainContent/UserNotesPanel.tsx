@@ -114,6 +114,8 @@ function NoteCardRow({
   const previewText = getNotePreview(note);
   const noteType = getNoteType(note);
   const noteTypeMeta = NOTE_TYPE_META[noteType];
+  const companyUrl = note.company?.id ? `/company/${note.company.id}` : null;
+  const companyName = note.company?.name || "Unknown company";
   const showDoneIndicator = note.reportStatus === "done";
   const accentColor = showDoneIndicator ? "rgba(110, 231, 183, 0.78)" : "rgba(125, 211, 252, 0.7)";
   const accentBackground = showDoneIndicator
@@ -172,7 +174,22 @@ function NoteCardRow({
           textOverflow: "ellipsis",
         }}
       >
-        {note.company?.name || "Unknown company"} • {formatCreatedAt(note.createdAt)}
+        {companyUrl ? (
+          <Link
+            to={companyUrl}
+            style={{
+              color: "rgba(186, 230, 253, 0.88)",
+              textDecoration: "underline",
+              textDecorationColor: "rgba(125, 211, 252, 0.45)",
+              textUnderlineOffset: "2px",
+            }}
+          >
+            {companyName}
+          </Link>
+        ) : (
+          companyName
+        )}{" "}
+        • {formatCreatedAt(note.createdAt)}
         <span
           style={{
             marginLeft: "8px",
