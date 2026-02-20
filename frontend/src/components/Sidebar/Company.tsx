@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowLeft, ExternalLink, Building2, Sparkles, FileText, ChevronDown } from "lucide-react";
 import type { CompanyDetail } from "../../types/domain";
 import { useCompanyHierarchy, useCompanyBrands, useCompanyFilings } from "../../db/queries";
@@ -15,6 +16,18 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
   const { flatHierarchy, isLoading: loadingHierarchy } = useCompanyHierarchy(node.id);
   const { brands, isLoading: loadingBrands } = useCompanyBrands(node.id);
   const { filings, isLoading: loadingFilings } = useCompanyFilings(node.id);
+  const [collapsedSections, setCollapsedSections] = useState({
+    structure: false,
+    brands: false,
+    filings: false,
+  });
+
+  const toggleSection = (section: "structure" | "brands" | "filings") => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -70,12 +83,22 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
 
       <div className="flex-1 flex flex-col overflow-hidden" style={{ minHeight: 0 }}>
         {/* Company Structure - Takes 2x space */}
-        <div style={{ flex: "2 1 0", minHeight: 0, display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        <div
+          style={{
+            flex: collapsedSections.structure ? "0 0 auto" : "2 1 0",
+            minHeight: collapsedSections.structure ? "auto" : 0,
+            display: "flex",
+            flexDirection: "column",
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
+          }}
+        >
           <Section
             icon={<Building2 size={14} />}
             title="Structure"
             count={Math.max(0, flatHierarchy.length - 1)} // Subtract 1 to exclude the root company
             loading={loadingHierarchy}
+            collapsed={collapsedSections.structure}
+            onToggle={() => toggleSection("structure")}
             scrollable
             compact
           >
@@ -104,12 +127,22 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
         </div>
 
         {/* Brands - Takes 0.5x space (half of original) */}
-        <div style={{ flex: "0.5 1 0", minHeight: 0, display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        <div
+          style={{
+            flex: collapsedSections.brands ? "0 0 auto" : "0.5 1 0",
+            minHeight: collapsedSections.brands ? "auto" : 0,
+            display: "flex",
+            flexDirection: "column",
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
+          }}
+        >
           <Section
             icon={<Sparkles size={14} />}
             title="Brands"
             count={brands.length}
             loading={loadingBrands}
+            collapsed={collapsedSections.brands}
+            onToggle={() => toggleSection("brands")}
             scrollable
           >
             {loadingBrands ? (
@@ -169,12 +202,21 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
         </div>
 
         {/* SEC Filings - Takes 1x space */}
-        <div style={{ flex: "1 1 0", minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <div
+          style={{
+            flex: collapsedSections.filings ? "0 0 auto" : "1 1 0",
+            minHeight: collapsedSections.filings ? "auto" : 0,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           <Section
             icon={<FileText size={14} />}
             title="SEC Filings"
             count={filings.length}
             loading={loadingFilings}
+            collapsed={collapsedSections.filings}
+            onToggle={() => toggleSection("filings")}
             scrollable
           >
             {loadingFilings ? (
@@ -322,7 +364,14 @@ function Section({
   const isCollapsible = onToggle !== undefined;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        flex: collapsed ? "0 0 auto" : 1,
+        minHeight: collapsed ? "auto" : 0,
+      }}
+    >
       <div
         onClick={() => {
           if (onToggle) onToggle();

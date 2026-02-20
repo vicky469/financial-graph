@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, ChevronRight } from 'lucide-react';
 import { db } from '../../db/client';
 import { NoteCard, type TiptapJSON } from './NoteCard';
@@ -29,6 +29,7 @@ interface NotesSectionProps {
 export function NotesSection({ companyId, userId, onShowAll }: NotesSectionProps) {
   const [showEditor, setShowEditor] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const createEditorRef = useRef<HTMLDivElement>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     noteId: string | null;
@@ -134,6 +135,20 @@ export function NotesSection({ companyId, userId, onShowAll }: NotesSectionProps
       onShowAll();
     }
   };
+
+  // When creating a new note, bring the editor into view in the scrollable panel.
+  useEffect(() => {
+    if (!showEditor || editingNoteId) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      createEditorRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [showEditor, editingNoteId]);
 
   return (
     <div
@@ -304,15 +319,17 @@ export function NotesSection({ companyId, userId, onShowAll }: NotesSectionProps
 
           {/* Note editor for creating new notes - Requirement 2.1 */}
           {showEditor && !editingNoteId && (
-            <NoteEditor
-              companyId={companyId}
-              userId={userId}
-              initialContent={undefined}
-              initialVisibility={undefined}
-              noteId={undefined}
-              onSave={handleCreateNote}
-              onCancel={handleCancelEditor}
-            />
+            <div ref={createEditorRef}>
+              <NoteEditor
+                companyId={companyId}
+                userId={userId}
+                initialContent={undefined}
+                initialVisibility={undefined}
+                noteId={undefined}
+                onSave={handleCreateNote}
+                onCancel={handleCancelEditor}
+              />
+            </div>
           )}
 
           {/* Action buttons */}
