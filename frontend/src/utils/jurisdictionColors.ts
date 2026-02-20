@@ -41,9 +41,65 @@ const JURISDICTION_COLOR_MAP: Record<string, string> = {
   "": "#6b7280",                 // Gray for empty
 };
 
+function hslToHex(h: number, s: number, l: number): string {
+  const saturation = s / 100;
+  const lightness = l / 100;
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const segment = h / 60;
+  const second = chroma * (1 - Math.abs((segment % 2) - 1));
+
+  let r = 0;
+  let g = 0;
+  let b = 0;
+
+  if (segment >= 0 && segment < 1) {
+    r = chroma;
+    g = second;
+  } else if (segment >= 1 && segment < 2) {
+    r = second;
+    g = chroma;
+  } else if (segment >= 2 && segment < 3) {
+    g = chroma;
+    b = second;
+  } else if (segment >= 3 && segment < 4) {
+    g = second;
+    b = chroma;
+  } else if (segment >= 4 && segment < 5) {
+    r = second;
+    b = chroma;
+  } else {
+    r = chroma;
+    b = second;
+  }
+
+  const match = lightness - chroma / 2;
+  const toHex = (channel: number) =>
+    Math.round((channel + match) * 255)
+      .toString(16)
+      .padStart(2, "0");
+
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function hashJurisdiction(jurisdiction: string): number {
+  // FNV-1a 32-bit hash for stable, low-collision distribution.
+  let hash = 2166136261;
+  for (let i = 0; i < jurisdiction.length; i++) {
+    hash ^= jurisdiction.charCodeAt(i);
+    hash +=
+      (hash << 1) +
+      (hash << 4) +
+      (hash << 7) +
+      (hash << 8) +
+      (hash << 24);
+  }
+  return hash >>> 0;
+}
+
 /**
- * Get a consistent color for a jurisdiction name
- * Uses predefined mapping for common jurisdictions, falls back to hash for others
+ * Get a consistent color for a jurisdiction name.
+ * Uses predefined mapping for common jurisdictions, then a hash-derived HSL color
+ * to avoid collisions from the old small fixed palette.
  */
 export function getJurisdictionColor(jurisdiction: string): string {
   // Handle empty or unknown jurisdictions
@@ -56,11 +112,12 @@ export function getJurisdictionColor(jurisdiction: string): string {
     return JURISDICTION_COLOR_MAP[jurisdiction];
   }
 
-  // For unmapped jurisdictions, use hash-based selection
-  let hash = 0;
-  for (let i = 0; i < jurisdiction.length; i++) {
-    hash = jurisdiction.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  
-  return JURISDICTION_COLORS[Math.abs(hash) % JURISDICTION_COLORS.length];
+  const normalized = jurisdiction.trim().toLowerCase();
+  const hash = hashJurisdiction(normalized);
+
+  const hue = hash % 360;
+  const saturation = 62 + ((hash >> 8) % 18); // 62-79
+  const lightness = 50 + ((hash >> 13) % 10); // 50-59
+
+  return hslToHex(hue, saturation, lightness);
 }
