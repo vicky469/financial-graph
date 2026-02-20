@@ -235,8 +235,8 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                 <Table style={{ width: "100%", tableLayout: "fixed" }}>
                   <TableHeader>
                     <TableRow style={{ background: "rgba(255,255,255,0.03)" }}>
-                      <TableHead style={{...tableHeadStyle, width: "20%"}}>Filing</TableHead>
                       <TableHead style={{...tableHeadStyle, width: "20%"}}>Period</TableHead>
+                      <TableHead style={{...tableHeadStyle, width: "20%"}}>Filing</TableHead>
                       <TableHead style={{...tableHeadStyle, width: "15%"}}>Type</TableHead>
                       <TableHead style={{...tableHeadStyle, width: "15%"}}>Index</TableHead>
                       <TableHead style={{...tableHeadStyle, width: "30%"}}>Attachments</TableHead>
@@ -258,12 +258,12 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                           }}
                         >
                           <TableCell style={tableCellStyle}>
-                            {filing.filingDate}
-                          </TableCell>
-                          <TableCell style={tableCellStyle}>
                             {filing.periodOfReport || (
                               <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
                             )}
+                          </TableCell>
+                          <TableCell style={tableCellStyle}>
+                            {filing.filingDate}
                           </TableCell>
                           <TableCell style={tableCellStyle}>
                             {filing.filingUrl ? (
