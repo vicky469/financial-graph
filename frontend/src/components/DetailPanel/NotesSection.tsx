@@ -139,7 +139,7 @@ export function NotesSection({ companyId, userId, onShowAll }: NotesSectionProps
     <div
       className="notes-section"
       style={{
-        padding: '0 16px 16px 16px',
+        padding: '0 8px 16px 8px',
       }}
     >
       {/* Confirmation Dialog - Requirement 5.6 */}

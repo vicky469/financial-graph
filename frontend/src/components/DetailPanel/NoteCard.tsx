@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -10,6 +10,7 @@ import { useClickOutside } from '../../hooks/useClickOutside';
 import { hasFeature } from '../../config/featureFlags';
 import { decorateAdminMentionsInElement } from '../../utils/adminMentionStyling';
 import { getNoteType, NOTE_TYPE_META } from '../../utils/noteType';
+import { normalizeTiptapContent } from '../../utils/tiptapContent';
 import type { TiptapJSON, Note } from 'financial-graph-shared/types';
 
 // Extended Note type to include backlink metadata
@@ -59,14 +60,10 @@ export function NoteCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const workspaceEnabled = hasFeature('workspace');
+  const normalizedContent = useMemo(() => normalizeTiptapContent(note.content), [note.content]);
   
   // Close buttons when clicking outside the card
   useClickOutside(cardRef, () => setIsClicked(false), isClicked);
-  
-  // Create a unique Link extension for this note card to avoid duplicate name warnings
-  const LinkExtension = Link.extend({
-    name: `link-notecard-${note.id}`,
-  });
   
   // Initialize read-only Tiptap editor
   const editor = useEditor({
@@ -78,7 +75,7 @@ export function NoteCard({
         codeBlock: false,
         horizontalRule: false,
       }),
-      LinkExtension.configure({
+      Link.configure({
         openOnClick: true, // Allow clicking links in read-only mode
         HTMLAttributes: {
           class: 'text-blue-400 underline cursor-pointer hover:text-blue-300',
@@ -98,7 +95,7 @@ export function NoteCard({
         },
       }),
     ],
-    content: note.content,
+    content: normalizedContent,
     editable: false,
     editorProps: {
       attributes: {
@@ -130,11 +127,11 @@ export function NoteCard({
     if (!editor) return;
 
     const current = JSON.stringify(editor.getJSON());
-    const next = JSON.stringify(note.content);
+    const next = JSON.stringify(normalizedContent);
     if (current !== next) {
-      editor.commands.setContent(note.content, { emitUpdate: false });
+      editor.commands.setContent(normalizedContent, { emitUpdate: false });
     }
-  }, [editor, note.content]);
+  }, [editor, normalizedContent]);
 
   // Check if this is a backlink note
   const extendedNote = note as ExtendedNote;
@@ -145,8 +142,18 @@ export function NoteCard({
   // Style @admin text with shared mention styling.
   useEffect(() => {
     if (!editor) return;
-    decorateAdminMentionsInElement(editor.view.dom);
-  }, [editor]);
+
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        if (editor.isDestroyed) return;
+        decorateAdminMentionsInElement(editor.view.dom);
+      } catch {
+        // Ignore transient mount/unmount editor-view timing errors.
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [editor, normalizedContent]);
   // Determine if current user can edit/delete this note
   // Show buttons only for user's own user notes
   // Backlink notes are read-only - user must navigate to source company to edit

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -19,6 +19,7 @@ import { CompanyMention } from './CompanyMentionExtension';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { hasFeature } from '../../config/featureFlags';
 import { tiptapToPlainText } from '../../utils/noteType';
+import { normalizeTiptapContent } from '../../utils/tiptapContent';
 import type { TiptapJSON } from './NoteCard';
 
 interface NoteEditorProps {
@@ -57,11 +58,27 @@ export function NoteEditor({
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionPosition, setMentionPosition] = useState<{ top: number; left: number } | null>(null);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [showLinkEditor, setShowLinkEditor] = useState(false);
+  const [linkDraft, setLinkDraft] = useState('');
+  const [linkEditorPosition, setLinkEditorPosition] = useState<{ top: number; left: number } | null>(null);
+  const [linkSelection, setLinkSelection] = useState<{ from: number; to: number } | null>(null);
 
   const [visibility, setVisibility] = useState<'private' | 'public'>(
     workspaceEnabled ? initialVisibility : 'private'
   );
   const editorRef = useRef<HTMLDivElement>(null);
+  const linkEditorRef = useRef<HTMLDivElement>(null);
+  const linkInputRef = useRef<HTMLInputElement>(null);
+  const normalizedInitialContent = useMemo(
+    () => normalizeTiptapContent(initialContent),
+    [initialContent]
+  );
+
+  const closeLinkEditor = useCallback(() => {
+    setShowLinkEditor(false);
+    setLinkEditorPosition(null);
+    setLinkSelection(null);
+  }, []);
 
   useEffect(() => {
     if (!workspaceEnabled && visibility !== 'private') {
@@ -111,14 +128,10 @@ export function NoteEditor({
       setIsSaving(false);
     }
   }, true); // Enable the click outside listener
+  useClickOutside(linkEditorRef, closeLinkEditor, showLinkEditor);
 
   // Initialize Tiptap editor with extensions
   // StarterKit provides bold, lists, etc.
-  // Create a unique Link extension for this editor to avoid duplicate name warnings
-  const LinkExtension = Link.extend({
-    name: noteId ? `link-editor-${noteId}` : `link-editor-new-${companyId}`,
-  });
-  
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -129,7 +142,7 @@ export function NoteEditor({
         horizontalRule: false, // Disable horizontal rules for notes
       }),
       // Link extension for hyperlinks
-      LinkExtension.configure({
+      Link.configure({
         openOnClick: false, // Don't open links while editing
         HTMLAttributes: {
           class: 'text-blue-400 underline cursor-pointer',
@@ -149,20 +162,20 @@ export function NoteEditor({
         },
       }),
     ],
-    content: initialContent || {
-      type: 'doc',
-      content: [
-        {
-          type: 'paragraph',
-        },
-      ],
-    },
+    content: normalizedInitialContent,
     editorProps: {
       attributes: {
         class: 'prose prose-sm prose-invert max-w-none focus:outline-none min-h-[100px] text-xs',
         style: 'padding: 8px 12px; font-size: 13px; line-height: 1.5;',
       },
       handleKeyDown: (_view, event) => {
+        const isModK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
+        if (isModK) {
+          event.preventDefault();
+          openInlineLinkEditor();
+          return true;
+        }
+
         // Handle @ mention dropdown navigation
         if (showMentionDropdown && filteredCompanies.length > 0) {
           if (event.key === 'ArrowDown') {
@@ -286,6 +299,94 @@ export function NoteEditor({
     closeMentionDropdown();
   }, [editor, closeMentionDropdown]);
 
+  const normalizeLinkUrl = useCallback((url: string): string => {
+    const trimmed = url.trim();
+    if (!trimmed) return '';
+
+    if (/^(https?:\/\/|mailto:|tel:|\/)/i.test(trimmed)) {
+      return trimmed;
+    }
+
+    return `https://${trimmed}`;
+  }, []);
+
+  const openInlineLinkEditor = useCallback((): boolean => {
+    if (!editor || !editorRef.current) return false;
+
+    const { selection } = editor.state;
+    const hasSelection = !selection.empty;
+    const hasActiveLink = editor.isActive('link');
+
+    if (!hasSelection && !hasActiveLink) {
+      return false;
+    }
+
+    if (!hasSelection && hasActiveLink) {
+      editor.chain().focus().extendMarkRange('link').run();
+    }
+
+    const { from, to } = editor.state.selection;
+    if (from === to) {
+      return false;
+    }
+
+    const coords = editor.view.coordsAtPos(to);
+    const containerRect = editorRef.current.getBoundingClientRect();
+    const maxLeft = Math.max(8, editorRef.current.clientWidth - 304);
+
+    setLinkSelection({ from, to });
+    setLinkDraft(editor.getAttributes('link').href ?? '');
+    setLinkEditorPosition({
+      top: Math.max(8, coords.top - containerRect.top - 46),
+      left: Math.max(8, Math.min(coords.left - containerRect.left - 150, maxLeft)),
+    });
+    setShowLinkEditor(true);
+
+    return true;
+  }, [editor]);
+
+  const applyInlineLink = useCallback(() => {
+    if (!editor) return;
+
+    const normalized = normalizeLinkUrl(linkDraft);
+    const chain = editor.chain().focus();
+
+    if (linkSelection) {
+      chain.setTextSelection(linkSelection);
+    }
+
+    if (!normalized) {
+      chain.extendMarkRange('link').unsetLink().run();
+      closeLinkEditor();
+      return;
+    }
+
+    chain.extendMarkRange('link').setLink({ href: normalized }).run();
+    closeLinkEditor();
+  }, [editor, linkDraft, linkSelection, closeLinkEditor, normalizeLinkUrl]);
+
+  const removeInlineLink = useCallback(() => {
+    if (!editor) return;
+
+    const chain = editor.chain().focus();
+    if (linkSelection) {
+      chain.setTextSelection(linkSelection);
+    }
+    chain.extendMarkRange('link').unsetLink().run();
+    closeLinkEditor();
+  }, [editor, linkSelection, closeLinkEditor]);
+
+  useEffect(() => {
+    if (!showLinkEditor) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      linkInputRef.current?.focus();
+      linkInputRef.current?.select();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [showLinkEditor]);
+
   // Validate content is not empty
   const validateContent = (): boolean => {
     if (!editor) return false;
@@ -350,24 +451,7 @@ export function NoteEditor({
 
   // Hyperlink insertion
   const addLink = () => {
-    if (!editor) return;
-
-    const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('Enter URL:', previousUrl);
-
-    // Cancelled
-    if (url === null) {
-      return;
-    }
-
-    // Empty string removes link
-    if (url === '') {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run();
-      return;
-    }
-
-    // Update link
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    openInlineLinkEditor();
   };
 
   // Company mention insertion via toolbar button
@@ -397,6 +481,7 @@ export function NoteEditor({
     <div
       ref={editorRef}
       className="note-editor"
+      data-company-id={companyId}
       style={{
         padding: '12px',
         borderRadius: '8px',
@@ -556,7 +641,7 @@ export function NoteEditor({
             }
           }}
           aria-label="Add link"
-          title="Add link"
+          title="Add link (Cmd/Ctrl + K)"
         >
           <LinkIcon size={14} />
         </button>
@@ -653,6 +738,120 @@ export function NoteEditor({
       >
         <EditorContent editor={editor} />
       </div>
+
+      {/* Inline link editor - selection anchored, Notion-style */}
+      {showLinkEditor && linkEditorPosition && (
+        <div
+          ref={linkEditorRef}
+          style={{
+            position: 'absolute',
+            top: linkEditorPosition.top,
+            left: linkEditorPosition.left,
+            zIndex: 1001,
+            width: '296px',
+            padding: '8px',
+            borderRadius: '8px',
+            border: '1px solid rgba(125, 211, 252, 0.28)',
+            background: 'rgba(8, 15, 26, 0.96)',
+            boxShadow: '0 14px 32px rgba(2, 6, 23, 0.55)',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '10px',
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              color: 'rgba(186, 230, 253, 0.72)',
+              marginBottom: '6px',
+            }}
+          >
+            Link
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              gap: '6px',
+            }}
+          >
+            <input
+              ref={linkInputRef}
+              type="text"
+              value={linkDraft}
+              onChange={(event) => setLinkDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  applyInlineLink();
+                }
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closeLinkEditor();
+                }
+              }}
+              placeholder="Paste or type a URL"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                height: '30px',
+                borderRadius: '6px',
+                border: '1px solid rgba(148, 163, 184, 0.28)',
+                background: 'rgba(2, 6, 23, 0.55)',
+                color: 'rgba(241, 245, 249, 0.94)',
+                padding: '0 10px',
+                fontSize: '12px',
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              onClick={applyInlineLink}
+              style={{
+                height: '30px',
+                padding: '0 10px',
+                fontSize: '11px',
+                backgroundColor: 'rgba(125, 211, 252, 0.22)',
+                color: 'rgba(186, 230, 253, 0.95)',
+                border: '1px solid rgba(125, 211, 252, 0.32)',
+              }}
+            >
+              Apply
+            </Button>
+          </div>
+          <div
+            style={{
+              marginTop: '6px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <button
+              type="button"
+              onClick={removeInlineLink}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: 'rgba(248, 113, 113, 0.86)',
+                fontSize: '11px',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              Remove link
+            </button>
+            <div
+              style={{
+                color: 'rgba(148, 163, 184, 0.72)',
+                fontSize: '10px',
+              }}
+            >
+              Enter to save
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Company mention dropdown - Notion-style autocomplete */}
       {showMentionDropdown && mentionPosition && filteredCompanies.length > 0 && (

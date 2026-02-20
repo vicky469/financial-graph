@@ -16,6 +16,7 @@ import { db, tx, id } from "../db/client";
 import { extractMentionedCompanies } from "../utils/mentionExtraction";
 import { hasFeature } from "../config/featureFlags";
 import { hasAdminMention } from "../utils/noteReporting";
+import { normalizeTiptapContent } from "../utils/tiptapContent";
 import type { Note, TiptapJSON } from "financial-graph-shared/types";
 
 interface UpdateNoteOptions {
@@ -66,23 +67,24 @@ export function useNotes(): UseNotesReturn {
   ): Promise<void> => {
     try {
       setErrorMessage(null);
+      const normalizedContent = normalizeTiptapContent(content);
 
       const effectiveVisibility = hasFeature("workspace") ? visibility : "private";
-      const shouldOpenReport = hasAdminMention(content);
+      const shouldOpenReport = hasAdminMention(normalizedContent);
 
       // Generate unique ID for the note
       const noteId = id();
       const now = new Date().toISOString();
 
       // Extract mentioned company IDs from content
-      const mentionedCompanyIds = extractMentionedCompanies(content);
+      const mentionedCompanyIds = extractMentionedCompanies(normalizedContent);
 
       // Transact to InstantDB with optimistic update
       // Default visibility to 'private'
       await db.transact([
         tx.notes[noteId]
           .update({
-            content,
+            content: normalizedContent,
             createdAt: now,
             updatedAt: now,
             createdBy: "user",
@@ -125,17 +127,18 @@ export function useNotes(): UseNotesReturn {
   ): Promise<void> => {
     try {
       setErrorMessage(null);
+      const normalizedContent = normalizeTiptapContent(content);
 
       // Update timestamp on edit
       const now = new Date().toISOString();
 
       // Re-extract mentioned company IDs from updated content
-      const mentionedCompanyIds = extractMentionedCompanies(content);
-      const shouldOpenReport = hasAdminMention(content);
+      const mentionedCompanyIds = extractMentionedCompanies(normalizedContent);
+      const shouldOpenReport = hasAdminMention(normalizedContent);
 
       // Build update object
-      const updateData: any = {
-        content,
+      const updateData: Record<string, unknown> = {
+        content: normalizedContent,
         updatedAt: now,
         mentionedCompanyIds,
       };
