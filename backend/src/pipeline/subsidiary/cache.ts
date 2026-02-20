@@ -67,10 +67,15 @@ export type TargetsFileResult = {
 };
 
 export function buildTargetsFilename(options: {
+  quarters?: number[];
   companyLookup?: CompanyLookupOptions;
   limit?: number;
   timestampSuffix?: string;
 }): string {
+  const quarterLabel =
+    options.quarters && options.quarters.length > 0
+      ? `q-${options.quarters.map((quarter) => `q${quarter}`).join("-")}`
+      : undefined;
   const filterLabel =
     options.companyLookup?.mode === "sp500-only"
       ? "sp500"
@@ -78,15 +83,14 @@ export function buildTargetsFilename(options: {
         ? "no-sp500"
         : undefined;
   const limitLabel = options.limit ? `limit-${options.limit}` : undefined;
-  const suffixParts = [filterLabel, limitLabel, options.timestampSuffix].filter(
-    Boolean,
-  );
+  const suffixParts = [quarterLabel, filterLabel, limitLabel, options.timestampSuffix].filter(Boolean);
   const suffix = suffixParts.length > 0 ? `.${suffixParts.join(".")}` : "";
   return `targets${suffix}.jsonl`;
 }
 
 export async function writeCachedTargetsFile(options: {
   year: number;
+  quarters?: number[];
   exhibitTypes: readonly SubsidiaryExhibit[];
   cacheRoot?: string;
   outputPath?: string;
@@ -97,6 +101,7 @@ export async function writeCachedTargetsFile(options: {
 }): Promise<TargetsFileResult> {
   const {
     year,
+    quarters = [],
     exhibitTypes,
     cacheRoot = DEFAULT_CACHE_ROOT,
     outputPath,
@@ -108,6 +113,7 @@ export async function writeCachedTargetsFile(options: {
 
   const companyMap = await loadPublicCompaniesLookup(companyLookup);
   const defaultFilename = buildTargetsFilename({
+    quarters,
     companyLookup,
     limit,
     timestampSuffix,
@@ -133,56 +139,72 @@ export async function writeCachedTargetsFile(options: {
 
   let scannedCount = 0;
   let targetCount = 0;
+  const useQuarterSubdir = quarters.length > 0;
 
   let shouldStop = false;
 
   for (const exhibitType of exhibitTypes) {
     if (shouldStop) break;
-    const cacheDir = path.join(cacheRoot, String(year), exhibitType);
+    const cacheDirs =
+      useQuarterSubdir
+        ? quarters.map((quarter) => ({
+            quarter,
+            dir: path.join(cacheRoot, String(year), `Q${quarter}`, exhibitType),
+          }))
+        : [{ quarter: undefined, dir: path.join(cacheRoot, String(year), exhibitType) }];
 
-    try {
-      await fs.access(cacheDir);
-    } catch {
-      logger.warn(`Cache directory not found: ${cacheDir}`);
-      continue;
-    }
-
-    const entries = await fs.readdir(cacheDir, { withFileTypes: true });
-
-    for (const entry of entries) {
+    for (const cacheDirInfo of cacheDirs) {
       if (shouldStop) break;
-      if (!entry.isFile()) continue;
-      if (!entry.name.endsWith(".gz")) continue;
+      const { dir: cacheDir, quarter } = cacheDirInfo;
 
-      const parsed = parseCacheFilename(entry.name);
-      if (!parsed) continue;
-
-      scannedCount += 1;
-
-      const company = companyMap.get(normalizeCik(parsed.cik));
-      if (!company) continue;
-
-      // Filter by accessions if provided
-      if (accessionFilter && !accessionFilter.has(parsed.accessionNumberNoDashes)) {
+      try {
+        await fs.access(cacheDir);
+      } catch {
+        logger.warn(`Cache directory not found: ${cacheDir}`);
         continue;
       }
 
-      const target: SECFilingTarget = {
-        accessionNumberNoDashes: parsed.accessionNumberNoDashes,
-        cik: parsed.cik,
-        exhibitType,
-        cachePath: path.join(cacheDir, entry.name),
-        url: parsed.url,
-        companyId: company.id,
-        companyName: company.name,
-        isSp500: company.isSp500,
-      };
+      const entries = await fs.readdir(cacheDir, { withFileTypes: true });
 
-      await writeLine(`${JSON.stringify(target)}\n`);
-      targetCount += 1;
+      for (const entry of entries) {
+        if (shouldStop) break;
+        if (!entry.isFile()) continue;
+        if (!entry.name.endsWith(".gz")) continue;
 
-      if (limit && targetCount >= limit) {
-        shouldStop = true;
+        const parsed = parseCacheFilename(entry.name);
+        if (!parsed) continue;
+
+        scannedCount += 1;
+
+        const company = companyMap.get(normalizeCik(parsed.cik));
+        if (!company) continue;
+
+        // Filter by accessions if provided
+        if (accessionFilter && !accessionFilter.has(parsed.accessionNumberNoDashes)) {
+          continue;
+        }
+
+        const target: SECFilingTarget = {
+          accessionNumberNoDashes: parsed.accessionNumberNoDashes,
+          cik: parsed.cik,
+          exhibitType,
+          cachePath: path.join(cacheDir, entry.name),
+          url: parsed.url,
+          companyId: company.id,
+          companyName: company.name,
+          isSp500: company.isSp500,
+          metadata:
+            quarter !== undefined
+              ? { sourceQuarter: quarter, sourceYear: year }
+              : undefined,
+        };
+
+        await writeLine(`${JSON.stringify(target)}\n`);
+        targetCount += 1;
+
+        if (limit && targetCount >= limit) {
+          shouldStop = true;
+        }
       }
     }
   }

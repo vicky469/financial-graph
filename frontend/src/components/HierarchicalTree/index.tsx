@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { ChevronRight, ChevronDown, Building2, Search } from "lucide-react";
 import { getJurisdictionColor } from "../../utils/jurisdictionColors";
+import { hasFeature } from "../../config/featureFlags";
 
 interface HierarchyNode {
   id: string;
@@ -19,14 +20,17 @@ interface HierarchicalTreeProps {
 
 export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: HierarchicalTreeProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const nestingEnabled = hasFeature("structureNesting");
 
-  // Filter hierarchy based on search query and exclude root node (level 0)
-  const filteredHierarchy = useMemo(() => {
+  const subsidiariesOnly = useMemo(() => {
     // Always exclude root node (level 0) since it's shown in the header
-    const subsidiariesOnly = hierarchy.filter(node => node.level > 0);
-    
+    return hierarchy.filter((node) => node.level > 0);
+  }, [hierarchy]);
+
+  // Filter subsidiaries based on search query
+  const filteredHierarchy = useMemo(() => {
     if (!searchQuery.trim()) return subsidiariesOnly;
-    
+
     const query = searchQuery.toLowerCase();
     return subsidiariesOnly.filter((node) => {
       // Filter subsidiaries by name or jurisdiction
@@ -35,24 +39,23 @@ export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: Hie
         (node.jurisdiction && node.jurisdiction.toLowerCase().includes(query))
       );
     });
-  }, [hierarchy, searchQuery]);
+  }, [subsidiariesOnly, searchQuery]);
 
-  // Count of subsidiaries (all are subsidiaries now since root is excluded)
-  const subsidiaryCount = filteredHierarchy.length;
-  const filteredSubsidiaryCount = searchQuery.trim() ? filteredHierarchy.length : subsidiaryCount;
+  const subsidiaryCount = subsidiariesOnly.length;
+  const filteredSubsidiaryCount = filteredHierarchy.length;
 
-  // Default to expanded parents so subsidiaries are visible on first load.
+  // Default to expanded parents so subsidiaries are visible on first load in nested mode.
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (hierarchy.length === 0) return;
+    if (!nestingEnabled || hierarchy.length === 0) return;
 
     const parentNodeIds = hierarchy
       .filter((node) => node.hasChildren)
       .map((node) => node.id);
 
     setExpandedNodes(new Set(parentNodeIds));
-  }, [hierarchy]);
+  }, [hierarchy, nestingEnabled]);
 
   const toggleNode = (nodeId: string) => {
     setExpandedNodes((prev) => {
@@ -102,6 +105,8 @@ export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: Hie
 
   // Check if a node should be visible based on parent expanded state
   const isNodeVisible = (nodeIndex: number): boolean => {
+    if (!nestingEnabled) return true;
+
     const node = filteredHierarchy[nodeIndex];
     
     // Level 1 nodes (direct children of root) are always visible
@@ -196,10 +201,11 @@ export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: Hie
           if (!isNodeVisible(index)) return null;
 
           const isExpanded = expandedNodes.has(node.id);
-          // Adjust indentation since we removed root (level 0)
-          // Level 1 nodes should have minimal indent, level 2+ should indent more
+          const isSearching = !!searchQuery.trim();
+          const showNestingControls = nestingEnabled && !isSearching;
+          // In flat mode, keep all rows at one level.
           const adjustedLevel = node.level - 1; // Subtract 1 since root is hidden
-          const indentWidth = searchQuery.trim() ? 4 : adjustedLevel * 8;
+          const indentWidth = showNestingControls ? adjustedLevel * 8 : 4;
 
           return (
             <HierarchyNodeItem
@@ -210,7 +216,7 @@ export function HierarchicalTree({ hierarchy, selectedNodeId, onNodeClick }: Hie
               isSelected={selectedNodeId === node.id}
               onToggle={() => toggleNode(node.id)}
               onClick={() => onNodeClick?.(node.id)}
-              isSearching={!!searchQuery.trim()}
+              showNestingControls={showNestingControls}
             />
           );
         })}
@@ -244,7 +250,7 @@ function HierarchyNodeItem({
   isSelected,
   onToggle,
   onClick,
-  isSearching,
+  showNestingControls,
 }: {
   node: HierarchyNode;
   indentWidth: number;
@@ -252,7 +258,7 @@ function HierarchyNodeItem({
   isSelected?: boolean;
   onToggle: () => void;
   onClick: () => void;
-  isSearching?: boolean;
+  showNestingControls: boolean;
 }) {
   const hasChildren = node.hasChildren;
 
@@ -271,8 +277,8 @@ function HierarchyNodeItem({
         border: isSelected ? "1px solid rgba(99, 102, 241, 0.3)" : "1px solid transparent",
       }}
       onClick={() => {
-        // If node has children and not searching, toggle expansion
-        if (hasChildren && !isSearching) {
+        // In nested mode, clicking a parent toggles expansion.
+        if (hasChildren && showNestingControls) {
           onToggle();
         }
         // Always call onClick for selection/detail view
@@ -290,7 +296,7 @@ function HierarchyNodeItem({
       }}
     >
       {/* Expand/Collapse Icon */}
-      {hasChildren && !isSearching ? (
+      {hasChildren && showNestingControls ? (
         <div
           style={{
             width: "14px",

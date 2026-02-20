@@ -6,6 +6,7 @@
 - Flags default to `false` unless explicitly set to `"true"` in the environment.
 - `VITE_FEATURE_WORKSPACE` enables public note visibility controls.
 - `VITE_FEATURE_PREVIEW_BANNER` enables the preview banner UI for authenticated users.
+- `VITE_FEATURE_STRUCTURE_NESTING` enables nested expand/collapse behavior in the Structure list.
 
 ## Contact Form
 

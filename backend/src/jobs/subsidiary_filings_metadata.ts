@@ -11,7 +11,7 @@ import {
 } from "../db/queries/company-lookup";
 import { createJobConfig, finalizeJobConfig } from "../config/jobConfig";
 import { AcceptableYear, RegistrantGrouped, RegistrantIndexFile } from "./type";
-import { parseCliYears } from "../utils/cli";
+import { parseCliYears, parseCliQuarters } from "../utils/cli";
 import { WORKLOAD_PRESETS } from "../utils/workload-config";
 import { upsertFiling } from "../db/repo";
 
@@ -157,12 +157,13 @@ async function ingestFilings(
 // Compose steps for a single year
 async function collectYear(
   year: number,
+  quarters: number[],
 ): Promise<{ filings: FilingRecord[]; missingCiks: Set<string> }> {
   const seenAccessions = new Map<string, Set<string>>();
   const missingCiks = new Set<string>();
   const collected: FilingRecord[] = [];
 
-  for (const quarter of SEC_QUARTERS) {
+  for (const quarter of quarters) {
     const registrants = await readQuarterFile(year, quarter);
     const filings = collectFilings(
       registrants,
@@ -186,8 +187,16 @@ async function collectYear(
 async function main() {
   try {
     const years = parseCliYears(process.argv[2]);
+    const quarterArg = process.argv.slice(3).join(",");
+    const selectedQuarters = quarterArg
+      ? parseCliQuarters(quarterArg)
+      : [...SEC_QUARTERS];
     const cache = await loadPublicCompaniesLookup();
-    logger.info("Loaded PUBLIC CIK lookup cache", { size: cache.size });
+    logger.info("Loaded PUBLIC CIK lookup cache", {
+      size: cache.size,
+      years,
+      quarters: selectedQuarters,
+    });
 
     for (const year of years) {
       const job = createJobConfig(
@@ -201,7 +210,7 @@ async function main() {
       let missingCiks: Set<string> = new Set();
 
       try {
-        ({ filings, missingCiks } = await collectYear(year));
+        ({ filings, missingCiks } = await collectYear(year, selectedQuarters));
       } catch (error) {
         logger.error("Failed to load registrant index for year", {
           year,

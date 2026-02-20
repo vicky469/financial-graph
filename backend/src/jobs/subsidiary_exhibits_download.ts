@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { db } from "../db/client";
 import { createLogger } from "../utils/logger";
-import { parseCliYears } from "../utils/cli";
+import { parseCliQuarters, parseCliYears } from "../utils/cli";
 import { runWorkerPool } from "../utils/worker-pool";
 import { WORKLOAD_PRESETS } from "../utils/workload-config";
 import { fetchSecPageWithRetry, SecFetchMode } from "../integration/sec";
@@ -13,6 +13,7 @@ import {
   SUBSIDIARY_EXHIBITS,
   type SubsidiaryExhibit,
 } from "../config/subsidiary-exhibits";
+import { SEC_QUARTERS } from "../config/config";
 
 const logger = createLogger("jobs/subsidiary_exhibits_download");
 
@@ -36,12 +37,15 @@ type FilingRow = {
 type DownloadTask = {
   exhibitType: SubsidiaryExhibit;
   year: number;
+  quarter?: number;
   url: string;
   destPath: string;
 };
 
 function buildDestPath(
   year: number,
+  quarter: number | undefined,
+  useQuarterSubdir: boolean,
   exhibitType: SubsidiaryExhibit,
   url: string,
 ): string {
@@ -51,11 +55,14 @@ function buildDestPath(
   const tail = dataIdx >= 0 ? parts.slice(dataIdx + 1) : parts;
   const relPath = tail.join("/"); // e.g., 1833214/000095017025046994/sabs-ex21_1.htm
   const flatName = `${relPath.replace(/\//g, "_")}.gz`;
-  return path.join(OUTPUT_ROOT, String(year), exhibitType, flatName);
+  return useQuarterSubdir && quarter
+    ? path.join(OUTPUT_ROOT, String(year), `Q${quarter}`, exhibitType, flatName)
+    : path.join(OUTPUT_ROOT, String(year), exhibitType, flatName);
 }
 
 async function fetchExhibits(
   year: number,
+  quarter: number | undefined,
   exhibitType: SubsidiaryExhibit,
 ): Promise<FilingRow[]> {
   const formPrefix = PREFIX_FORM_EXHIBIT[exhibitType];
@@ -64,6 +71,7 @@ async function fetchExhibits(
       $: {
         where: {
           source_year: year,
+          ...(quarter ? { source_quarter: quarter } : {}),
           form_type: { $like: `${formPrefix}%` },
         },
         fields: ["attachments"],
@@ -87,6 +95,7 @@ async function fetchExhibits(
 
   logger.info("Fetched filings", {
     year,
+    quarter,
     exhibitType,
     count: filtered.length,
   });
@@ -95,6 +104,8 @@ async function fetchExhibits(
 
 function collectDownloadTasks(
   year: number,
+  quarter: number | undefined,
+  useQuarterSubdir: boolean,
   filings: FilingRow[],
   exhibitType: SubsidiaryExhibit,
 ): DownloadTask[] {
@@ -109,14 +120,16 @@ function collectDownloadTasks(
       tasks.push({
         exhibitType,
         year,
+        quarter,
         url,
-        destPath: buildDestPath(year, exhibitType, url),
+        destPath: buildDestPath(year, quarter, useQuarterSubdir, exhibitType, url),
       });
     }
   }
 
   logger.info("Collected exhibit tasks", {
     year,
+    quarter,
     exhibitType,
     tasks: tasks.length,
   });
@@ -138,18 +151,27 @@ async function downloadTask(task: DownloadTask): Promise<void> {
 
 async function processExhibitType(
   year: number,
+  quarter: number | undefined,
+  useQuarterSubdir: boolean,
   exhibitType: SubsidiaryExhibit,
   filings: FilingRow[],
 ): Promise<void> {
-  const tasks = collectDownloadTasks(year, filings, exhibitType);
+  const tasks = collectDownloadTasks(
+    year,
+    quarter,
+    useQuarterSubdir,
+    filings,
+    exhibitType,
+  );
   if (tasks.length === 0) {
-    logger.info(`No ${exhibitType} tasks for ${year}`);
+    logger.info(`No ${exhibitType} tasks for ${year}${quarter ? ` Q${quarter}` : ""}`);
     return;
   }
 
   const workload = WORKLOAD_PRESETS.secApi(tasks.length);
   logger.info("Download workload", {
     year,
+    quarter,
     exhibitType,
     tasks: tasks.length,
     concurrency: workload.concurrency,
@@ -173,39 +195,82 @@ async function processExhibitType(
   if (pool.errors.length > 0) {
     logger.warn("Completed with download errors", {
       year,
+      quarter,
       exhibitType,
       errors: pool.errors.length,
     });
   } else {
-    logger.info(`Completed ${exhibitType} downloads for ${year}`);
+    logger.info(
+      `Completed ${exhibitType} downloads for ${year}${quarter ? ` Q${quarter}` : ""}`,
+    );
   }
 }
 
-async function processYear(year: number): Promise<void> {
-  for (const exhibitType of SUBSIDIARY_EXHIBITS) {
-    const base = path.join(OUTPUT_ROOT, String(year), exhibitType);
-    try {
-      const entries = await fs.readdir(base);
-      if (entries.some((e) => e.endsWith(".gz"))) {
-        logger.info(`Skipping ${exhibitType} for ${year}: existing gz files`, {
-          base,
-        });
-        return;
+async function processYear(
+  year: number,
+  selectedQuarters: number[],
+  useQuarterSubdir: boolean,
+): Promise<void> {
+  if (!useQuarterSubdir) {
+    for (const exhibitType of SUBSIDIARY_EXHIBITS) {
+      const base = path.join(OUTPUT_ROOT, String(year), exhibitType);
+      try {
+        const entries = await fs.readdir(base);
+        if (entries.some((e) => e.endsWith(".gz"))) {
+          logger.info(`Skipping ${exhibitType} for ${year}: existing gz files`, {
+            base,
+          });
+          continue;
+        }
+      } catch {
+        // missing dir is fine
       }
-    } catch {
-      // missing dir is fine
+      logger.info(`Processing ${exhibitType} for ${year}`);
+      const filings = await fetchExhibits(year, undefined, exhibitType);
+      await processExhibitType(year, undefined, false, exhibitType, filings);
     }
-    logger.info(`Processing ${exhibitType} for ${year}`);
-    const filings = await fetchExhibits(year, exhibitType);
-    await processExhibitType(year, exhibitType, filings);
+    return;
+  }
+
+  for (const quarter of selectedQuarters) {
+    for (const exhibitType of SUBSIDIARY_EXHIBITS) {
+      const base = path.join(OUTPUT_ROOT, String(year), `Q${quarter}`, exhibitType);
+      try {
+        const entries = await fs.readdir(base);
+        if (entries.some((e) => e.endsWith(".gz"))) {
+          logger.info(
+            `Skipping ${exhibitType} for ${year} Q${quarter}: existing gz files`,
+            { base },
+          );
+          continue;
+        }
+      } catch {
+        // missing dir is fine
+      }
+      logger.info(`Processing ${exhibitType} for ${year} Q${quarter}`);
+      const filings = await fetchExhibits(year, quarter, exhibitType);
+      await processExhibitType(year, quarter, true, exhibitType, filings);
+    }
   }
 }
 
 export async function main() {
   try {
     const years = parseCliYears(process.argv[2]);
+    const quarterArg = process.argv.slice(3).join(",");
+    const selectedQuarters = quarterArg
+      ? parseCliQuarters(quarterArg)
+      : [...SEC_QUARTERS];
+    const useQuarterSubdir = quarterArg.length > 0;
+
+    logger.info("CLI parsed", {
+      years,
+      quarters: selectedQuarters,
+      useQuarterSubdir,
+    });
+
     for (const year of years) {
-      await processYear(year);
+      await processYear(year, selectedQuarters, useQuarterSubdir);
     }
     logger.info("subsidiary_exhibits_download finished");
     process.exit(0);

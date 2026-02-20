@@ -4,6 +4,7 @@ import {
   getCliIntArg,
   getCliListArg,
   hasCliFlag,
+  parseCliQuarters,
 } from "../../utils/cli";
 
 function parseFallbackPolicy(
@@ -32,6 +33,7 @@ export function resolveSp500Flags(args: string[]): {
 
 export type SubsidiaryPipelineCliArgs = {
   year?: number;
+  quarters?: number[];
   limit?: number;
   sp500Only: boolean;
   excludeSp500: boolean;
@@ -43,6 +45,7 @@ export type SubsidiaryPipelineCliArgs = {
 
 const VALUE_ARG_PREFIXES = [
   "--year=",
+  "--quarter=",
   "--limit=",
   "--sink=",
   "--fallback=",
@@ -67,7 +70,7 @@ function validateArgs(args: string[]): void {
 
     if (!matchingPrefix) {
       throw new Error(
-        `Unknown argument "${arg}". Allowed args: --year=, --limit=, --sink=, --fallback=, --accessions=, --sp500, --exclude-sp500, --dry-run`,
+        `Unknown argument "${arg}". Allowed args: --year=, --quarter=, --limit=, --sink=, --fallback=, --accessions=, --sp500, --exclude-sp500, --dry-run`,
       );
     }
 
@@ -110,6 +113,7 @@ export function parsePipelineArgs(
 
   return {
     year: getCliIntArg(args, "year"),
+    quarters: parseCliQuarters(getCliArg(args, "quarter")),
     limit: getCliIntArg(args, "limit"),
     sp500Only,
     excludeSp500,

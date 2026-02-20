@@ -147,6 +147,7 @@ export async function runSubsidiaryParsingPipeline(
 
   const targetsFile = await writeCachedTargetsFile({
     year: options.year,
+    quarters: options.quarters,
     exhibitTypes: SUBSIDIARY_EXHIBITS,
     companyLookup: {
       mode: options.excludeSp500
@@ -324,6 +325,7 @@ async function main() {
 
   await runSubsidiaryParsingPipeline({
     year,
+    quarters: args.quarters,
     limit: args.limit,
     sp500Only: args.sp500Only,
     excludeSp500: args.excludeSp500,

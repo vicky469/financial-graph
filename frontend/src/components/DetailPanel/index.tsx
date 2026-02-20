@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { ExternalLink } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import type { CompanyDetail, PropertyValue } from "../../types/domain";
 import { CompanyType, getCleanCategory } from "financial-graph-shared";
 
@@ -25,6 +25,7 @@ interface DetailPanelProps {
   isPublic?: boolean;
   parentCompanyId?: string | null;
   hideTabs?: boolean; // New prop to hide tabs for mobile
+  desktopWidth?: number;
 }
 
 // Extracted common content component
@@ -32,6 +33,7 @@ function DetailContent({
   isSubsidiaryNode,
   subsidiary,
   parentEdge,
+  parentCompanyId,
   companyNode,
   handleParentCompanyClick,
   companyId,
@@ -41,12 +43,18 @@ function DetailContent({
   isSubsidiaryNode: boolean;
   subsidiary: any;
   parentEdge: any;
+  parentCompanyId: string | null;
   companyNode: CompanyDetail | null;
   handleParentCompanyClick: () => void;
   companyId: string;
   userId: string | null;
   onShowAllNotes: () => void;
 }) {
+  const resolvedParentCompanyLabel =
+    typeof parentEdge?.parentCompany?.name === "string" && parentEdge.parentCompany.name.trim().length > 0
+      ? parentEdge.parentCompany.name
+      : "Parent company";
+
   return (
     <>
       {/* Subsidiary Information */}
@@ -68,17 +76,19 @@ function DetailContent({
               />
             </div>
 
-            {/* Parent Company Link */}
-            {parentEdge?.parentCompany && (
+            {/* Subsidiary-only ownership field with parent redirect */}
+            {(parentEdge?.parentCompany || parentCompanyId) && (
               <div style={{ marginTop: "10px" }}>
                 <div
                   style={{
                     fontSize: "11px",
                     color: "rgba(255,255,255,0.5)",
-                    marginBottom: "2px",
+                    marginBottom: "4px",
+                    fontWeight: 500,
+                    letterSpacing: "0.02em",
                   }}
                 >
-                  Parent Company
+                  Belongs To
                 </div>
                 <button
                   onClick={handleParentCompanyClick}
@@ -95,7 +105,7 @@ function DetailContent({
                   onMouseEnter={(e) => (e.currentTarget.style.color = "#93c5fd")}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#60a5fa")}
                 >
-                  {parentEdge.parentCompany.name}
+                  {resolvedParentCompanyLabel}
                   <ExternalLink size={12} />
                 </button>
               </div>
@@ -436,9 +446,11 @@ export function DetailPanel({
   isPublic: _isPublic, // Unused but kept for API compatibility
   parentCompanyId,
   hideTabs = false,
+  desktopWidth,
 }: DetailPanelProps) {
   const [activeTab, setActiveTab] = useState<"info" /* | "audit" */>("info");
   const [showNotesView, setShowNotesView] = useState(false);
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const panelRef = useRef<HTMLDivElement>(null);
   const targetNoteId = searchParams.get("noteId");
@@ -467,12 +479,17 @@ export function DetailPanel({
 
   const companyNode = isEntity ? (displayNode as CompanyDetail) : null;
   const fullNodeData = displayNode;
+  const isPublicEntity =
+    !!companyNode &&
+    (companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER);
+  const isSubsidiaryEntity = !!companyNode && companyNode.type === CompanyType.SUBSIDIARY;
+  const showSubsidiaryBadge = isSubsidiaryNode || isSubsidiaryEntity;
+  const targetParentCompanyId = parentEdge?.parentCompany?.id || parentCompanyId || null;
 
   // Handle subsidiary navigation to parent company
   const handleParentCompanyClick = () => {
-    if (parentCompanyId) {
-      // Navigate to parent company (don't open new tab)
-      window.location.href = `/company/${parentCompanyId}`;
+    if (targetParentCompanyId) {
+      navigate(`/company/${targetParentCompanyId}`);
     }
   };
 
@@ -499,11 +516,21 @@ export function DetailPanel({
   };
 
   const panelPadding = "16px";
+  const effectiveDesktopWidth = desktopWidth ?? 400;
 
   return (
     <aside
       ref={panelRef}
-      className={`detail-panel w-[400px] min-w-[400px] shrink-0 h-full bg-card border-l border-border/40 flex flex-col ${hideTabs ? 'overflow-visible' : 'overflow-hidden'}`}
+      className={`detail-panel shrink-0 h-full bg-card border-l border-border/40 flex flex-col ${hideTabs ? "overflow-visible" : "overflow-hidden"}`}
+      style={
+        hideTabs
+          ? undefined
+          : {
+              width: `${effectiveDesktopWidth}px`,
+              minWidth: `${effectiveDesktopWidth}px`,
+              maxWidth: `${effectiveDesktopWidth}px`,
+            }
+      }
     >
       {/* Header - only show if not hiding tabs (desktop mode) */}
       {!hideTabs && (
@@ -524,12 +551,11 @@ export function DetailPanel({
               {isSubsidiaryNode ? subsidiary?.name || "Loading..." : node?.name || "Unknown"}
             </h2>
             <div className="flex items-center gap-2 shrink-0">
-              {isEntity && companyNode && (
-                <Badge variant={companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER ? "success" : "default"}>
-                  {companyNode.type === CompanyType.PUBLIC || companyNode.type === CompanyType.ISSUER ? "PUB" : "PVT"}
-                </Badge>
+              {isPublicEntity && <Badge variant="success">PUB</Badge>}
+              {!isPublicEntity && isEntity && !showSubsidiaryBadge && (
+                <Badge variant="default">PVT</Badge>
               )}
-              {isSubsidiaryNode && <Badge variant="muted">SUB</Badge>}
+              {showSubsidiaryBadge && <Badge variant="muted">SUB</Badge>}
               {isLoading && (
                 <span className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
               )}
@@ -578,6 +604,7 @@ export function DetailPanel({
               isSubsidiaryNode={isSubsidiaryNode}
               subsidiary={subsidiary}
               parentEdge={parentEdge}
+              parentCompanyId={targetParentCompanyId}
               companyNode={companyNode}
               handleParentCompanyClick={handleParentCompanyClick}
               companyId={node.id}
@@ -640,6 +667,7 @@ export function DetailPanel({
                 isSubsidiaryNode={isSubsidiaryNode}
                 subsidiary={subsidiary}
                 parentEdge={parentEdge}
+                parentCompanyId={targetParentCompanyId}
                 companyNode={companyNode}
                 handleParentCompanyClick={handleParentCompanyClick}
                 companyId={node.id}

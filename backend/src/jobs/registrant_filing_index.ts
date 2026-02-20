@@ -9,7 +9,7 @@ import { createLogger } from "../utils/logger";
 import { writeJsonWithMeta } from "../utils/fs";
 import { createJobConfig, finalizeJobConfig } from "../config/jobConfig";
 import { AcceptableYear, RegistrantEntry, RegistrantGrouped } from "./type";
-import { parseCliYears } from "../utils/cli";
+import { parseCliYears, parseCliQuarters } from "../utils/cli";
 
 const logger = createLogger("jobs/registrant_filing_index");
 
@@ -173,9 +173,18 @@ async function writeQuarterIndex(
 async function main() {
   try {
     const years = parseCliYears(process.argv[2]);
+    const quarterArg = process.argv.slice(3).join(",");
+    const selectedQuarters = quarterArg
+      ? parseCliQuarters(quarterArg)
+      : [...SEC_QUARTERS];
+
+    logger.info("Starting registrant filing index job", {
+      years,
+      quarters: selectedQuarters,
+    });
 
     for (const year of years) {
-      for (const quarter of SEC_QUARTERS) {
+      for (const quarter of selectedQuarters) {
         const { body, baseDir } = await fetchQuarter(year, quarter);
         const entries = parseBodyFile(body);
         await writeQuarterIndex(entries, year, quarter, baseDir);

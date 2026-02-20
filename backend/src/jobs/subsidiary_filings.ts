@@ -6,7 +6,7 @@
 
 import { db } from "../db/client";
 import { createLogger } from "../utils/logger";
-import { hasCliFlag, parseCliYears } from "../utils/cli";
+import { hasCliFlag, parseYearsAndQuarters } from "../utils/cli";
 import { fetchSecPageWithRetry } from "../integration/sec";
 import { runWorkerPool } from "../utils/worker-pool";
 import fs from "node:fs/promises";
@@ -15,6 +15,7 @@ import {
   SUBSIDIARY_EXHIBITS,
   type SubsidiaryExhibit,
 } from "../config/subsidiary-exhibits";
+import { SEC_QUARTERS } from "../config/config";
 
 const logger = createLogger("jobs/subsidiary_filings");
 
@@ -58,7 +59,12 @@ const DOWNLOAD_CONCURRENCY = 2; // SEC-friendly
 const PROCESS_BATCH_SIZE = 200;
 const PROCESS_CONCURRENCY = 6;
 
-function getCachePath(filing: FilingRow, exhibitPrefix: string): string {
+function getCachePath(
+  filing: FilingRow,
+  exhibitPrefix: string,
+  quarter?: number,
+  useQuarterSubdir = false,
+): string {
   if (!filing.source_year) {
     throw new Error(
       `Missing source_year for filing ${filing.accession_number_nodashes}; cannot cache`,
@@ -70,12 +76,17 @@ function getCachePath(filing: FilingRow, exhibitPrefix: string): string {
   const cik = filing.file_url.split("/").slice(-2, -1)[0];
   
   const formType = EXHIBIT_FORM_PREFIX[exhibitPrefix as SubsidiaryExhibit];
-  return path.join(
-    CACHE_ROOT,
-    String(filing.source_year),
-    formType,
-    `${cik}_${filing.accession_number_nodashes}.txt`,
-  );
+  const fileName = `${cik}_${filing.accession_number_nodashes}.txt`;
+  if (useQuarterSubdir && quarter) {
+    return path.join(
+      CACHE_ROOT,
+      String(filing.source_year),
+      `Q${quarter}`,
+      formType,
+      fileName,
+    );
+  }
+  return path.join(CACHE_ROOT, String(filing.source_year), formType, fileName);
 }
 
 function extractExhibits(
@@ -109,13 +120,18 @@ function extractPeriodOfReport(body: string): string | undefined {
 
 async function fetchCandidates(
   year: number,
+  quarter: number,
   formPrefix: string,
   exhibitPrefix: string,
 ): Promise<FilingRow[]> {
   const base = await db.query({
     filing: {
       $: {
-        where: { source_year: year, form_type: { $like: `${formPrefix}%` } },
+        where: {
+          source_year: year,
+          source_quarter: quarter,
+          form_type: { $like: `${formPrefix}%` },
+        },
         fields: [
           "id",
           "accession_number_nodashes",
@@ -134,7 +150,7 @@ async function fetchCandidates(
   }));
 
   logger.info(
-    `Fetched filings: total=${rows.length}, form=${formPrefix}, exhibit=${exhibitPrefix}`,
+    `Fetched filings: total=${rows.length}, year=${year}, quarter=${quarter}, form=${formPrefix}, exhibit=${exhibitPrefix}`,
   );
 
   return rows;
@@ -142,10 +158,14 @@ async function fetchCandidates(
 
 async function clearCacheDir(
   year: number,
+  quarter: number,
+  useQuarterSubdir: boolean,
   exhibitPrefix: string,
 ): Promise<string> {
   const formType = EXHIBIT_FORM_PREFIX[exhibitPrefix as SubsidiaryExhibit];
-  const dir = path.join(CACHE_ROOT, String(year), formType);
+  const dir = useQuarterSubdir
+    ? path.join(CACHE_ROOT, String(year), `Q${quarter}`, formType)
+    : path.join(CACHE_ROOT, String(year), formType);
   await fs.rm(dir, { recursive: true, force: true });
   await fs.mkdir(dir, { recursive: true });
   return dir;
@@ -153,20 +173,27 @@ async function clearCacheDir(
 
 async function downloadFilingTexts(
   year: number,
+  quarter: number,
+  useQuarterSubdir: boolean,
   filings: FilingRow[],
   exhibitPrefix: string,
 ): Promise<void> {
   if (filings.length === 0) return;
 
-  await clearCacheDir(year, exhibitPrefix);
+  await clearCacheDir(year, quarter, useQuarterSubdir, exhibitPrefix);
 
   logger.info(
-    `Downloading filing texts: total=${filings.length}, concurrency=${DOWNLOAD_CONCURRENCY}, exhibit=${exhibitPrefix}`,
+    `Downloading filing texts: total=${filings.length}, year=${year}, quarter=${quarter}, concurrency=${DOWNLOAD_CONCURRENCY}, exhibit=${exhibitPrefix}`,
   );
 
   let completed = 0;
   for (const filing of filings) {
-    const cachePath = getCachePath(filing, exhibitPrefix);
+    const cachePath = getCachePath(
+      filing,
+      exhibitPrefix,
+      quarter,
+      useQuarterSubdir,
+    );
     const body = await fetchSecPageWithRetry(filing.file_url);
     await fs.mkdir(path.dirname(cachePath), { recursive: true });
     await fs.writeFile(cachePath, body, "utf-8");
@@ -182,6 +209,8 @@ async function downloadFilingTexts(
 }
 
 async function processFilings(
+  quarter: number,
+  useQuarterSubdir: boolean,
   filings: FilingRow[],
   exhibitPrefix: string,
 ): Promise<{ updated: number; failed: number }> {
@@ -196,7 +225,12 @@ async function processFilings(
     concurrency: PROCESS_CONCURRENCY,
     tasks: filings,
     worker: async (filing) => {
-      const cachePath = getCachePath(filing, exhibitPrefix);
+      const cachePath = getCachePath(
+        filing,
+        exhibitPrefix,
+        quarter,
+        useQuarterSubdir,
+      );
       const body = await fs.readFile(cachePath, "utf-8");
 
       const exhibits = extractExhibits(body, exhibitPrefix);
@@ -269,48 +303,75 @@ async function main() {
     const args = process.argv.slice(2);
     const useCache = hasCliFlag(args, "use-cache");
     const skipProcessing = hasCliFlag(args, "skip-processing");
-    const years = parseCliYears(args);
-    logger.info("CLI parsed", { years, useCache, skipProcessing });
+    
+    const { years, quarters: selectedQuarters } = parseYearsAndQuarters(args, [...SEC_QUARTERS]);
+    const hasQuarterArg = args.some(
+      (arg) => !arg.startsWith("--") && !/^-?\d{4}(,\d{4})*$/.test(arg),
+    );
+    const useQuarterSubdir = hasQuarterArg;
+    
+    logger.info("CLI parsed", {
+      years,
+      quarters: selectedQuarters,
+      useQuarterSubdir,
+      useCache,
+      skipProcessing,
+    });
 
     for (const year of years) {
-      for (const rule of EXHIBIT_RULES) {
-        logger.info("Starting exhibit job", {
-          year,
-          formPrefix: rule.formPrefix,
-          exhibitPrefix: rule.exhibitPrefix,
-        });
-        const candidates = await fetchCandidates(
-          year,
-          rule.formPrefix,
-          rule.exhibitPrefix,
-        );
-        if (!useCache) {
-          await downloadFilingTexts(year, candidates, rule.exhibitPrefix);
-        } else {
-          logger.info("Reusing cached filing text files", {
+      for (const quarter of selectedQuarters) {
+        for (const rule of EXHIBIT_RULES) {
+          logger.info("Starting exhibit job", {
             year,
-            exhibitPrefix: rule.exhibitPrefix,
-          });
-        }
-        
-        if (skipProcessing) {
-          logger.info("Skipping processing (--skip-processing flag set)", {
-            year,
-            exhibitPrefix: rule.exhibitPrefix,
-          });
-        } else {
-          const { updated, failed } = await processFilings(
-            candidates,
-            rule.exhibitPrefix,
-          );
-          logger.info("Exhibit job finished", {
-            year,
+            quarter,
             formPrefix: rule.formPrefix,
             exhibitPrefix: rule.exhibitPrefix,
-            updated,
-            failed,
-            candidates: candidates.length,
           });
+          const candidates = await fetchCandidates(
+            year,
+            quarter,
+            rule.formPrefix,
+            rule.exhibitPrefix,
+          );
+          if (!useCache) {
+            await downloadFilingTexts(
+              year,
+              quarter,
+              useQuarterSubdir,
+              candidates,
+              rule.exhibitPrefix,
+            );
+          } else {
+            logger.info("Reusing cached filing text files", {
+              year,
+              quarter,
+              exhibitPrefix: rule.exhibitPrefix,
+            });
+          }
+          
+          if (skipProcessing) {
+            logger.info("Skipping processing (--skip-processing flag set)", {
+              year,
+              quarter,
+              exhibitPrefix: rule.exhibitPrefix,
+            });
+          } else {
+            const { updated, failed } = await processFilings(
+              quarter,
+              useQuarterSubdir,
+              candidates,
+              rule.exhibitPrefix,
+            );
+            logger.info("Exhibit job finished", {
+              year,
+              quarter,
+              formPrefix: rule.formPrefix,
+              exhibitPrefix: rule.exhibitPrefix,
+              updated,
+              failed,
+              candidates: candidates.length,
+            });
+          }
         }
       }
     }

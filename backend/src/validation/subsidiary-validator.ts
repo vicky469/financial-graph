@@ -60,7 +60,7 @@ const COMPANY_SUFFIX_REGEX =
   /\b(?:inc|inc\.|corp|corp\.|corporation|co|co\.|company|llc|l\.l\.c\.|llp|l\.l\.p\.|lp|l\.p\.|ltd|ltd\.|limited|plc|gmbh|ag|sa|s\.a\.|bv|n\.v\.|nv)\b/i;
 const OWNS_WORD_REGEX = /\bowns\b/i;
 const TWO_LETTER_UPPERCASE_JURISDICTION_REGEX = /^[A-Z]{2}$/;
-export const MIN_VALID_RATIO = 0.9;
+export const MIN_VALID_RATIO = 0.999;
 
 function normalizeMarkerToken(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");

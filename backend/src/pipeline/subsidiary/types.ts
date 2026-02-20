@@ -172,6 +172,7 @@ export type SubsidiarySink = {
 export type SubsidiaryPipelineOptions = {
   accessions?: string[];
   year: number;
+  quarters?: number[];
   limit?: number;
   sp500Only?: boolean;
   excludeSp500?: boolean;

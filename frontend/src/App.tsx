@@ -14,9 +14,10 @@ import { db } from "./db/client";
 import { InactivityTimeout } from "./components/InactivityTimeout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CompanyType } from "financial-graph-shared";
+import { useDetailPanelWidth, getDetailPanelMaxWidth } from "./hooks/useDetailPanelWidth";
 
 function AppContent() {
-  const { companyId } = useParams<{ companyId?: string }>();
+  const { companyId, subsidiaryId } = useParams<{ companyId?: string; subsidiaryId?: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const targetNoteId = searchParams.get("noteId");
@@ -24,22 +25,11 @@ function AppContent() {
   // Derive selectedCompanyId from URL param - no state needed
   const selectedCompanyId = companyId || null;
 
-  // Use a key-based state to automatically reset when company changes
-  const [subsidiaryState, setSubsidiaryState] = useState<{
-    companyId: string | null;
-    subsidiaryId: string | null;
-  }>({
-    companyId: selectedCompanyId,
-    subsidiaryId: null,
-  });
-
   // Derive the actual subsidiary ID, resetting when company changes
   const selectedSubsidiaryId =
     targetNoteId
       ? null
-      : subsidiaryState.companyId === selectedCompanyId
-        ? subsidiaryState.subsidiaryId
-        : null;
+      : subsidiaryId || null;
 
   const [showSearchModal, setShowSearchModal] = useState(false);
 
@@ -50,6 +40,9 @@ function AppContent() {
     ownerOrgs: [] as string[],
     entityTypes: [] as string[],
   });
+  
+  const { detailPanelWidth, setDetailPanelWidth, minWidth: DETAIL_PANEL_MIN_WIDTH } = useDetailPanelWidth();
+  const [isDetailPanelResizing, setIsDetailPanelResizing] = useState(false);
 
   // Keyboard shortcut for search modal (Cmd+Shift+F or Ctrl+Shift+F)
   useEffect(() => {
@@ -69,6 +62,33 @@ function AppContent() {
     return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, []);
 
+  useEffect(() => {
+    if (!isDetailPanelResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const maxWidth = getDetailPanelMaxWidth(window.innerWidth);
+      const rawWidth = window.innerWidth - e.clientX;
+      const nextWidth = Math.min(Math.max(rawWidth, DETAIL_PANEL_MIN_WIDTH), maxWidth);
+      setDetailPanelWidth(nextWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsDetailPanelResizing(false);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "ew-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isDetailPanelResizing, DETAIL_PANEL_MIN_WIDTH, setDetailPanelWidth]);
+
   // Update URL when company is selected
   const handleSelectCompany = (companyId: string | null) => {
     if (companyId) {
@@ -78,9 +98,19 @@ function AppContent() {
     }
   };
 
-  // Handle subsidiary selection from treemap (just updates detail panel, no URL change)
-  const handleSelectSubsidiary = (subsidiaryId: string | null) => {
-    setSubsidiaryState({ companyId: selectedCompanyId, subsidiaryId });
+  // Handle subsidiary selection from tree/treemap by updating URL.
+  const handleSelectSubsidiary = (nextSubsidiaryId: string | null) => {
+    if (!selectedCompanyId) return;
+    if (nextSubsidiaryId) {
+      navigate(`/company/${selectedCompanyId}/subsidary/${nextSubsidiaryId}`);
+      return;
+    }
+    navigate(`/company/${selectedCompanyId}`);
+  };
+
+  const handleDetailPanelResizeStart = (e: React.MouseEvent<HTMLElement>) => {
+    e.preventDefault();
+    setIsDetailPanelResizing(true);
   };
 
   const { company: companyNode, isLoading } = useCompanyDetail(selectedCompanyId, false);
@@ -194,11 +224,55 @@ function AppContent() {
 
         {/* Desktop detail panel */}
         {detailPanelNode && (
-          <div className="hide-on-mobile">
+          <div className="hide-on-mobile relative flex h-full shrink-0">
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize detail panel"
+              onMouseDown={handleDetailPanelResizeStart}
+              className="absolute left-0 top-1/2 cursor-ew-resize"
+              style={{
+                transform: "translate(-50%, -50%)",
+                zIndex: 40,
+                width: "24px",
+                height: "64px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                className="flex items-center justify-center"
+                style={{
+                  width: "12px",
+                  height: "28px",
+                  borderRadius: "999px",
+                  border: isDetailPanelResizing
+                    ? "1px solid rgba(96, 165, 250, 0.7)"
+                    : "1px solid rgba(255,255,255,0.2)",
+                  background: isDetailPanelResizing
+                    ? "rgba(59,130,246,0.35)"
+                    : "rgba(20,20,24,0.92)",
+                  transition: "all 120ms ease",
+                }}
+              >
+                <div
+                  style={{
+                    width: "2px",
+                    height: "10px",
+                    borderRadius: "999px",
+                    background: isDetailPanelResizing
+                      ? "rgba(191, 219, 254, 0.95)"
+                      : "rgba(255,255,255,0.75)",
+                  }}
+                />
+              </div>
+            </div>
             <DetailPanel
               node={detailPanelNode}
               isPublic={isPublic}
               parentCompanyId={selectedSubsidiaryId ? selectedCompanyId : null}
+              desktopWidth={detailPanelWidth}
             />
           </div>
         )}
@@ -212,6 +286,8 @@ function AuthenticatedApp() {
     <Routes>
       <Route path="/" element={<AppContent />} />
       <Route path="/company/:companyId" element={<AppContent />} />
+      <Route path="/company/:companyId/subsidary/:subsidiaryId" element={<AppContent />} />
+      <Route path="/company/:companyId/subsidiary/:subsidiaryId" element={<AppContent />} />
     </Routes>
   );
 }
