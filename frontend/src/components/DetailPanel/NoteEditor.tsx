@@ -140,6 +140,7 @@ export function NoteEditor({
         code: false, // Disable inline code for notes
         codeBlock: false, // Disable code blocks for notes
         horizontalRule: false, // Disable horizontal rules for notes
+        link: false, // We register Link separately with custom config
       }),
       // Link extension for hyperlinks
       Link.configure({
@@ -739,7 +740,7 @@ export function NoteEditor({
         <EditorContent editor={editor} />
       </div>
 
-      {/* Inline link editor - selection anchored, Notion-style */}
+      {/* Inline link editor */}
       {showLinkEditor && linkEditorPosition && (
         <div
           ref={linkEditorRef}
@@ -751,10 +752,9 @@ export function NoteEditor({
             width: '296px',
             padding: '8px',
             borderRadius: '8px',
-            border: '1px solid rgba(125, 211, 252, 0.28)',
-            background: 'rgba(8, 15, 26, 0.96)',
-            boxShadow: '0 14px 32px rgba(2, 6, 23, 0.55)',
-            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            background: 'rgba(20,20,24,0.96)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
           }}
         >
           <div
@@ -762,7 +762,7 @@ export function NoteEditor({
               fontSize: '10px',
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
-              color: 'rgba(186, 230, 253, 0.72)',
+              color: 'rgba(255,255,255,0.5)',
               marginBottom: '6px',
             }}
           >
@@ -795,9 +795,9 @@ export function NoteEditor({
                 minWidth: 0,
                 height: '30px',
                 borderRadius: '6px',
-                border: '1px solid rgba(148, 163, 184, 0.28)',
-                background: 'rgba(2, 6, 23, 0.55)',
-                color: 'rgba(241, 245, 249, 0.94)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(0,0,0,0.3)',
+                color: 'rgba(255,255,255,0.9)',
                 padding: '0 10px',
                 fontSize: '12px',
               }}
@@ -811,9 +811,9 @@ export function NoteEditor({
                 height: '30px',
                 padding: '0 10px',
                 fontSize: '11px',
-                backgroundColor: 'rgba(125, 211, 252, 0.22)',
-                color: 'rgba(186, 230, 253, 0.95)',
-                border: '1px solid rgba(125, 211, 252, 0.32)',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.9)',
+                border: '1px solid rgba(255,255,255,0.2)',
               }}
             >
               Apply
@@ -843,7 +843,7 @@ export function NoteEditor({
             </button>
             <div
               style={{
-                color: 'rgba(148, 163, 184, 0.72)',
+                color: 'rgba(255,255,255,0.5)',
                 fontSize: '10px',
               }}
             >

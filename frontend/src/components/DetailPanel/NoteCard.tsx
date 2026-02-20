@@ -74,6 +74,7 @@ export function NoteCard({
         code: false,
         codeBlock: false,
         horizontalRule: false,
+        link: false, // We register Link separately with custom config
       }),
       Link.configure({
         openOnClick: true, // Allow clicking links in read-only mode

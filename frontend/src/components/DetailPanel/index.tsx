@@ -591,7 +591,9 @@ export function DetailPanel({
           WebkitOverflowScrolling: "touch",
           width: "100%",
           maxWidth: "100%",
-        }}>
+        }}
+        data-detail-scroll="true"
+        >
           {showNotesView && user ? (
             <NotesView
               companyId={node.id}
@@ -654,6 +656,7 @@ export function DetailPanel({
             value="info"
             className="flex-1 overflow-y-auto mt-0"
             style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
+            data-detail-scroll="true"
           >
             {showNotesView && user ? (
               <NotesView

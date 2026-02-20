@@ -137,18 +137,45 @@ export function NotesSection({ companyId, userId, onShowAll }: NotesSectionProps
   };
 
   // When creating a new note, bring the editor into view in the scrollable panel.
+  // This retries after async note-load/layout so the behavior is deterministic.
   useEffect(() => {
-    if (!showEditor || editingNoteId) return;
+    if (!showEditor || editingNoteId || isLoading || error) return;
+    if (!createEditorRef.current) return;
 
-    const frame = window.requestAnimationFrame(() => {
-      createEditorRef.current?.scrollIntoView({
+    let timeoutId: number | undefined;
+    const scrollEditorIntoView = () => {
+      const target = createEditorRef.current;
+      if (!target) return;
+
+      // First try native behavior against the nearest scrollable ancestor.
+      target.scrollIntoView({
         behavior: 'smooth',
-        block: 'nearest',
+        block: 'center',
       });
+
+      // Also drive the known detail-panel scroller for consistent behavior.
+      const detailScroller = target.closest('[data-detail-scroll="true"]') as HTMLElement | null;
+      if (detailScroller) {
+        const targetTop = target.offsetTop - detailScroller.clientHeight * 0.2;
+        detailScroller.scrollTo({
+          top: Math.max(0, targetTop),
+          behavior: 'smooth',
+        });
+      }
+    };
+
+    const frameId = window.requestAnimationFrame(() => {
+      scrollEditorIntoView();
+      timeoutId = window.setTimeout(scrollEditorIntoView, 120);
     });
 
-    return () => window.cancelAnimationFrame(frame);
-  }, [showEditor, editingNoteId]);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [showEditor, editingNoteId, isLoading, error, allNotes.length]);
 
   return (
     <div

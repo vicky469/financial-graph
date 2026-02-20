@@ -114,6 +114,20 @@ function AppContent() {
   };
 
   const { company: companyNode, isLoading } = useCompanyDetail(selectedCompanyId, false);
+  const { parentEdge: subsidiaryParentEdge } = useCompanyDetail(
+    selectedCompanyId && companyNode?.type === CompanyType.SUBSIDIARY ? selectedCompanyId : null,
+    true
+  );
+
+  useEffect(() => {
+    if (!selectedCompanyId || subsidiaryId) return;
+    if (companyNode?.type !== CompanyType.SUBSIDIARY) return;
+
+    const parentId = subsidiaryParentEdge?.parentCompany?.id;
+    if (!parentId) return;
+
+    navigate(`/company/${parentId}/subsidary/${selectedCompanyId}`, { replace: true });
+  }, [selectedCompanyId, subsidiaryId, companyNode?.type, subsidiaryParentEdge?.parentCompany?.id, navigate]);
 
   // Get the detail panel node - either the selected company or subsidiary
   const detailPanelNode = useMemo(() => {
