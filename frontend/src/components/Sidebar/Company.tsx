@@ -235,11 +235,11 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                 <Table style={{ width: "100%", tableLayout: "fixed" }}>
                   <TableHeader>
                     <TableRow style={{ background: "rgba(255,255,255,0.03)" }}>
-                      <TableHead style={{...tableHeadStyle, width: "20%"}}>Period</TableHead>
-                      <TableHead style={{...tableHeadStyle, width: "20%"}}>Filing</TableHead>
-                      <TableHead style={{...tableHeadStyle, width: "15%"}}>Type</TableHead>
-                      <TableHead style={{...tableHeadStyle, width: "15%"}}>Index</TableHead>
+                      <TableHead style={{...tableHeadStyle, width: "18%", paddingRight: "20px"}}>Period</TableHead>
+                      <TableHead style={{...tableHeadStyle, width: "14%"}}>Type</TableHead>
+                      <TableHead style={{...tableHeadStyle, width: "14%"}}>Index</TableHead>
                       <TableHead style={{...tableHeadStyle, width: "30%"}}>Attachments</TableHead>
+                      <TableHead style={{...tableHeadStyle, width: "24%"}}>Filing</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -257,13 +257,15 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                             transition: "background 0.15s ease",
                           }}
                         >
-                          <TableCell style={tableCellStyle}>
+                          <TableCell
+                            style={{
+                              ...tableCellStyle,
+                              paddingRight: "20px",
+                            }}
+                          >
                             {filing.periodOfReport || (
                               <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
                             )}
-                          </TableCell>
-                          <TableCell style={tableCellStyle}>
-                            {filing.filingDate}
                           </TableCell>
                           <TableCell style={tableCellStyle}>
                             {filing.filingUrl ? (
@@ -315,7 +317,7 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                           </TableCell>
                           <TableCell style={tableCellStyle}>
                             {attachments.length > 0 ? (
-                              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
                                 {attachments.map(({ key, url }) => (
                                   <FilingLink key={key} url={url} label={key} />
                                 ))}
@@ -323,6 +325,9 @@ export function Company({ node, onBack, selectedSubsidiaryId, onSubsidiaryClick 
                             ) : (
                               <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>
                             )}
+                          </TableCell>
+                          <TableCell style={tableCellStyle}>
+                            {filing.filingDate}
                           </TableCell>
                         </TableRow>
                       );
@@ -524,6 +529,7 @@ const tableHeadStyle: React.CSSProperties = {
   textTransform: "uppercase",
   letterSpacing: "0.03em",
   padding: "6px 8px",
+  textAlign: "center",
 };
 
 const tableCellStyle: React.CSSProperties = {
@@ -531,6 +537,7 @@ const tableCellStyle: React.CSSProperties = {
   color: "rgba(255,255,255,0.6)",
   padding: "6px 8px",
   whiteSpace: "nowrap",
+  textAlign: "center",
 };
 
 // Filing link component
@@ -546,6 +553,7 @@ function FilingLink({ url, label = "View" }: { url: string; label?: string }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
+        justifyContent: "center",
         gap: "3px",
         fontSize: "12px",
         color: "#818cf8",
