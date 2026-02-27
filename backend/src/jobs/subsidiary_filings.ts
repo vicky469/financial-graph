@@ -8,7 +8,7 @@ import { db } from "../db/client";
 import { createLogger } from "../utils/logger";
 import { hasCliFlag, parseYearsAndQuarters } from "../utils/cli";
 import { fetchSecPageWithRetry } from "../integration/sec";
-import { runWorkerPool } from "../utils/worker-pool";
+import { runWorkerPool, runWorkerPoolVoid } from "../utils/worker-pool";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
@@ -53,11 +53,37 @@ const CACHE_ROOT = path.resolve(
   "data",
   "filings_text",
 );
+const FAILED_REPORT_DIR = path.resolve(
+  import.meta.dirname,
+  "..",
+  "..",
+  "logs",
+  "subsidiary_filings_failed",
+);
 
 // Tunables
-const DOWNLOAD_CONCURRENCY = 2; // SEC-friendly
+const DOWNLOAD_CONCURRENCY = 1; // SEC-safe
 const PROCESS_BATCH_SIZE = 200;
 const PROCESS_CONCURRENCY = 6;
+
+type DownloadFailureRecord = {
+  input: {
+    id: string;
+    accession_number_nodashes: string;
+    file_url: string;
+    source_year?: number;
+    source_quarter: number;
+    exhibit_prefix: string;
+  };
+  reason: string;
+};
+
+type DownloadResult = {
+  downloaded: number;
+  failed: number;
+  downloadedIds: Set<string>;
+  failureReportPath?: string;
+};
 
 function getCachePath(
   filing: FilingRow,
@@ -177,8 +203,14 @@ async function downloadFilingTexts(
   useQuarterSubdir: boolean,
   filings: FilingRow[],
   exhibitPrefix: string,
-): Promise<void> {
-  if (filings.length === 0) return;
+): Promise<DownloadResult> {
+  if (filings.length === 0) {
+    return {
+      downloaded: 0,
+      failed: 0,
+      downloadedIds: new Set<string>(),
+    };
+  }
 
   await clearCacheDir(year, quarter, useQuarterSubdir, exhibitPrefix);
 
@@ -186,26 +218,265 @@ async function downloadFilingTexts(
     `Downloading filing texts: total=${filings.length}, year=${year}, quarter=${quarter}, concurrency=${DOWNLOAD_CONCURRENCY}, exhibit=${exhibitPrefix}`,
   );
 
-  let completed = 0;
-  for (const filing of filings) {
-    const cachePath = getCachePath(
-      filing,
-      exhibitPrefix,
-      quarter,
-      useQuarterSubdir,
-    );
-    const body = await fetchSecPageWithRetry(filing.file_url);
-    await fs.mkdir(path.dirname(cachePath), { recursive: true });
-    await fs.writeFile(cachePath, body, "utf-8");
-    completed += 1;
-    if (completed % 50 === 0 || completed === filings.length) {
-      logger.info(
-        `Download progress: completed=${completed}/${filings.length}, remaining=${filings.length - completed}`,
+  const downloadedIds = new Set<string>();
+  const pool = await runWorkerPoolVoid<FilingRow>({
+    tasks: filings,
+    concurrency: DOWNLOAD_CONCURRENCY,
+    worker: async (filing) => {
+      const cachePath = getCachePath(
+        filing,
+        exhibitPrefix,
+        quarter,
+        useQuarterSubdir,
       );
-    }
+      const body = await fetchSecPageWithRetry(filing.file_url);
+      await fs.mkdir(path.dirname(cachePath), { recursive: true });
+      await fs.writeFile(cachePath, body, "utf-8");
+      downloadedIds.add(filing.id);
+    },
+    onProgress: (stats) => {
+      const done = stats.completed + stats.failed;
+      if (done % 50 === 0 || done === stats.total) {
+        logger.info(
+          `Download progress: completed=${stats.completed}/${stats.total}, failed=${stats.failed}, remaining=${stats.remaining}`,
+        );
+      }
+    },
+    progressInterval: 50,
+  });
+
+  const failures: DownloadFailureRecord[] = pool.errors.map(({ task, error }) => {
+    const filing = task as FilingRow;
+    return {
+      input: {
+        id: filing.id,
+        accession_number_nodashes: filing.accession_number_nodashes,
+        file_url: filing.file_url,
+        source_year: filing.source_year,
+        source_quarter: quarter,
+        exhibit_prefix: exhibitPrefix,
+      },
+      reason: error.message,
+    };
+  });
+
+  let failureReportPath: string | undefined;
+  if (failures.length > 0) {
+    await fs.mkdir(FAILED_REPORT_DIR, { recursive: true });
+    const safeTimestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    failureReportPath = path.join(
+      FAILED_REPORT_DIR,
+      `download-failures-${year}-Q${quarter}-${exhibitPrefix}-${safeTimestamp}.json`,
+    );
+    await fs.writeFile(
+      failureReportPath,
+      JSON.stringify(
+        {
+          job: "subsidiary_filings",
+          year,
+          quarter,
+          exhibit_prefix: exhibitPrefix,
+          generated_at: new Date().toISOString(),
+          total_failures: failures.length,
+          failures,
+        },
+        null,
+        2,
+      ),
+      "utf-8",
+    );
+    logger.warn("Download completed with errors", {
+      year,
+      quarter,
+      exhibitPrefix,
+      downloaded: pool.stats.completed,
+      failed: pool.stats.failed,
+      failureReportPath,
+    });
+  } else {
+    logger.info(`Filing texts ready: total=${filings.length}`);
   }
 
-  logger.info(`Filing texts ready: total=${filings.length}`);
+  return {
+    downloaded: pool.stats.completed,
+    failed: pool.stats.failed,
+    downloadedIds,
+    failureReportPath,
+  };
+}
+
+async function filterDownloadedFilings(
+  candidates: FilingRow[],
+  downloadedIds: Set<string>,
+): Promise<FilingRow[]> {
+  if (downloadedIds.size === 0) return [];
+  return candidates.filter((filing) => downloadedIds.has(filing.id));
+}
+
+async function logProcessingInputDelta(
+  year: number,
+  quarter: number,
+  exhibitPrefix: string,
+  candidatesCount: number,
+  processCount: number,
+) {
+  if (candidatesCount !== processCount) {
+    logger.warn("Skipping filings missing cached text", {
+      year,
+      quarter,
+      exhibitPrefix,
+      candidates: candidatesCount,
+      processing: processCount,
+      skipped: candidatesCount - processCount,
+    });
+  }
+}
+
+async function handleDownloadStep(
+  year: number,
+  quarter: number,
+  useQuarterSubdir: boolean,
+  candidates: FilingRow[],
+  exhibitPrefix: string,
+): Promise<{ filingsForProcessing: FilingRow[]; downloadResult?: DownloadResult }> {
+  const downloadResult = await downloadFilingTexts(
+    year,
+    quarter,
+    useQuarterSubdir,
+    candidates,
+    exhibitPrefix,
+  );
+  const filingsForProcessing = await filterDownloadedFilings(
+    candidates,
+    downloadResult.downloadedIds,
+  );
+  await logProcessingInputDelta(
+    year,
+    quarter,
+    exhibitPrefix,
+    candidates.length,
+    filingsForProcessing.length,
+  );
+  return { filingsForProcessing, downloadResult };
+}
+
+async function handleCachedStep(
+  year: number,
+  quarter: number,
+  exhibitPrefix: string,
+  candidates: FilingRow[],
+): Promise<{ filingsForProcessing: FilingRow[]; downloadResult?: DownloadResult }> {
+  logger.info("Reusing cached filing text files", {
+    year,
+    quarter,
+    exhibitPrefix,
+  });
+  return { filingsForProcessing: candidates, downloadResult: undefined };
+}
+
+async function runExhibitRule(
+  year: number,
+  quarter: number,
+  useQuarterSubdir: boolean,
+  useCache: boolean,
+  skipProcessing: boolean,
+  candidates: FilingRow[],
+  rule: ExhibitRule,
+) {
+  const { filingsForProcessing, downloadResult } = !useCache
+    ? await handleDownloadStep(
+        year,
+        quarter,
+        useQuarterSubdir,
+        candidates,
+        rule.exhibitPrefix,
+      )
+    : await handleCachedStep(year, quarter, rule.exhibitPrefix, candidates);
+
+  if (skipProcessing) {
+    logger.info("Skipping processing (--skip-processing flag set)", {
+      year,
+      quarter,
+      exhibitPrefix: rule.exhibitPrefix,
+      downloaded: downloadResult?.downloaded ?? candidates.length,
+      failedDownloads: downloadResult?.failed ?? 0,
+      failureReportPath: downloadResult?.failureReportPath,
+    });
+    return;
+  }
+
+  const { updated, failed } = await processFilings(
+    quarter,
+    useQuarterSubdir,
+    filingsForProcessing,
+    rule.exhibitPrefix,
+  );
+  logger.info("Exhibit job finished", {
+    year,
+    quarter,
+    formPrefix: rule.formPrefix,
+    exhibitPrefix: rule.exhibitPrefix,
+    updated,
+    failed,
+    candidates: candidates.length,
+    processing: filingsForProcessing.length,
+    failedDownloads: downloadResult?.failed ?? 0,
+    failureReportPath: downloadResult?.failureReportPath,
+  });
+}
+
+async function runYearQuarterRule(
+  year: number,
+  quarter: number,
+  useQuarterSubdir: boolean,
+  useCache: boolean,
+  skipProcessing: boolean,
+  rule: ExhibitRule,
+) {
+  logger.info("Starting exhibit job", {
+    year,
+    quarter,
+    formPrefix: rule.formPrefix,
+    exhibitPrefix: rule.exhibitPrefix,
+  });
+  const candidates = await fetchCandidates(
+    year,
+    quarter,
+    rule.formPrefix,
+    rule.exhibitPrefix,
+  );
+  await runExhibitRule(
+    year,
+    quarter,
+    useQuarterSubdir,
+    useCache,
+    skipProcessing,
+    candidates,
+    rule,
+  );
+}
+
+async function runAllRules(
+  years: number[],
+  selectedQuarters: number[],
+  useQuarterSubdir: boolean,
+  useCache: boolean,
+  skipProcessing: boolean,
+) {
+  for (const year of years) {
+    for (const quarter of selectedQuarters) {
+      for (const rule of EXHIBIT_RULES) {
+        await runYearQuarterRule(
+          year,
+          quarter,
+          useQuarterSubdir,
+          useCache,
+          skipProcessing,
+          rule,
+        );
+      }
+    }
+  }
 }
 
 async function processFilings(
@@ -316,65 +587,16 @@ async function main() {
       useQuarterSubdir,
       useCache,
       skipProcessing,
+      downloadConcurrency: DOWNLOAD_CONCURRENCY,
     });
 
-    for (const year of years) {
-      for (const quarter of selectedQuarters) {
-        for (const rule of EXHIBIT_RULES) {
-          logger.info("Starting exhibit job", {
-            year,
-            quarter,
-            formPrefix: rule.formPrefix,
-            exhibitPrefix: rule.exhibitPrefix,
-          });
-          const candidates = await fetchCandidates(
-            year,
-            quarter,
-            rule.formPrefix,
-            rule.exhibitPrefix,
-          );
-          if (!useCache) {
-            await downloadFilingTexts(
-              year,
-              quarter,
-              useQuarterSubdir,
-              candidates,
-              rule.exhibitPrefix,
-            );
-          } else {
-            logger.info("Reusing cached filing text files", {
-              year,
-              quarter,
-              exhibitPrefix: rule.exhibitPrefix,
-            });
-          }
-          
-          if (skipProcessing) {
-            logger.info("Skipping processing (--skip-processing flag set)", {
-              year,
-              quarter,
-              exhibitPrefix: rule.exhibitPrefix,
-            });
-          } else {
-            const { updated, failed } = await processFilings(
-              quarter,
-              useQuarterSubdir,
-              candidates,
-              rule.exhibitPrefix,
-            );
-            logger.info("Exhibit job finished", {
-              year,
-              quarter,
-              formPrefix: rule.formPrefix,
-              exhibitPrefix: rule.exhibitPrefix,
-              updated,
-              failed,
-              candidates: candidates.length,
-            });
-          }
-        }
-      }
-    }
+    await runAllRules(
+      years,
+      selectedQuarters,
+      useQuarterSubdir,
+      useCache,
+      skipProcessing,
+    );
   } catch (error) {
     const err = error as Error;
     logger.error("Job failed", { message: err.message, stack: err.stack });

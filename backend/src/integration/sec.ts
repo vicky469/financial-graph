@@ -2,7 +2,8 @@ import { SEC_USER_AGENT } from "../config/config";
 import { createLogger } from "../utils/logger";
 
 const SEC_REQUEST_MAX_RETRIES = 3;
-const SEC_REQUEST_DELAY_MS = 200;
+const SEC_REQUEST_DELAY_MS = 1000;
+const SEC_REQUEST_MAX_BACKOFF_MS = 15000;
 
 const logger = createLogger("integration/sec");
 
@@ -60,6 +61,21 @@ function isRetryableStatus(status: number): boolean {
   return status === 429 || status >= 500;
 }
 
+function parseRetryAfterMs(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const seconds = Number(trimmed);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.floor(seconds * 1000);
+  }
+
+  const timestamp = Date.parse(trimmed);
+  if (Number.isNaN(timestamp)) return undefined;
+  return Math.max(0, timestamp - Date.now());
+}
+
 async function parseSecResponse<T, M extends SecFetchMode>(
   response: Response,
   mode: M,
@@ -94,6 +110,10 @@ export async function fetchSecPageWithRetry<
   url: string,
   mode: M = SecFetchMode.TEXT as M,
 ): Promise<SecFetchResult<T, M>> {
+  const maxBackoffMs = Number.isFinite(SEC_REQUEST_MAX_BACKOFF_MS)
+    ? Math.max(SEC_REQUEST_DELAY_MS, Math.floor(SEC_REQUEST_MAX_BACKOFF_MS))
+    : 15000;
+
   const resolvedMode = normalizeMode(mode);
   const requestMode =
     resolvedMode === SecFetchMode.JSON || resolvedMode === SecFetchMode.PDF
@@ -103,6 +123,8 @@ export async function fetchSecPageWithRetry<
 
   for (let attempt = 0; attempt < SEC_REQUEST_MAX_RETRIES; attempt++) {
     await new Promise((r) => setTimeout(r, SEC_REQUEST_DELAY_MS));
+
+    let retryAfterMs: number | undefined;
     try {
       const response = await fetch(url, { headers });
 
@@ -111,10 +133,14 @@ export async function fetchSecPageWithRetry<
       }
 
       const body = await response.text();
+      retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
       logger.warn("SEC fetch failed", {
         url,
         status: response.status,
         statusText: response.statusText,
+        attempt: attempt + 1,
+        maxRetries: SEC_REQUEST_MAX_RETRIES,
+        retryAfterMs,
       });
 
       const retryable = isRetryableStatus(response.status);
@@ -136,10 +162,14 @@ export async function fetchSecPageWithRetry<
       }
     }
 
-    const backoff =
+    const exponentialBackoff =
       SEC_REQUEST_DELAY_MS * 2 ** attempt +
       Math.random() * SEC_REQUEST_DELAY_MS;
-    await new Promise((r) => setTimeout(r, Math.min(backoff, 5000)));
+    const backoff = Math.min(
+      Math.max(exponentialBackoff, retryAfterMs ?? 0),
+      maxBackoffMs,
+    );
+    await new Promise((r) => setTimeout(r, backoff));
   }
 
   throw new Error("Unreachable");

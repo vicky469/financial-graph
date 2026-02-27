@@ -1,7 +1,6 @@
 # Job Order Cheatsheet
 
 - Run `$ bun run job:tickers` to load tickers into the DB.
-- Run `$ bun run job:mark-sp500` to flag S&P 500 companies.
 - Run `$ bun run job:registrant -- -2025` to fetch SEC registrant index (requires years).
 - Run `$ bun run job:subsidiary_filings_metadata -- -2025` to load subsidiary-relevant filing metadata (10-K/20-F family) from SEC registrant index JSON files into the DB (requires years).
 - Run `$ bun run job:subsidiary_filings -- -2025` to fetch subsidiary filings and extract EX-21/EX-8 URLs and period_of_report from filing TXT (requires years).
@@ -11,6 +10,7 @@
   Example: `$ bun run job:subsidiary_filings -- -2025 --skip-processing`
 - Run `$ bun run job:company_info_submissions` to ingest company info from SEC submissions JSON files.
 - Run `$ bun run job:subsidiary_exhibits_download -- -2025` to download EX-21/EX-8 exhibit files (requires years).
+- Run `$ bun run job:mark-sp500` to flag S&P 500 companies.
 - Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --dry-run` to run the subsidiaries parsing pipeline (both DB + CSV sinks).
   - Run `$ bun run pipeline:parse_subsidiaries -- --year=2025 --sink=all --sp500 --fallback=none` to run without LLM fallback.
   - If you split the command across lines, use `\` at line end:

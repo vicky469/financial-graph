@@ -14,7 +14,12 @@ A knowledge graph application for exploring corporate structures, subsidiaries, 
 
 ```bash
 git clone <repository-url>
-cd financial-graph
+
+cd /home/bun/Documents/Repo/financial-graph/shared
+bun install
+bun run build
+
+cd ../backend
 bun install
 ```
 
