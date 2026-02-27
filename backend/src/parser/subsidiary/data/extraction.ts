@@ -3,9 +3,8 @@
  *
  * Orchestrates the extraction of subsidiaries from table rows:
  * 1. Parse each row's cells (name, jurisdiction, ownership)
- * 2. Detect nesting via indentation
- * 3. Build parent-child relationships
- * 4. Generate deterministic IDs
+ * 2. Assign filing-company parent linkage
+ * 3. Generate deterministic IDs
  */
 
 import { generateCompanyId } from "@financial-graph/shared/ids";
@@ -17,8 +16,11 @@ import {
 import type { SubsidiaryRecord } from "../../../pipeline/subsidiary/types";
 import type { ParsedColumns } from "../parser-types";
 import { parseColumns } from "./columns";
-import { isHeaderRow, filterContentCells } from "../shape/table-detection";
-import { determineNestingLevel, ParentStack } from "./nesting";
+import {
+  isHeaderRow,
+  filterContentCells,
+  hasCompanyEntitySuffix,
+} from "../shape/table-detection";
 import { MissingColumnError } from "./errors";
 import { createLogger } from "../../../utils/logger";
 import {
@@ -48,7 +50,6 @@ export function extractSubsidiaries(
   },
 ): SubsidiaryRecord[] {
   const subsidiaries: SubsidiaryRecord[] = [];
-  const parentStack = new ParentStack();
 
   // Use the filingCompanyId from database (passed in filing object)
   const parentCompanyId = filing.filingCompanyId;
@@ -107,7 +108,6 @@ export function extractSubsidiaries(
       nameColIdx,
       jurColIdx,
       ownershipColIdx,
-      allCells,
     );
     processParsedRow(parsed);
   });
@@ -156,42 +156,11 @@ export function extractSubsidiaries(
       ...new Set([...parsed.nameFootnoteRefs, ...parsed.ownershipFootnoteRefs]),
     ];
 
-    const indentInfo = {
-      spaces: parsed.indentationSpaces,
-      hasIndentation: parsed.indentationSpaces > 0,
-    };
-    const level = determineNestingLevel(indentInfo, subsidiaries);
-
-    let parentName: string | undefined;
-    let parentId: string;
-
-    if (level > 0) {
-      // First time we see nesting - initialize stack with previous subsidiary
-      if (parentStack.isEmpty() && subsidiaries.length > 0) {
-        const previousSub = subsidiaries[subsidiaries.length - 1];
-        parentStack.push({
-          level: previousSub.nestingLevel,
-          name: previousSub.name,
-          id: previousSub.id,
-        });
-      }
-
-      // This is a nested subsidiary - get parent from stack
-      const parent = parentStack.getParent(level);
-      parentName = parent?.name;
-      parentId = parent?.id ?? parentCompanyId;
-    } else {
-      // Level 0 - parent is always the filing company
-      parentName = filing.filingCompanyName;
-      parentId = parentCompanyId;
-    }
-
-    // Debug logging for level 0 subsidiaries
-    if (level === 0) {
-      logger.debug(
-        `Level 0 subsidiary "${parsed.cleanName}": parentId=${parentId}, filingCompanyId=${parentCompanyId}`,
-      );
-    }
+    // Nesting is intentionally disabled: all subsidiaries are treated as direct
+    // children of the filing company.
+    const level = 0;
+    const parentName = filing.filingCompanyName;
+    const parentId = parentCompanyId;
 
     const normalizedName = parsed.cleanName?.trim() ?? "";
     const normalizedJurisdiction = parsed.jurisdiction?.trim() ?? "";
@@ -219,14 +188,9 @@ export function extractSubsidiaries(
       parentId,
       ownership: parsed.ownership,
       footnoteRefs,
-      indentationSpaces: indentInfo.spaces,
-      isNested: level > 0 || !!parentName,
+      indentationSpaces: 0,
+      isNested: false,
     });
-
-    // If we're tracking nesting, push to parent stack
-    if (!parentStack.isEmpty() || level > 0) {
-      parentStack.push({ level, name: parsed.cleanName, id: subsidiaryId });
-    }
   }
 
   return subsidiaries;
@@ -250,6 +214,15 @@ function isPlaceholderName(name: string): boolean {
   return PLACEHOLDER_NAME_MARKERS.has(normalized);
 }
 
+function looksLikeCompanyNoteHeader(text: string): boolean {
+  const withoutMarker = text.replace(
+    /^\s*(?:\((?:\d{1,3}[A-Za-z]?|[IVXivx]+|[A-Za-z])\)|(?:\d{1,3}[A-Za-z]?|[IVXivx]+|[A-Za-z])[.)])\s+/,
+    "",
+  );
+  if (!withoutMarker) return false;
+  return hasCompanyEntitySuffix(withoutMarker);
+}
+
 function isInlineFootnoteRow($: any, contentCells: any, allCells: any): boolean {
   if (!contentCells || contentCells.length !== 1) return false;
 
@@ -257,7 +230,12 @@ function isInlineFootnoteRow($: any, contentCells: any, allCells: any): boolean 
   const firstText = normalizeNoteText($(firstContentCell).text());
   if (!firstText) return false;
 
-  if (hasNoteRowPrefix(firstText)) return true;
+  if (hasNoteRowPrefix(firstText)) {
+    // Rows like "(1) Nuovo Pignone Holding S.p.a." are context headers for
+    // following rows, not the start of trailing footnotes.
+    if (looksLikeCompanyNoteHeader(firstText)) return false;
+    return true;
+  }
 
   // Some SEC rows use "<sup>n</sup> ..." instead of plain "(n) ..." markers.
   if (allCells && allCells.length > 0) {

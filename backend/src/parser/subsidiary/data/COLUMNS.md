@@ -10,7 +10,6 @@ File:
 - `jurisdiction`
 - `ownership`
 - `footnote refs`
-- `indentationSpaces`
 
 This is the main place where column drift/shift is handled.
 
@@ -27,7 +26,6 @@ Returns `ParsedColumns` with:
 - `rawName`
 - `cleanName`
 - `nameFootnoteRefs`
-- `indentationSpaces`
 - `jurisdiction`
 - `ownership`
 - `ownershipFootnoteRefs`
@@ -42,24 +40,21 @@ Returns `ParsedColumns` with:
 - Uses `parseNameCell(...)`.
 - Extracts cleaned name, name footnote refs, and ownership if embedded in name.
 
-3. Recover indentation from raw layout cells.
-- If semantic indentation is missing, count leading layout-only raw cells before the name cell.
-
-4. Resolve jurisdiction column.
+3. Resolve jurisdiction column.
 - Start from header-detected jurisdiction column.
 - If it is empty/out-of-bounds/ownership-like, scan backward to find better candidate.
 - Skip cells that look ownership-like or company-like.
 
-5. Parse jurisdiction value.
+4. Parse jurisdiction value.
 - Uses `parseJurisdictionCell(...)`.
 - Cleans symbols/noise.
 
-6. Shift guard for company name in jurisdiction.
+5. Shift guard for company name in jurisdiction.
 - If parsed jurisdiction looks company-like:
   - if current name is not company-like, move jurisdiction text into `cleanName` (likely shifted row)
   - otherwise clear jurisdiction
 
-7. Resolve ownership.
+6. Resolve ownership.
 - Use ownership column when present.
 - For multi-year ownership columns, choose the most recent (rightmost contiguous percentage-like value).
 - If not found, fall back to ownership parsed from name text.
@@ -90,4 +85,3 @@ Most parsing quality issues with wrong name/jurisdiction assignments are caused 
 - `src/parser/subsidiary/data/content-extraction.ts`
 - `src/parser/subsidiary/shape/table-detection.ts`
 - `src/validation/subsidiary-validator.ts`
-

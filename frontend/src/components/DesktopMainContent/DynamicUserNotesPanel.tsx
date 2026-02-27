@@ -1,7 +1,7 @@
 import { UserNotesPanel } from "./UserNotesPanel";
 import { useUserNotesPanel } from "../../hooks/useUserNotesPanel";
 
-const PANEL_HALF_HEIGHT = "min(420px, calc(100% - 54px))";
+const PANEL_HALF_HEIGHT = "min(600px, calc(100% - 54px))";
 const PANEL_FULL_HEIGHT = "calc(100% - 54px)";
 const AUTO_EXPAND_THRESHOLD = 4;
 
@@ -21,7 +21,7 @@ export function DynamicUserNotesPanel() {
         style={{
           width: "min(540px, 100%)",
           height: panelHeight,
-          minHeight: "420px",
+          minHeight: "600px",
           border: "1px solid rgba(255,255,255,0.08)",
           borderRadius: "8px",
           overflow: "hidden",

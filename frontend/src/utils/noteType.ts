@@ -1,6 +1,6 @@
 import type { Note, TiptapJSON, TiptapNode } from "financial-graph-shared/types";
 
-export type NoteType = "issue" | "todo" | "other";
+export type NoteType = "idea" | "issue" | "todo" | "other";
 export type NoteTypeFilter = NoteType | "all";
 
 export interface NoteTypeMeta {
@@ -11,6 +11,12 @@ export interface NoteTypeMeta {
 }
 
 export const NOTE_TYPE_META: Record<NoteType, NoteTypeMeta> = {
+  idea: {
+    label: "Idea",
+    borderColor: "rgba(110, 231, 183, 0.3)",
+    background: "rgba(6, 78, 59, 0.35)",
+    textColor: "rgba(167, 243, 208, 0.95)",
+  },
   issue: {
     label: "Issue",
     borderColor: "rgba(248, 113, 113, 0.32)",
@@ -56,7 +62,9 @@ export function tiptapToPlainText(content: TiptapJSON | undefined | null): strin
   return raw.replace(/\s+/g, " ").trim();
 }
 
-export function getNoteType(note: Pick<Note, "content">): NoteType {
+export function getNoteType(note: Pick<Note, "content" | "company">): NoteType {
+  if (!note.company?.id) return "idea";
+
   const plainText = tiptapToPlainText(note.content);
 
   if (ISSUE_TAG_PATTERN.test(plainText)) return "issue";
@@ -64,10 +72,11 @@ export function getNoteType(note: Pick<Note, "content">): NoteType {
   return "other";
 }
 
-export function getNoteTypeCounts<T extends Pick<Note, "content">>(
+export function getNoteTypeCounts<T extends Pick<Note, "content" | "company">>(
   notes: readonly T[]
 ): Record<NoteType, number> {
   const counts: Record<NoteType, number> = {
+    idea: 0,
     issue: 0,
     todo: 0,
     other: 0,

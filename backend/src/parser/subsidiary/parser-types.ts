@@ -207,7 +207,6 @@ export interface ParsedColumns {
   rawName: string;
   cleanName: string;
   nameFootnoteRefs: string[];
-  indentationSpaces: number;
   jurisdiction: string;
   ownership: number | undefined;
   ownershipFootnoteRefs: string[];

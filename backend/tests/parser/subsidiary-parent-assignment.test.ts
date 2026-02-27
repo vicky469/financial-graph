@@ -46,12 +46,6 @@ describe("Subsidiary Parent Assignment", () => {
       const result = await parseExhibit(html, mockFiling, config);
 
       expect(result.subsidiaries).toHaveLength(3);
-      
-      // All should have level 0
-      result.subsidiaries.forEach(sub => {
-        expect(sub.nestingLevel).toBe(0);
-        expect(sub.isNested).toBe(false);
-      });
 
       // All should have same parent (filing company)
       const parentIds = result.subsidiaries.map(s => s.parentId);
@@ -64,7 +58,7 @@ describe("Subsidiary Parent Assignment", () => {
   });
 
   describe("Nested table", () => {
-    it("should assign correct parent for nested subsidiaries", async () => {
+    it("should keep filing company as parent even when rows are indented", async () => {
       const html = `
         <table>
           <tr>
@@ -100,22 +94,17 @@ describe("Subsidiary Parent Assignment", () => {
       const anotherParent = result.subsidiaries.find(s => s.name === "Another Parent Ltd.");
 
       // Parent Sub should have filing company as parent
-      expect(parentSub?.nestingLevel).toBe(0);
       expect(parentSub?.parentId).toBe(filingCompanyId);
 
-      // Child subs should have Parent Sub as parent
-      expect(childSub1?.nestingLevel).toBe(1);
-      expect(childSub1?.parentId).toBe(parentSub?.id);
-      expect(childSub2?.nestingLevel).toBe(1);
-      expect(childSub2?.parentId).toBe(parentSub?.id);
+      // Child subs stay at level 0 and keep filing company as parent
+      expect(childSub1?.parentId).toBe(filingCompanyId);
+      expect(childSub2?.parentId).toBe(filingCompanyId);
 
-      // Another Parent should have filing company as parent (not Parent Sub)
-      expect(anotherParent?.nestingLevel).toBe(0);
+      // Another Parent should have filing company as parent
       expect(anotherParent?.parentId).toBe(filingCompanyId);
-      expect(anotherParent?.parentId).not.toBe(parentSub?.id);
     });
 
-    it("should handle multiple nesting levels", async () => {
+    it("should keep all rows flat even with multiple visual indent levels", async () => {
       const html = `
         <table>
           <tr>
@@ -143,14 +132,11 @@ describe("Subsidiary Parent Assignment", () => {
       const level1 = result.subsidiaries.find(s => s.name === "Level One LLC");
       const level2 = result.subsidiaries.find(s => s.name === "Level Two Inc.");
 
-      expect(level0?.nestingLevel).toBe(0);
       expect(level0?.parentId).toBe(filingCompanyId);
 
-      expect(level1?.nestingLevel).toBe(1);
-      expect(level1?.parentId).toBe(level0?.id);
+      expect(level1?.parentId).toBe(filingCompanyId);
 
-      expect(level2?.nestingLevel).toBe(2);
-      expect(level2?.parentId).toBe(level1?.id);
+      expect(level2?.parentId).toBe(filingCompanyId);
     });
   });
 
@@ -192,9 +178,8 @@ describe("Subsidiary Parent Assignment", () => {
 
       expect(result.subsidiaries).toHaveLength(4);
 
-      // All should be level 0 with filing company as parent
+      // All should have filing company as parent
       result.subsidiaries.forEach(sub => {
-        expect(sub.nestingLevel).toBe(0);
         expect(sub.parentId).toBe(filingCompanyId);
       });
 
@@ -229,11 +214,9 @@ describe("Subsidiary Parent Assignment", () => {
 
       // Even if first sub is indented, it should still be level 0 (no parent to nest under)
       const firstSub = result.subsidiaries[0];
-      expect(firstSub.nestingLevel).toBe(1); // Will be detected as level 1 due to indentation
-      expect(firstSub.parentId).toBe(filingCompanyId); // But parent should still be filing company
+      expect(firstSub.parentId).toBe(filingCompanyId);
 
       const secondSub = result.subsidiaries[1];
-      expect(secondSub.nestingLevel).toBe(0);
       expect(secondSub.parentId).toBe(filingCompanyId);
     });
 

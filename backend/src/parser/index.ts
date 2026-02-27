@@ -3,6 +3,7 @@
  */
 
 export { parseExhibit } from "./subsidiary/index";
+export { DEFAULT_CONFIG } from "./subsidiary/parser-types";
 
 // Re-export types from pipeline
 export type {

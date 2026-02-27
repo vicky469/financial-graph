@@ -25,6 +25,11 @@ interface UpdateNoteOptions {
 
 export interface UseNotesReturn {
   createNote: (companyId: string, userId: string, content: TiptapJSON, visibility?: "private" | "public") => Promise<void>;
+  createGlobalIdeaNote: (
+    userId: string,
+    content: TiptapJSON,
+    visibility?: "private" | "public"
+  ) => Promise<void>;
   updateNote: (
     noteId: string,
     content: TiptapJSON,
@@ -104,6 +109,49 @@ export function useNotes(): UseNotesReturn {
       console.error("Failed to create note:", err);
       setErrorMessage(`Failed to create note: ${message}`);
       throw err; // Re-throw to allow caller to handle
+    }
+  };
+
+  /**
+   * Create a global idea note not linked to any company.
+   * These notes are surfaced in the main "Your Notes" panel.
+   */
+  const createGlobalIdeaNote = async (
+    userId: string,
+    content: TiptapJSON,
+    visibility: "private" | "public" = "private"
+  ): Promise<void> => {
+    try {
+      setErrorMessage(null);
+      const normalizedContent = normalizeTiptapContent(content);
+
+      const effectiveVisibility = hasFeature("workspace") ? visibility : "private";
+      const shouldOpenReport = hasAdminMention(normalizedContent);
+      const noteId = id();
+      const now = new Date().toISOString();
+      const mentionedCompanyIds = extractMentionedCompanies(normalizedContent);
+
+      await db.transact([
+        tx.notes[noteId]
+          .update({
+            content: normalizedContent,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: "user",
+            mentionedCompanyIds,
+            visibility: effectiveVisibility,
+            disabled: false,
+            reportStatus: shouldOpenReport ? "open" : undefined,
+            adminDoneAt: undefined,
+            resolvedAt: undefined,
+          })
+          .link({ user: userId }),
+      ]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error occurred";
+      console.error("Failed to create global idea note:", err);
+      setErrorMessage(`Failed to create global idea note: ${message}`);
+      throw err;
     }
   };
 
@@ -257,6 +305,7 @@ export function useNotes(): UseNotesReturn {
 
   return {
     createNote,
+    createGlobalIdeaNote,
     updateNote,
     markReportDone,
     resolveReportedIssue,

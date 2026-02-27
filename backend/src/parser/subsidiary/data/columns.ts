@@ -13,10 +13,8 @@ import {
   parseOwnershipCell,
   parseJurisdictionCell,
 } from "./cells";
-import { analyzeIndentation } from "./nesting";
 import {
   hasCompanyEntitySuffix,
-  isLayoutOnlyCell,
 } from "../shape/table-detection";
 
 // Percent/empty noise tokens commonly found in ownership columns (e.g., "100", "100%", "%", "-", em dash).
@@ -122,43 +120,6 @@ function detectRowOffset(
   return 0;
 }
 
-function findRawCellIndexForFilteredIndex(
-  $: any,
-  rawCells: any,
-  filteredIndex: number,
-): number {
-  if (!rawCells || filteredIndex < 0) return -1;
-
-  let contentIndex = 0;
-  for (let rawIndex = 0; rawIndex < rawCells.length; rawIndex++) {
-    if (isLayoutOnlyCell($, rawCells[rawIndex])) continue;
-    if (contentIndex === filteredIndex) {
-      return rawIndex;
-    }
-    contentIndex++;
-  }
-
-  return -1;
-}
-
-function countLeadingLayoutCellsBefore(
-  $: any,
-  rawCells: any,
-  rawIndex: number,
-): number {
-  if (!rawCells || rawIndex <= 0) return 0;
-
-  let count = 0;
-  for (let i = rawIndex - 1; i >= 0; i--) {
-    if (!isLayoutOnlyCell($, rawCells[i])) {
-      break;
-    }
-    count++;
-  }
-
-  return count;
-}
-
 /**
  * Parse all columns based on detected indices
  *
@@ -173,7 +134,6 @@ export function parseColumns(
   nameColIdx: number,
   jurColIdx: number,
   ownershipColIdx: number,
-  rawCells?: any,
 ): ParsedColumns {
   // Detect if data row has an offset (Roman numeral or empty indentation)
   const offset = detectRowOffset($, cells, cellCount, nameColIdx);
@@ -187,25 +147,6 @@ export function parseColumns(
   // Parse name
   const nameCell = $(cells[adjustedNameColIdx]);
   const nameParsed = parseNameCell(nameCell.text());
-  let indentInfo = analyzeIndentation(nameCell, nameParsed.rawName);
-
-  // If indentation is encoded in leading empty spacer columns,
-  // preserve it from the raw row even though semantic parsing uses filtered cells.
-  if (!indentInfo.hasIndentation && rawCells) {
-    const rawNameColIdx = findRawCellIndexForFilteredIndex(
-      $,
-      rawCells,
-      adjustedNameColIdx,
-    );
-    const leadingLayoutCells = countLeadingLayoutCellsBefore(
-      $,
-      rawCells,
-      rawNameColIdx,
-    );
-    if (leadingLayoutCells > 0) {
-      indentInfo = { spaces: leadingLayoutCells, hasIndentation: true };
-    }
-  }
 
   // Adjust jurisdiction index if data has more columns than headers indicated
   // This handles multi-row headers where merged cells don't match data column count
@@ -310,7 +251,6 @@ export function parseColumns(
     rawName: nameParsed.rawName,
     cleanName,
     nameFootnoteRefs: nameParsed.footnoteRefs,
-    indentationSpaces: indentInfo.spaces,
     jurisdiction: jurisdictionRaw,
     ownership,
     ownershipFootnoteRefs,

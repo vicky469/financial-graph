@@ -12,8 +12,8 @@ Related docs:
 The `data` layer starts after table shape detection is done. It is responsible for:
 
 1. Selecting subsidiary tables from detected structure.
-2. Extracting row-level fields (name, jurisdiction, ownership, footnotes, indentation).
-3. Building nesting and parent relationships.
+2. Extracting row-level fields (name, jurisdiction, ownership, footnotes).
+3. Building normalized subsidiary records with filing-company parent linkage.
 4. Returning normalized `SubsidiaryRecord[]`.
 
 ## Runtime Flow
@@ -47,7 +47,7 @@ flowchart TD
 - Determines column indices from headers.
 - Calls `parseColumns(...)` per row.
 - Applies row filtering (`isHeaderRow`, minimum name sanity).
-- Builds hierarchy (`determineNestingLevel`, `ParentStack`).
+- Uses flat parent mapping (all subsidiaries map to the filing company parent).
 - Generates deterministic subsidiary IDs and final `SubsidiaryRecord` objects.
 
 3. `columns.ts`
@@ -62,12 +62,7 @@ flowchart TD
   - `parseOwnershipCell(...)`
   - `parseJurisdictionCell(...)`
 
-5. `nesting.ts`
-- Indentation analysis from HTML/text style signals.
-- Converts indentation signal to nesting level.
-- Maintains parent lookup with `ParentStack`.
-
-6. `errors.ts`
+5. `errors.ts`
 - Domain-specific extraction errors (for example missing required columns).
 
 ## Row-Level Lifecycle (`extractSubsidiaries`)
@@ -78,9 +73,8 @@ For each row after header:
 2. Parse normalized fields (`parseColumns`).
 3. Skip note header rows and leaked header/subheader rows.
 4. Apply footnote-driven jurisdiction inference when available.
-5. Compute nesting level from indentation signals.
-6. Resolve `parentId` / `parentName` from level and stack state.
-7. Validate minimum record shape and emit `SubsidiaryRecord`.
+5. Set flat parent fields (`parentId` / `parentName`) from filing company.
+6. Validate minimum record shape and emit `SubsidiaryRecord`.
 
 ## Design Notes
 
@@ -88,7 +82,7 @@ For each row after header:
 - `content-extraction.ts` is orchestration.
 - `extraction.ts` is row-to-record control flow.
 - `columns.ts` is field alignment and shift correction.
-- `cells.ts` + `nesting.ts` are low-level parsing utilities.
+- `cells.ts` contains low-level parsing utilities.
 
 2. Why `COLUMNS.md` is separate
 - `columns.ts` has the densest heuristics and most parsing edge cases.

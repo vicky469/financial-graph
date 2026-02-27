@@ -40,7 +40,6 @@ describe("Content Extraction", () => {
       const result = extractSubsidiaryRecords(input);
 
       expect(result.subsidiaries).toHaveLength(0);
-      expect(result.maxNestingLevel).toBe(0);
     });
 
     it("returns empty result for tables without subsidiary keywords", () => {
@@ -122,7 +121,7 @@ describe("Content Extraction", () => {
   });
 
   describe("Hierarchical extraction", () => {
-    it("detects nesting levels from indentation", () => {
+    it("keeps flat hierarchy even when indentation exists", () => {
       const html = `
         <html><body>
           <table>
@@ -153,14 +152,9 @@ describe("Content Extraction", () => {
       const result = extractSubsidiaryRecords(input);
 
       expect(result.subsidiaries).toHaveLength(4);
-      expect(result.maxNestingLevel).toBeGreaterThanOrEqual(2);
-
-      // Check nesting levels
-      const parent = result.subsidiaries.find((s) => s.name === "Parent Corp");
-      expect(parent?.nestingLevel).toBe(0);
     });
 
-    it("detects nesting when indentation is represented by leading empty layout cells", () => {
+    it("keeps flat hierarchy for leading-layout-cell indentation", () => {
       const html = `
         <html><body>
           <table>
@@ -184,12 +178,6 @@ describe("Content Extraction", () => {
       const result = extractSubsidiaryRecords(input);
 
       expect(result.subsidiaries).toHaveLength(2);
-
-      const parent = result.subsidiaries.find((s) => s.name === "Parent Corp");
-      const child = result.subsidiaries.find((s) => s.name === "Child LLC");
-
-      expect(parent?.nestingLevel).toBe(0);
-      expect(child?.nestingLevel).toBe(1);
     });
   });
 
@@ -347,13 +335,11 @@ describe("Content Extraction", () => {
       expect(record).toHaveProperty("id");
       expect(record).toHaveProperty("name");
       expect(record).toHaveProperty("jurisdiction");
-      expect(record).toHaveProperty("nestingLevel");
       expect(record).toHaveProperty("footnoteRefs");
 
       expect(typeof record.id).toBe("string");
       expect(typeof record.name).toBe("string");
       expect(typeof record.jurisdiction).toBe("string");
-      expect(typeof record.nestingLevel).toBe("number");
       expect(Array.isArray(record.footnoteRefs)).toBe(true);
     });
 
