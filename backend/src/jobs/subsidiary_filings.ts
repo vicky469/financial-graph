@@ -6,7 +6,7 @@
 
 import { db } from "../db/client";
 import { createLogger } from "../utils/logger";
-import { hasCliFlag, parseYearsAndQuarters } from "../utils/cli";
+import { getCliArg, hasCliFlag, parseYearsAndQuarters } from "../utils/cli";
 import { fetchSecPageWithRetry } from "../integration/sec";
 import { runWorkerPool, runWorkerPoolVoid } from "../utils/worker-pool";
 import fs from "node:fs/promises";
@@ -24,6 +24,7 @@ type FilingRow = {
   accession_number: string;
   accession_number_nodashes: string;
   file_url: string;
+  form_type?: string;
   source_year?: number;
   attachments?: Record<string, string>;
   period_of_report?: string;
@@ -58,7 +59,7 @@ const FAILED_REPORT_DIR = path.resolve(
   "..",
   "..",
   "logs",
-  "subsidiary_filings_failed",
+  "filings_failed",
 );
 
 // Tunables
@@ -71,9 +72,9 @@ type DownloadFailureRecord = {
     id: string;
     accession_number_nodashes: string;
     file_url: string;
+    form_type: string;
     source_year?: number;
-    source_quarter: number;
-    exhibit_prefix: string;
+    source_quarter?: number;
   };
   reason: string;
 };
@@ -84,6 +85,76 @@ type DownloadResult = {
   downloadedIds: Set<string>;
   failureReportPath?: string;
 };
+
+type RawFailureReport = {
+  year?: number;
+  quarter?: number;
+  form_type?: string;
+  exhibit_prefix?: string;
+  failures?: Array<{
+    input?: {
+      id?: string;
+      accession_number_nodashes?: string;
+      file_url?: string;
+      form_type?: string;
+      source_year?: number;
+      source_quarter?: number;
+      exhibit_prefix?: string;
+    };
+    reason?: string;
+  }>;
+};
+
+type RetryDownloadTask = {
+  id: string;
+  accession_number_nodashes: string;
+  file_url: string;
+  form_type: string;
+  source_year: number;
+  source_quarter?: number;
+  reason?: string;
+};
+
+function expandHomePath(inputPath: string): string {
+  if (inputPath === "~") {
+    return process.env.HOME || inputPath;
+  }
+  if (inputPath.startsWith("~/")) {
+    return path.join(process.env.HOME || "~", inputPath.slice(2));
+  }
+  return inputPath;
+}
+
+function formTypeFromExhibitPrefix(exhibitPrefix?: string): string | undefined {
+  if (!exhibitPrefix) return undefined;
+  return EXHIBIT_FORM_PREFIX[exhibitPrefix as SubsidiaryExhibit];
+}
+
+function extractCikFromFilingUrl(fileUrl: string): string {
+  // URL format: .../data/{cik}/{accession}/{file}.txt
+  const parts = fileUrl.split("/").filter(Boolean);
+  const cik = parts.slice(-2, -1)[0];
+  if (!cik) {
+    throw new Error(`Unable to infer CIK from file_url: ${fileUrl}`);
+  }
+  return cik;
+}
+
+function buildCachePathForFormType(
+  sourceYear: number,
+  formType: string,
+  accessionNoDashes: string,
+  fileUrl: string,
+  quarter?: number,
+  useQuarterSubdir = false,
+): string {
+  const cik = extractCikFromFilingUrl(fileUrl);
+  const fileName = `${cik}_${accessionNoDashes}.txt`;
+  if (useQuarterSubdir && quarter) {
+    return path.join(CACHE_ROOT, String(sourceYear), `Q${quarter}`, formType, fileName);
+  }
+  return path.join(CACHE_ROOT, String(sourceYear), formType, fileName);
+}
 
 function getCachePath(
   filing: FilingRow,
@@ -96,23 +167,16 @@ function getCachePath(
       `Missing source_year for filing ${filing.accession_number_nodashes}; cannot cache`,
     );
   }
-  
-  // Extract CIK from file_url
-  // URL format: https://www.sec.gov/Archives/edgar/data/{cik}/{accession_number_nodashes}/{filename}
-  const cik = filing.file_url.split("/").slice(-2, -1)[0];
-  
+
   const formType = EXHIBIT_FORM_PREFIX[exhibitPrefix as SubsidiaryExhibit];
-  const fileName = `${cik}_${filing.accession_number_nodashes}.txt`;
-  if (useQuarterSubdir && quarter) {
-    return path.join(
-      CACHE_ROOT,
-      String(filing.source_year),
-      `Q${quarter}`,
-      formType,
-      fileName,
-    );
-  }
-  return path.join(CACHE_ROOT, String(filing.source_year), formType, fileName);
+  return buildCachePathForFormType(
+    filing.source_year,
+    formType,
+    filing.accession_number_nodashes,
+    filing.file_url,
+    quarter,
+    useQuarterSubdir,
+  );
 }
 
 function extractExhibits(
@@ -162,6 +226,7 @@ async function fetchCandidates(
           "id",
           "accession_number_nodashes",
           "file_url",
+          "form_type",
           "source_year",
           "attachments",
         ],
@@ -204,6 +269,7 @@ async function downloadFilingTexts(
   filings: FilingRow[],
   exhibitPrefix: string,
 ): Promise<DownloadResult> {
+  const formType = EXHIBIT_FORM_PREFIX[exhibitPrefix as SubsidiaryExhibit];
   if (filings.length === 0) {
     return {
       downloaded: 0,
@@ -215,7 +281,7 @@ async function downloadFilingTexts(
   await clearCacheDir(year, quarter, useQuarterSubdir, exhibitPrefix);
 
   logger.info(
-    `Downloading filing texts: total=${filings.length}, year=${year}, quarter=${quarter}, concurrency=${DOWNLOAD_CONCURRENCY}, exhibit=${exhibitPrefix}`,
+    `Downloading filing texts: total=${filings.length}, year=${year}, quarter=${quarter}, form=${formType}, concurrency=${DOWNLOAD_CONCURRENCY}`,
   );
 
   const downloadedIds = new Set<string>();
@@ -252,9 +318,9 @@ async function downloadFilingTexts(
         id: filing.id,
         accession_number_nodashes: filing.accession_number_nodashes,
         file_url: filing.file_url,
+        form_type: filing.form_type || formType,
         source_year: filing.source_year,
         source_quarter: quarter,
-        exhibit_prefix: exhibitPrefix,
       },
       reason: error.message,
     };
@@ -266,7 +332,7 @@ async function downloadFilingTexts(
     const safeTimestamp = new Date().toISOString().replace(/[:.]/g, "-");
     failureReportPath = path.join(
       FAILED_REPORT_DIR,
-      `download-failures-${year}-Q${quarter}-${exhibitPrefix}-${safeTimestamp}.json`,
+      `download-failures-${year}-Q${quarter}-${formType}-${safeTimestamp}.json`,
     );
     await fs.writeFile(
       failureReportPath,
@@ -275,7 +341,7 @@ async function downloadFilingTexts(
           job: "subsidiary_filings",
           year,
           quarter,
-          exhibit_prefix: exhibitPrefix,
+          form_type: formType,
           generated_at: new Date().toISOString(),
           total_failures: failures.length,
           failures,
@@ -288,7 +354,7 @@ async function downloadFilingTexts(
     logger.warn("Download completed with errors", {
       year,
       quarter,
-      exhibitPrefix,
+      formType,
       downloaded: pool.stats.completed,
       failed: pool.stats.failed,
       failureReportPath,
@@ -479,6 +545,194 @@ async function runAllRules(
   }
 }
 
+async function resolveFailedReportPath(args: string[]): Promise<string> {
+  const explicit = getCliArg(args, "failed-report");
+  if (explicit) {
+    return path.resolve(process.cwd(), expandHomePath(explicit));
+  }
+
+  await fs.mkdir(FAILED_REPORT_DIR, { recursive: true });
+  const entries = await fs.readdir(FAILED_REPORT_DIR, { withFileTypes: true });
+  const reportFiles = entries
+    .filter((entry) => entry.isFile() && /^download-failures-.*\.json$/i.test(entry.name))
+    .map((entry) => entry.name);
+
+  if (reportFiles.length === 0) {
+    throw new Error(
+      `No failed download report found in ${FAILED_REPORT_DIR}. Use --failed-report=<path>.`,
+    );
+  }
+
+  const stats = await Promise.all(
+    reportFiles.map(async (name) => {
+      const filePath = path.join(FAILED_REPORT_DIR, name);
+      const stat = await fs.stat(filePath);
+      return { filePath, mtimeMs: stat.mtimeMs };
+    }),
+  );
+
+  stats.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return stats[0].filePath;
+}
+
+async function loadRetryTasksFromFailedReport(
+  reportPath: string,
+): Promise<RetryDownloadTask[]> {
+  const rawText = await fs.readFile(reportPath, "utf-8");
+  const parsed = JSON.parse(rawText) as RawFailureReport;
+  const reportFormType =
+    parsed.form_type || formTypeFromExhibitPrefix(parsed.exhibit_prefix);
+
+  const tasks: RetryDownloadTask[] = [];
+  for (const [index, failure] of (parsed.failures || []).entries()) {
+    const input = failure.input || {};
+    const accession = input.accession_number_nodashes?.trim();
+    const fileUrl = input.file_url?.trim();
+    const sourceYearCandidate = Number(input.source_year ?? parsed.year);
+    const sourceQuarterCandidate = Number(input.source_quarter ?? parsed.quarter);
+    const sourceQuarter =
+      Number.isInteger(sourceQuarterCandidate) &&
+      sourceQuarterCandidate >= 1 &&
+      sourceQuarterCandidate <= 4
+        ? sourceQuarterCandidate
+        : undefined;
+    const formType =
+      input.form_type ||
+      reportFormType ||
+      formTypeFromExhibitPrefix(input.exhibit_prefix);
+
+    if (!accession || !fileUrl) {
+      logger.warn("Skipping malformed failed-download entry (missing url/accession)", {
+        reportPath,
+        entryIndex: index,
+      });
+      continue;
+    }
+    if (!Number.isInteger(sourceYearCandidate)) {
+      logger.warn("Skipping failed-download entry (missing source year)", {
+        reportPath,
+        entryIndex: index,
+        accession_number_nodashes: accession,
+      });
+      continue;
+    }
+    if (!formType) {
+      logger.warn("Skipping failed-download entry (missing form_type)", {
+        reportPath,
+        entryIndex: index,
+        accession_number_nodashes: accession,
+      });
+      continue;
+    }
+
+    tasks.push({
+      id: input.id || `${sourceYearCandidate}-${accession}`,
+      accession_number_nodashes: accession,
+      file_url: fileUrl,
+      form_type: formType,
+      source_year: sourceYearCandidate,
+      source_quarter: sourceQuarter,
+      reason: failure.reason,
+    });
+  }
+
+  return tasks;
+}
+
+async function retryFailedDownloads(args: string[]): Promise<void> {
+  const reportPath = await resolveFailedReportPath(args);
+  const useQuarterSubdir = hasCliFlag(args, "quarter-subdir");
+  const tasks = await loadRetryTasksFromFailedReport(reportPath);
+
+  if (tasks.length === 0) {
+    logger.warn("No valid failed-download entries to retry", { reportPath });
+    return;
+  }
+
+  logger.info("Retrying failed filing downloads from report", {
+    reportPath,
+    totalFailures: tasks.length,
+    useQuarterSubdir,
+    downloadConcurrency: DOWNLOAD_CONCURRENCY,
+  });
+
+  const pool = await runWorkerPoolVoid<RetryDownloadTask>({
+    tasks,
+    concurrency: DOWNLOAD_CONCURRENCY,
+    worker: async (task) => {
+      const cachePath = buildCachePathForFormType(
+        task.source_year,
+        task.form_type,
+        task.accession_number_nodashes,
+        task.file_url,
+        task.source_quarter,
+        useQuarterSubdir,
+      );
+      const body = await fetchSecPageWithRetry(task.file_url);
+      await fs.mkdir(path.dirname(cachePath), { recursive: true });
+      await fs.writeFile(cachePath, body, "utf-8");
+    },
+    onProgress: (stats) => {
+      const done = stats.completed + stats.failed;
+      if (done % 25 === 0 || done === stats.total) {
+        logger.info(
+          `Retry progress: completed=${stats.completed}/${stats.total}, failed=${stats.failed}, remaining=${stats.remaining}`,
+        );
+      }
+    },
+    progressInterval: 25,
+  });
+
+  const failures: DownloadFailureRecord[] = pool.errors.map(({ task, error }) => {
+    const failedTask = task as RetryDownloadTask;
+    return {
+      input: {
+        id: failedTask.id,
+        accession_number_nodashes: failedTask.accession_number_nodashes,
+        file_url: failedTask.file_url,
+        form_type: failedTask.form_type,
+        source_year: failedTask.source_year,
+        source_quarter: failedTask.source_quarter,
+      },
+      reason: error.message,
+    };
+  });
+
+  let retryFailureReportPath: string | undefined;
+  if (failures.length > 0) {
+    await fs.mkdir(FAILED_REPORT_DIR, { recursive: true });
+    const safeTimestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    retryFailureReportPath = path.join(
+      FAILED_REPORT_DIR,
+      `retry-download-failures-${safeTimestamp}.json`,
+    );
+    await fs.writeFile(
+      retryFailureReportPath,
+      JSON.stringify(
+        {
+          job: "subsidiary_filings",
+          mode: "retry-failed-downloads",
+          source_report: reportPath,
+          generated_at: new Date().toISOString(),
+          total_failures: failures.length,
+          failures,
+        },
+        null,
+        2,
+      ),
+      "utf-8",
+    );
+  }
+
+  logger.info("Retry failed-download pass complete", {
+    reportPath,
+    total: tasks.length,
+    downloaded: pool.stats.completed,
+    failed: pool.stats.failed,
+    retryFailureReportPath,
+  });
+}
+
 async function processFilings(
   quarter: number,
   useQuarterSubdir: boolean,
@@ -572,6 +826,18 @@ async function processFilings(
 async function main() {
   try {
     const args = process.argv.slice(2);
+    const retryFailedDownloadsMode = hasCliFlag(args, "retry-failed-downloads");
+    if (retryFailedDownloadsMode) {
+      logger.info("CLI parsed", {
+        retryFailedDownloadsMode: true,
+        failedReport: getCliArg(args, "failed-report") || "latest",
+        useQuarterSubdir: hasCliFlag(args, "quarter-subdir"),
+        downloadConcurrency: DOWNLOAD_CONCURRENCY,
+      });
+      await retryFailedDownloads(args);
+      return;
+    }
+
     const useCache = hasCliFlag(args, "use-cache");
     const skipProcessing = hasCliFlag(args, "skip-processing");
     

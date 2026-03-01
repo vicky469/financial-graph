@@ -21,6 +21,13 @@ bun run build
 
 cd ../backend
 bun install
+bunx playwright install chromium
+
+pipx runpip marker-pdf install \
+--upgrade \
+--force-reinstall \
+torch torchvision torchaudio \
+--index-url https://download.pytorch.org/whl/cu124
 ```
 
 ### 2. Set up Google OAuth Authentication

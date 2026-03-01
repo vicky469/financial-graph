@@ -8,6 +8,9 @@
   Example: `$ bun run job:subsidiary_filings -- -2025 --use-cache`
   - Add `--skip-processing` to download filing TXT but skip parsing and DB updates.
   Example: `$ bun run job:subsidiary_filings -- -2025 --skip-processing`
+  - Add `--retry-failed-downloads` to retry only previously failed `file_url` downloads from `backend/logs/filings_failed` (no DB extraction/update).
+  Example: `$ bun run job:subsidiary_filings -- --retry-failed-downloads`
+  - Optional: `--failed-report=<path>` to target a specific failed report file (otherwise latest report is used).
 - Run `$ bun run job:company_info_submissions` to ingest company info from SEC submissions JSON files.
 - Run `$ bun run job:subsidiary_exhibits_download -- -2025` to download EX-21/EX-8 exhibit files (requires years).
 - Run `$ bun run job:mark-sp500` to flag S&P 500 companies.
@@ -21,14 +24,64 @@
 - Run `$ bun src/utils/cleanup-specific-parent.ts <parentCompanyId>` to clear `parent_of` edges and subsidiary company nodes for one parent company.
   - Multiple IDs are supported: `$ bun src/utils/cleanup-specific-parent.ts <id1,id2,id3>`
   - Optional parent-level concurrency: `CLEANUP_PARENT_CONCURRENCY=5 bun src/utils/cleanup-specific-parent.ts <id1> <id2>`
-- Run `$ bun run src/jobs/filings_download_htm_gz.ts -- -2025 10-K 20-F` to download primary HTM files from cached filing text (requires year and form types).
+- Run `$ bun run src/jobs/filings_download_htm_gz.ts -- -2025 10-K 20-F [--format=gz|htm]` to download primary HTM files from cached filing text (requires year and form types).
   - Reads from `filing_text/{year}/{formType}/` cache
   - Extracts primary HTM filename (SEQUENCE=1) from filing text
-  - Downloads and compresses to `output/data/filings_htm/{year}/{formType}/{cik}_{accession}_{filename}.gz`
+  - `--format=gz` (default): writes `output/data/filings_htm/{year}/{formType}/{cik}_{accession}_{filename}.gz`
+  - `--format=htm`: writes `output/data/filings_htm/{year}/{formType}/{cik}_{accession}_{filename}.htm`
+- Then run `$ bun run src/jobs/filings_htm_to_pdf.ts -- -2025 10-K 20-F` to convert downloaded HTM files to PDFs.
+  - Script alias: `$ bun run job:filings_htm_to_pdf -- -2025 10-K 20-F`
+  - Reads from `output/data/filings_htm/{year}/{formType}/*.htm`
+  - Writes to `output/data/filings_pdf/{year}/{formType}/*.pdf`
+  - Optional `--concurrency=<n>` to run conversions in parallel faster (auto-tuned when omitted)
+  - Requires Playwright in backend (`bun add playwright`)
+  - One-time browser install: `bunx playwright install chromium`
+- Run `$ bun run job:filings_markdown_table -- -2025 10-K` to build the markdown filings table used as marker input.
+  - Reads PDFs from `output/data/filings_pdf/{year}/{formType}`
+  - Joins with SEC index JSON from `output/index/sec_registrant_index-{year}/{year}-Q*.json`
+  - Writes markdown table to `output/ObsidianVault/Filings/{year}_{formType}.md`
+  - Table columns: `cik`, `accession_number`, `company_name`, `date_filed`, `file_path`, `filing_url`, `status`
+- Run `$ bun run job:filings_marker_batch -- -2025 10-K` to execute `marker_single` for each row in the filings Markdown table and update status per row.
+  - GPU-only by default. The job preflights CUDA in marker's Python environment and fails fast if unavailable.
+  - Default marker binary:
+    - `/home/bun/marker-env/bin/marker_single`
+  - Default marker output root:
+    - `backend/src/output/ObsidianVault/Filings`
+  - Actual per-row output directory:
+    - `backend/src/output/ObsidianVault/Filings/{year}` (`--year` preferred; fallback from `date_filed`, then `file_path`)
+  - Result markdown path per PDF:
+    - `backend/src/output/ObsidianVault/Filings/{year}/{same-pdf-base-name}.md`
+  - Markdown metadata header (frontmatter):
+    - `cik`, `accession_number`, `company_name`, `date_filed`, `form_type`, `filing_url`
+  - Image extraction:
+    - Disabled (`--disable_image_extraction`), and image markdown lines are removed from output.
+  - Output layout:
+    - Final output is a flat file per filing (`{year}/{same-pdf-base-name}.md`), without nested per-filing folders.
+  - Override marker binary if needed:
+    - `--marker-binary=/path/to/marker_single`
+  - Default command template:
+    - `"{{marker_binary}}" "{{file_path}}" --output_dir "{{marker_output_dir}}" --disable_image_extraction --use_llm --llm_service marker.services.ollama.OllamaService --OllamaService_ollama_base_url "{{ollama_base_url}}" --OllamaService_ollama_model "{{ollama_model}}"`
+  - Processing model:
+    - Runs eligible rows sequentially, up to `10` rows per run.
+  - Useful flags:
+    - `--retry-failed` reruns rows with `status=failed`
+    - `--dry-run` logs commands without executing
+    - `--allow-cpu` disables GPU-only preflight (not recommended for large batches)
+    - `--output-dir=<path>`, `--ollama-base-url=<url>`, `--ollama-model=<model>`
+    - `--command-template='<custom command with {{file_path}} and table vars>'`
 
 ## Documentation
 
 - Technical debt tracker: `technical debt.md`
+
+## Logging
+
+- Logs are written under date folders:
+  - `backend/logs/YYYY-MM-DD/{entrypoint}.log`
+- Running different jobs on the same date creates different files (for example `filings_markdown_table.log`, `filings_marker_single_batch.log`).
+- `backend/logs/latest.log` is still maintained as the latest run snapshot.
+- Optional override:
+  - `LOG_FILE_NAME=<custom-name> bun run <job>`
 
 ## LLM Throttle Configuration
 

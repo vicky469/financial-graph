@@ -3,17 +3,18 @@
 // 1) Check if cache folder has data for the year and form type(s)
 // 2) Read first chunk of TXT from disk, find the first filename ending with .htm where
 //    TYPE starts with the requested form type and SEQUENCE=1
-// 3) Write filingId:url JSONL and sync filing.filingUrl to InstantDB
-// 4) Download the HTM file and save as .gz (unless --skip-download)
+// 3) Write filing URL JSONL (cikNoLeading0/accessionNumber/url) and sync filing.filingUrl to InstantDB
+// 4) Download the HTM file and save as .gz or .htm (unless --skip-download)
 //
 // CLI:
 //   bun run src/jobs/filings_download_htm_gz.ts -- -2025 10-K
 //   bun run src/jobs/filings_download_htm_gz.ts -- -2025 10-K 20-F
+//   bun run src/jobs/filings_download_htm_gz.ts -- -2025 10-K 20-F --format=htm
 
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createLogger } from "../utils/logger";
-import { hasCliFlag, parseCliYears } from "../utils/cli";
+import { getCliArg, hasCliFlag, parseCliYears } from "../utils/cli";
 import { runWorkerPool } from "../utils/worker-pool";
 import { WORKLOAD_PRESETS } from "../utils/workload-config";
 import { fetchSecPageWithRetry, SecFetchMode } from "../integration/sec";
@@ -37,6 +38,7 @@ const OUTPUT_ROOT = path.resolve(
   "filings_htm",
 );
 const FILING_HEAD_READ_BYTES = 2 * 1024 * 1024; // Read first 2MB only
+type DownloadFormat = "gz" | "htm";
 
 type DownloadTask = {
   cik: string;
@@ -60,6 +62,12 @@ type FilingIdRow = {
 };
 
 type FilingUrlRecord = {
+  cikNoLeading0: string;
+  accessionNumber: string;
+  url: string;
+};
+
+type FilingUrlDbUpdate = {
   filingId: string;
   filingUrl: string;
 };
@@ -152,6 +160,18 @@ export function extractPrimaryHtmFilename(
   return null;
 }
 
+export function parseDownloadFormat(args: string[]): DownloadFormat {
+  const raw = getCliArg(args, "format");
+  if (!raw) return "gz";
+
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "gz" || normalized === "htm") {
+    return normalized;
+  }
+
+  throw new Error(`Invalid --format value "${raw}". Use --format=gz or --format=htm.`);
+}
+
 /**
  * Read only the file head and extract primary HTM filename from it.
  * We intentionally avoid loading the full filing text file.
@@ -213,6 +233,7 @@ async function scanCacheDirectory(year: number, formType: string): Promise<Filin
 async function createDownloadTasks(
   filings: FilingTextInfo[],
   year: number,
+  format: DownloadFormat,
 ): Promise<DownloadTask[]> {
   logger.info(`Processing ${filings.length} filing text files to extract HTM filenames`);
   
@@ -245,7 +266,7 @@ async function createDownloadTasks(
         OUTPUT_ROOT,
         String(year),
         filing.formType,
-        `${filing.cik}_${filing.accessionNumberNoDashes}_${htmFilename}.gz`,
+        `${filing.cik}_${filing.accessionNumberNoDashes}_${htmFilename}${format === "gz" ? ".gz" : ""}`,
       );
       
       return {
@@ -307,7 +328,7 @@ async function loadFilingIdMap(
 }
 
 /**
- * Save filingId + filingUrl records as JSONL and sync filing.filingUrl in DB.
+ * Save filing URL records as JSONL and sync filing.filingUrl in DB.
  */
 async function persistFilingUrlsAndJsonl(
   tasks: DownloadTask[],
@@ -323,29 +344,38 @@ async function persistFilingUrlsAndJsonl(
   );
   await fs.mkdir(path.dirname(jsonlPath), { recursive: true });
 
-  const records: FilingUrlRecord[] = [];
-  let missing = 0;
+  const jsonlRecords: FilingUrlRecord[] = [];
+  const dbUpdates: FilingUrlDbUpdate[] = [];
+  let missingFilingId = 0;
   for (const task of tasks) {
+    const cikNoLeading0 = task.cik.replace(/^0+/, "") || task.cik;
+    jsonlRecords.push({
+      cikNoLeading0,
+      accessionNumber: task.accessionNumberNoDashes,
+      url: task.url,
+    });
+
     const filingId = filingIdMap.get(task.accessionNumberNoDashes);
     if (!filingId) {
-      missing += 1;
+      missingFilingId += 1;
       continue;
     }
-    records.push({
+
+    dbUpdates.push({
       filingId,
       filingUrl: task.url,
     });
   }
 
-  if (missing > 0) {
-    logger.warn(`Missing filing IDs when writing filing URL JSONL`, {
+  if (missingFilingId > 0) {
+    logger.warn(`Missing filing IDs when syncing filing URLs to DB`, {
       year,
       formType,
-      missing,
+      missingFilingId,
     });
   }
 
-  const jsonl = records.map((r) => JSON.stringify(r)).join("\n");
+  const jsonl = jsonlRecords.map((r) => JSON.stringify(r)).join("\n");
   const writeJsonlPromise = fs.writeFile(
     jsonlPath,
     jsonl.length > 0 ? `${jsonl}\n` : "",
@@ -353,10 +383,10 @@ async function persistFilingUrlsAndJsonl(
   );
 
   const syncDbPromise = (async () => {
-    if (records.length === 0) return;
+    if (dbUpdates.length === 0) return;
     const BATCH_SIZE = 200;
-    for (let i = 0; i < records.length; i += BATCH_SIZE) {
-      const batch = records.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < dbUpdates.length; i += BATCH_SIZE) {
+      const batch = dbUpdates.slice(i, i + BATCH_SIZE);
       const txs = batch.map((record) =>
         db.tx.filing[record.filingId].update({
           filingUrl: record.filingUrl,
@@ -372,21 +402,27 @@ async function persistFilingUrlsAndJsonl(
   logger.info(`Saved filing URLs to JSONL and InstantDB`, {
     year,
     formType,
-    updated: records.length,
+    jsonlWritten: jsonlRecords.length,
+    dbUpdated: dbUpdates.length,
     path: jsonlPath,
   });
 }
 
 /**
- * Download and compress HTM file
+ * Download HTM file as either .gz or plain .htm, based on destination extension.
  */
 async function downloadTask(task: DownloadTask): Promise<void> {
   const content = await fetchSecPageWithRetry(task.url, SecFetchMode.TEXT);
-  const buffer = Buffer.from(content, "utf-8");
   
   await fs.mkdir(path.dirname(task.destPath), { recursive: true });
-  const gz = await import("node:zlib").then((z) => z.gzipSync(buffer));
-  await fs.writeFile(task.destPath, gz);
+  if (task.destPath.endsWith(".gz")) {
+    const buffer = Buffer.from(content, "utf-8");
+    const gz = await import("node:zlib").then((z) => z.gzipSync(buffer));
+    await fs.writeFile(task.destPath, gz);
+    return;
+  }
+
+  await fs.writeFile(task.destPath, content, "utf-8");
 }
 
 /**
@@ -395,7 +431,7 @@ async function downloadTask(task: DownloadTask): Promise<void> {
 async function processFormType(
   year: number,
   formType: string,
-  options: { skipDownload: boolean },
+  options: { skipDownload: boolean; format: DownloadFormat },
 ): Promise<void> {
   logger.info(`Processing ${formType} for ${year}`);
   
@@ -409,14 +445,14 @@ async function processFormType(
   }
   
   // Step 2: Create download tasks
-  const tasks = await createDownloadTasks(filings, year);
+  const tasks = await createDownloadTasks(filings, year, options.format);
   
   if (tasks.length === 0) {
     logger.warn(`No HTM files found for ${year}/${formType}`);
     return;
   }
 
-  // Step 3: Persist filingId:url to JSONL and InstantDB together
+  // Step 3: Persist URL manifest to JSONL and sync filing.filingUrl to DB
   await persistFilingUrlsAndJsonl(tasks, year, formType);
 
   // Step 4: Download HTM files (optional)
@@ -424,6 +460,7 @@ async function processFormType(
     logger.info(`Skipping file download (--skip-download enabled)`, {
       year,
       formType,
+      format: options.format,
       generatedUrls: tasks.length,
     });
     return;
@@ -433,6 +470,7 @@ async function processFormType(
   logger.info("Download workload", {
     year,
     formType,
+    format: options.format,
     tasks: tasks.length,
     concurrency: workload.concurrency,
     reasoning: workload.reasoning,
@@ -463,6 +501,7 @@ async function main() {
     const args = process.argv.slice(2);
     const years = parseCliYears(args);
     const skipDownload = hasCliFlag(args, "skip-download");
+    const format = parseDownloadFormat(args);
     
     // Extract form types from remaining args
     const formTypes = args.filter(arg => !arg.startsWith("-") && !/^\d{4}$/.test(arg));
@@ -470,16 +509,16 @@ async function main() {
     if (formTypes.length === 0) {
       logger.error("No form types specified");
       logger.error(
-        "Usage: bun run src/jobs/filings_download_htm_gz.ts -- -2025 10-K 20-F [--skip-download]",
+        "Usage: bun run src/jobs/filings_download_htm_gz.ts -- -2025 10-K 20-F [--format=gz|htm] [--skip-download]",
       );
       process.exit(1);
     }
     
-    logger.info("CLI parsed", { years, formTypes, skipDownload });
+    logger.info("CLI parsed", { years, formTypes, format, skipDownload });
     
     for (const year of years) {
       for (const formType of formTypes) {
-        await processFormType(year, formType, { skipDownload });
+        await processFormType(year, formType, { skipDownload, format });
       }
     }
     

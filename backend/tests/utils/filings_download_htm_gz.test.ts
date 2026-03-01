@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { extractPrimaryHtmFilename } from "../../src/jobs/filings_download_htm_gz";
+import {
+  extractPrimaryHtmFilename,
+  parseDownloadFormat,
+} from "../../src/jobs/filings_download_htm_gz";
 
 function buildDocBlock(params: {
   type: string;
@@ -54,5 +57,21 @@ describe("extractPrimaryHtmFilename", () => {
     ].join("\n");
 
     expect(extractPrimaryHtmFilename(body, "10-K")).toBeNull();
+  });
+});
+
+describe("parseDownloadFormat", () => {
+  test("defaults to gz when format flag is absent", () => {
+    expect(parseDownloadFormat(["-2025", "10-K"])).toBe("gz");
+  });
+
+  test("accepts htm format", () => {
+    expect(parseDownloadFormat(["-2025", "10-K", "--format=htm"])).toBe("htm");
+  });
+
+  test("throws on invalid format", () => {
+    expect(() =>
+      parseDownloadFormat(["-2025", "10-K", "--format=zip"]),
+    ).toThrow(/Invalid --format value/);
   });
 });

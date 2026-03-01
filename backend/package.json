@@ -17,7 +17,10 @@
     "job:company_info": "bun src/jobs/company_info_submissions.ts",
     "job:subsidiary_exhibits_download": "bun src/jobs/subsidiary_exhibits_download.ts",
     "pipeline:subsidiary": "bun src/pipeline/subsidiary/run.ts",
-    "job:filings_download_htm_gz": "bun src/jobs/filings_download_htm_gz.ts"
+    "job:filings_download_htm_gz": "bun src/jobs/filings_download_htm_gz.ts",
+    "job:filings_markdown_table": "bun src/jobs/filings_markdown_table.ts",
+    "job:filings_htm_to_pdf": "bun src/jobs/filings_htm_to_pdf.ts",
+    "job:filings_marker_batch": "bun src/jobs/filings_marker_single_batch.ts"
   },
   "keywords": [],
   "author": "",
@@ -34,6 +37,7 @@
     "dotenv": "^17.2.3",
     "exceljs": "^4.4.0",
     "ollama": "^0.6.3",
+    "playwright": "^1.58.2",
     "uuid": "^13.0.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",

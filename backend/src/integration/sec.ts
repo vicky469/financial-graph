@@ -134,7 +134,9 @@ export async function fetchSecPageWithRetry<
 
       const body = await response.text();
       retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
-      logger.warn("SEC fetch failed", {
+      const isFinalAttempt = attempt === SEC_REQUEST_MAX_RETRIES - 1;
+      const logMethod = isFinalAttempt ? logger.error : logger.warn;
+      logMethod("SEC fetch failed", {
         url,
         status: response.status,
         statusText: response.statusText,
@@ -144,7 +146,7 @@ export async function fetchSecPageWithRetry<
       });
 
       const retryable = isRetryableStatus(response.status);
-      if (!retryable || attempt === SEC_REQUEST_MAX_RETRIES - 1) {
+      if (!retryable || isFinalAttempt) {
         throw new SecFetchError(
           response.status,
           response.statusText,
